@@ -1,0 +1,31 @@
+name: deploy-prod
+
+on:
+  push:
+    branches: ["main"]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: deploy to prod
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USER }}
+          key: ${{ secrets.VM_SSH_KEY }}
+          port: ${{ secrets.VM_PORT }}
+          script: |
+            set -e
+            cd /opt/hypothetical_publishing-prod/repo
+            git fetch origin
+            git checkout main
+            git reset --hard origin/main
+
+            cd /opt/hypothetical_publishing-prod/repo/docker/prod
+            docker compose --env-file /opt/hypothetical_publishing-prod/.env up -d --build
+
+            docker compose --env-file /opt/hypothetical_publishing-prod/.env run --rm app \
+              npx prisma migrate deploy --schema=src/prisma/schema.prisma
+
+            docker compose --env-file /opt/hypothetical_publishing-prod/.env up -d
