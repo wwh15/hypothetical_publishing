@@ -1,11 +1,9 @@
+import Image from "next/image";
+
 export default function Home() {
   return (
    <div>
-<<<<<<< HEAD
-      Hello DUKE
-=======
-      Hello Duke
->>>>>>> main
+      Hello DUKE University!
    </div>
   );
 }
