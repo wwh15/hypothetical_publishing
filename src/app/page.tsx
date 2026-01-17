@@ -3,7 +3,7 @@ import Image from "next/image";
 export default function Home() {
   return (
    <div>
-      Hello DUKE University!
+      Hello DUKE University
    </div>
   );
 }
