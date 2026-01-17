@@ -27,9 +27,13 @@ services:
   nginx:
     image: nginx:1.27
     volumes:
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:rw
+      - /var/www/letsencrypt/hp.colab.duke.edu:/var/www/letsencrypt/hp.colab.duke.edu
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+
     ports:
-      - "8080:80"
+      - "80:80" # VM port 80 -> container port 80
+      - "443:443" # VM port 443 -> container port 443
     depends_on:
       - app
     restart: unless-stopped
