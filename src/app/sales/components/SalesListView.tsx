@@ -57,7 +57,7 @@ export default function SalesListView({ salesData }: { salesData: Sale[] }) {
         },
         {
             key: 'paid',
-            header: 'Paid Status',
+            header: 'Royalty Status',
             render: (row) => {
                 const paidStyles = {
                     paid: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',

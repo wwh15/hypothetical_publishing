@@ -10,14 +10,14 @@
   - Quantity Sold
   - Publisher Revenue
   - Author Royalty
-  - Paid Status
-- [x] Add visual indicator for paid status (color + shape)
+  - Royalty Status
+- [x] Add visual indicator for Royalty Status (color + shape)
 - [x] Display mock/real data in table
 
 ### 1.2 Author Payments View - Basic Table
-- [ ] Create basic table grouped by author
-- [ ] Display same columns as sales listing
-- [ ] Show subtotal of unpaid royalties per author
+- [x] Create basic table grouped by author
+- [x] Display same columns as sales listing
+- [x] Show subtotal of unpaid royalties per author
 
 ### 1.3 Sales Record Detail View - Basic Display
 - [ ] Create detail page showing all record fields
@@ -58,7 +58,7 @@
 - [ ] Enable editing of quantity sold
 - [ ] Enable editing of publisher revenue
 - [ ] Enable editing/overriding of author royalty
-- [ ] Enable toggling of author-paid status
+- [ ] Enable toggling of author-Royalty Status
 - [ ] Add save functionality
 
 ### 3.4 Sales Record Detail - Delete

@@ -1,7 +1,12 @@
 // 'use server'; Uncomment once we actually read from database
 
-import getSalesData from "../../lib/data/sales";
+import awaitAuthorPaymentData from "@/lib/data/author-payment";
+import awaitSalesData from "@/lib/data/sales";
 
 export function getSalesRecordData() {
-  return getSalesData();
+  return awaitSalesData();
+}
+
+export function getAuthorPaymentData() {
+    return awaitAuthorPaymentData();
 }

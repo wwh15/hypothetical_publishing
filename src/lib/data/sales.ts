@@ -9,7 +9,7 @@ export interface Sale {
     paid: 'paid' | 'pending';
 }
 
-export default function getSalesData(): Sale[] {
+export default function awaitSalesData(): Sale[] {
     return mockSalesData 
     // Todo: Read from database and return
 }
