@@ -110,6 +110,13 @@ export default function AuthorPaymentsTable({ authorPaymentData }: { authorPayme
                   </TableCell>
                 </TableRow>
               ))}
+
+              {/* Separator Row */}
+              {groupIndex < paginatedData.length - 1 && (
+                <TableRow className="bg-gray-600 dark:bg-gray-700">
+                  <TableCell colSpan={6} className="h-2 p-0" />
+                </TableRow>
+              )}
             </React.Fragment>
           ))}
         </TableBody>
