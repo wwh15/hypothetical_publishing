@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React from 'react';
 import {
     Table,
     TableBody,
@@ -8,6 +8,8 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
+import { useTableSort } from '../hooks/useTableSort';
+import { useTablePagination } from '../hooks/useTablePagination';
 
 export interface ColumnDef<T> {
     key: string;
@@ -25,8 +27,8 @@ export interface DataTableProps<T> {
     onRowClick?: (row: T) => void;
     defaultSortField?: string;
     defaultSortDirection?: 'asc' | 'desc';
-    itemsPerPage?: number; 
-    showPagination?: boolean; 
+    itemsPerPage?: number;
+    showPagination?: boolean;
 }
 
 export function DataTable<T extends Record<string, any>>({
@@ -36,66 +38,39 @@ export function DataTable<T extends Record<string, any>>({
     onRowClick,
     defaultSortField,
     defaultSortDirection = 'desc',
-    itemsPerPage = 50, // Default to 50 items per page
+    itemsPerPage = 50,
     showPagination = true,
 }: DataTableProps<T>) {
 
-    // State for sorting
-    const [sortField, setSortField] = useState<string | null>(defaultSortField || null);
-    const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>(defaultSortDirection);
-    
-    // State for pagination
-    const [currentPage, setCurrentPage] = useState(1);
-    const [showAll, setShowAll] = useState(false);
+    // Use custom hooks for sorting and pagination
+    const { sortedData, sortField, sortDirection, handleSort } = useTableSort({
+        data,
+        columns,
+        defaultSortField,
+        defaultSortDirection,
+    });
 
-    // Sort the data
-    const sortedData = useMemo(() => {
-        if (!sortField) return data;
+    const {
+        paginatedData,
+        currentPage,
+        totalPages,
+        startRecord,
+        endRecord,
+        totalRecords,
+        showAll,
+        goToPage,
+        toggleShowAll,
+        resetToFirstPage,
+    } = useTablePagination({
+        data: sortedData,
+        itemsPerPage,
+        enabled: showPagination,
+    });
 
-        const column = columns.find(col => col.key === sortField);
-        if (!column || !column.accessor) return data;
-
-        return [...data].sort((a, b) => {
-            const aValue = a[column.accessor!];
-            const bValue = b[column.accessor!];
-
-            // Handle null/undefined
-            if (aValue == null) return 1;
-            if (bValue == null) return -1;
-
-            // Compare values
-            if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
-            if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
-            return 0;
-        });
-    }, [data, sortField, sortDirection, columns]);
-
-    // Paginate the sorted data
-    const paginatedData = useMemo(() => {
-        if (!showPagination || showAll) {
-            return sortedData;
-        }
-        
-        const startIndex = (currentPage - 1) * itemsPerPage;
-        const endIndex = startIndex + itemsPerPage;
-        return sortedData.slice(startIndex, endIndex);
-    }, [sortedData, currentPage, itemsPerPage, showPagination, showAll]);
-
-    // Calculate pagination info
-    const totalPages = Math.ceil(sortedData.length / itemsPerPage);
-    const startRecord = sortedData.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1;
-    const endRecord = Math.min(currentPage * itemsPerPage, sortedData.length);
-
-    // Handle sort click
-    const handleSort = (columnKey: string, direction: 'asc' | 'desc') => {
-        setSortField(columnKey);
-        setSortDirection(direction);
-        setCurrentPage(1); // Reset to first page when sorting changes
-    };
-
-    // Handle page change
-    const goToPage = (page: number) => {
-        setCurrentPage(Math.max(1, Math.min(page, totalPages)));
+    // When sorting changes, reset to first page
+    const handleSortAndReset = (columnKey: string, direction: 'asc' | 'desc') => {
+        handleSort(columnKey, direction);
+        resetToFirstPage();
     };
 
     const getCellValue = (row: T, column: ColumnDef<T>) => {
@@ -111,21 +86,18 @@ export function DataTable<T extends Record<string, any>>({
     return (
         <div className="space-y-4">
             {/* Header with record count and Show All button */}
-            {showPagination && sortedData.length > 0 && (
+            {showPagination && totalRecords > 0 && (
                 <div className="flex justify-between items-center">
                     <p className="text-sm text-muted-foreground">
-                        {showAll 
-                            ? `Showing all ${sortedData.length} records`
-                            : `Showing ${startRecord}-${endRecord} of ${sortedData.length} records`
+                        {showAll
+                            ? `Showing all ${totalRecords} records`
+                            : `Showing ${startRecord}-${endRecord} of ${totalRecords} records`
                         }
                     </p>
-                    
-                    {sortedData.length > itemsPerPage && (
+
+                    {totalRecords > itemsPerPage && (
                         <button
-                            onClick={() => {
-                                setShowAll(!showAll);
-                                setCurrentPage(1);
-                            }}
+                            onClick={toggleShowAll}
                             className="px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-md transition-colors"
                         >
                             {showAll ? 'Show Paginated' : 'Show All'}
@@ -162,7 +134,7 @@ export function DataTable<T extends Record<string, any>>({
                                                 style={{ fontSize: '0.95em' }}
                                             >
                                                 <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
-                                                    <path d="M10 6a1 1 0 0 1 .7.3l3 3a1 1 0 0 1-1.4 1.4L10 8.41 7.7 10.7A1 1 0 0 1 6.3 9.3l3-3A1 1 0 0 1 10 6z"/>
+                                                    <path d="M10 6a1 1 0 0 1 .7.3l3 3a1 1 0 0 1-1.4 1.4L10 8.41 7.7 10.7A1 1 0 0 1 6.3 9.3l3-3A1 1 0 0 1 10 6z" />
                                                 </svg>
                                             </span>
                                         )}
@@ -172,7 +144,7 @@ export function DataTable<T extends Record<string, any>>({
                                         <div className="flex gap-1 text-xs mt-0.5">
                                             <button
                                                 type="button"
-                                                onClick={() => handleSort(column.key, 'asc')}
+                                                onClick={() => handleSortAndReset(column.key, 'asc')}
                                                 className={cn(
                                                     'flex items-center px-1 py-0.5 rounded focus:outline-none border',
                                                     'transition-colors duration-150',
@@ -183,13 +155,13 @@ export function DataTable<T extends Record<string, any>>({
                                                 aria-label={`Sort ${column.header} ascending`}
                                             >
                                                 <svg className="mr-1" width="12" height="12" viewBox="0 0 16 16" fill="none">
-                                                    <path d="M8 4L3 9h10L8 4z" fill="currentColor"/>
+                                                    <path d="M8 4L3 9h10L8 4z" fill="currentColor" />
                                                 </svg>
                                                 <span>A-Z</span>
                                             </button>
                                             <button
                                                 type="button"
-                                                onClick={() => handleSort(column.key, 'desc')}
+                                                onClick={() => handleSortAndReset(column.key, 'desc')}
                                                 className={cn(
                                                     'flex items-center px-1 py-0.5 rounded focus:outline-none border',
                                                     'transition-colors duration-150',
@@ -200,7 +172,7 @@ export function DataTable<T extends Record<string, any>>({
                                                 aria-label={`Sort ${column.header} descending`}
                                             >
                                                 <svg className="mr-1" width="12" height="12" viewBox="0 0 16 16" fill="none">
-                                                    <path d="M8 12L13 7H3l5 5z" fill="currentColor"/>
+                                                    <path d="M8 12L13 7H3l5 5z" fill="currentColor" />
                                                 </svg>
                                                 <span>Z-A</span>
                                             </button>
@@ -255,11 +227,11 @@ export function DataTable<T extends Record<string, any>>({
                         >
                             ← Previous
                         </button>
-                        
+
                         <span className="text-sm text-muted-foreground px-2">
                             Page {currentPage} of {totalPages}
                         </span>
-                        
+
                         <button
                             onClick={() => goToPage(currentPage + 1)}
                             disabled={currentPage === totalPages}
@@ -286,7 +258,7 @@ export function DataTable<T extends Record<string, any>>({
                                 const page = parseInt(e.target.value);
                                 if (!isNaN(page)) goToPage(page);
                             }}
-                            className="w-16 px-2 py-1 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-16 px-2 py-1 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800"
                         />
                     </div>
                 </div>
