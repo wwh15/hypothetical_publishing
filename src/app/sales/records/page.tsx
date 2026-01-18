@@ -1,4 +1,4 @@
-import { getAuthorPaymentData, getSalesRecordData } from '../action';
+import { getSalesRecordData } from '../action';
 import SalesRecordsTable from '../components/SalesRecordsTable';
 export default function SalesRecordsPage() {
     
