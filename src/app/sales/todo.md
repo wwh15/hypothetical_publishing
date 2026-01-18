@@ -30,8 +30,8 @@
 ### 2.1 Sales Listing - Sorting & Filtering
 - [x] Implement column sorting (click headers to sort)
 - [x] Set default sort: descending by month/year (newest first)
-- [ ] Add date range filter UI
-- [ ] Implement date range filtering logic
+- [x] Add date range filter UI
+- [x] Implement date range filtering logic
 
 ### 2.2 Author Payments View - Sorting
 - [ ] Group records by author

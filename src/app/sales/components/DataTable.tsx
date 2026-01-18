@@ -10,6 +10,8 @@ import {
 import { cn } from '@/lib/utils';
 import { useTableSort } from '../hooks/useTableSort';
 import { useTablePagination } from '../hooks/useTablePagination';
+import { useTableFilter } from '../hooks/useTableFilter';
+import { DateRangeFilter } from './DateRangeFilter';
 
 export interface ColumnDef<T> {
     key: string;
@@ -29,6 +31,8 @@ export interface DataTableProps<T> {
     defaultSortDirection?: 'asc' | 'desc';
     itemsPerPage?: number;
     showPagination?: boolean;
+    dateFilterField?: keyof T; // ADD THIS - field to filter by date
+    showDateFilter?: boolean;
 }
 
 export function DataTable<T extends Record<string, any>>({
@@ -40,11 +44,25 @@ export function DataTable<T extends Record<string, any>>({
     defaultSortDirection = 'desc',
     itemsPerPage = 50,
     showPagination = true,
+    dateFilterField,        // ADD THIS
+    showDateFilter = false, // ADD THIS
 }: DataTableProps<T>) {
+
+    const {
+        filteredData,
+        dateRange,
+        setStartDate,
+        setEndDate,
+        clearDateRange,
+        hasActiveFilter,
+    } = useTableFilter({
+        data,
+        dateField: dateFilterField,
+    });
 
     // Use custom hooks for sorting and pagination
     const { sortedData, sortField, sortDirection, handleSort } = useTableSort({
-        data,
+        data: filteredData,
         columns,
         defaultSortField,
         defaultSortDirection,
@@ -73,6 +91,13 @@ export function DataTable<T extends Record<string, any>>({
         resetToFirstPage();
     };
 
+    // When filter changes, reset to first page
+    const handleFilterChange = (start: string, end: string) => {
+        if (start) setStartDate(start);
+        if (end) setEndDate(end);
+        resetToFirstPage();
+    };
+
     const getCellValue = (row: T, column: ColumnDef<T>) => {
         if (column.render) {
             return column.render(row);
@@ -85,6 +110,27 @@ export function DataTable<T extends Record<string, any>>({
 
     return (
         <div className="space-y-4">
+            {/* Date Range Filter - ADD THIS */}
+            {showDateFilter && dateFilterField && (
+                <DateRangeFilter
+                    startDate={dateRange.startDate}
+                    endDate={dateRange.endDate}
+                    onStartDateChange={(date) => {
+                        setStartDate(date);
+                        resetToFirstPage();
+                    }}
+                    onEndDateChange={(date) => {
+                        setEndDate(date);
+                        resetToFirstPage();
+                    }}
+                    onClear={() => {
+                        clearDateRange();
+                        resetToFirstPage();
+                    }}
+                    hasActiveFilter={hasActiveFilter}
+                />
+            )}
+
             {/* Header with record count and Show All button */}
             {showPagination && totalRecords > 0 && (
                 <div className="flex justify-between items-center">

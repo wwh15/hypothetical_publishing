@@ -35,7 +35,6 @@ export default function SalesRecordsTable({ salesData }: { salesData: Sale[] }) 
             key: 'quantity',
             header: 'Quantity',
             accessor: 'quantity',
-            className: 'text-right',
             sortable: true,
             render: (row) => (
                 <span>{row.quantity}</span>
@@ -45,7 +44,6 @@ export default function SalesRecordsTable({ salesData }: { salesData: Sale[] }) 
             key: 'publisherRevenue',
             header: 'Publisher Revenue',
             accessor: 'publisherRevenue',
-            className: 'text-right',
             sortable: true,
             render: (row) => (
                 <span className="font-medium">${row.publisherRevenue.toFixed(2)}</span>
@@ -55,7 +53,6 @@ export default function SalesRecordsTable({ salesData }: { salesData: Sale[] }) 
             key: 'authorRoyalty',
             header: 'Author Royalty',
             accessor: 'authorRoyalty',
-            className: 'text-right',
             sortable: true,
             render: (row) => (
                 <span className="font-medium">${row.authorRoyalty.toFixed(2)}</span>
@@ -93,8 +90,10 @@ export default function SalesRecordsTable({ salesData }: { salesData: Sale[] }) 
             data={salesData} 
             emptyMessage="No sales found" 
             onRowClick={handleRowClick}
-            defaultSortField="date"        // Default sort by date
-            defaultSortDirection="desc"    // Newest first (descending)
+            defaultSortField="date"        
+            defaultSortDirection="desc"    
+            showDateFilter={true}        
+            dateFilterField="date"
         />
     );
 }
