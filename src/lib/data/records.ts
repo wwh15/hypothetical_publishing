@@ -9,116 +9,77 @@ export interface Sale {
     paid: 'paid' | 'pending';
 }
 
+// Generate 250 random sales records
+const titles = [
+    'The Great Gatsby', 'To Kill a Mockingbird', '1984', 'Pride and Prejudice',
+    'The Catcher in the Rye', 'Brave New World', 'The Hobbit', 'Moby-Dick',
+    'War and Peace', 'The Odyssey', 'Wuthering Heights', 'The Grapes of Wrath',
+    'Dracula', 'Jane Eyre', 'Fahrenheit 451', 'Les Misérables', 'Anna Karenina',
+    'Lord of the Flies', 'Slaughterhouse-Five', 'Frankenstein'
+];
+
+const authors = [
+    'F. Scott Fitzgerald', 'Harper Lee', 'George Orwell', 'Jane Austen',
+    'J.D. Salinger', 'Aldous Huxley', 'J.R.R. Tolkien', 'Herman Melville',
+    'Leo Tolstoy', 'Homer', 'Emily Brontë', 'John Steinbeck', 'Bram Stoker',
+    'Charlotte Brontë', 'Ray Bradbury', 'Victor Hugo', 'Leo Tolstoy',
+    'William Golding', 'Kurt Vonnegut', 'Mary Shelley'
+];
+
+// 24 months: Jan-2025 to Dec-2026
+const months = [
+    '01-2025', '02-2025', '03-2025', '04-2025', '05-2025', '06-2025',
+    '07-2025', '08-2025', '09-2025', '10-2025', '11-2025', '12-2025',
+    '01-2026', '02-2026', '03-2026', '04-2026', '05-2026', '06-2026',
+    '07-2026', '08-2026', '09-2026', '10-2026', '11-2026', '12-2026'
+];
+
+function randomInt(min: number, max: number) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function randomArrayElement<T>(arr: T[]): T {
+    return arr[randomInt(0, arr.length - 1)];
+}
+
+const mockSalesData: Sale[] = [];
+
+for (let i = 1; i <= 250; i++) {
+    const titleIndex = randomInt(0, titles.length - 1);
+    const author = authors[titleIndex];
+    const title = titles[titleIndex];
+
+    const date = randomArrayElement(months);
+    const quantity = randomInt(5, 120);
+
+    // Assume publisher gets $25-$45 per book
+    const pricePerBook = Math.random() * 20 + 25; // $25 to $45
+    const publisherRevenue = +(quantity * pricePerBook).toFixed(2);
+
+    // Author gets 25% royalty
+    const authorRoyalty = +(publisherRevenue * 0.25).toFixed(2);
+
+    // Randomly assign paid or pending, with slightly more paid than pending
+    const paid = Math.random() < 0.65 ? 'paid' : 'pending';
+
+    mockSalesData.push({
+        id: i,
+        title,
+        author,
+        date,
+        quantity,
+        publisherRevenue,
+        authorRoyalty,
+        paid
+    });
+}
+
 export default function awaitSalesData(): Sale[] {
-    return mockSalesData 
+    return mockSalesData;
     // Todo: Read from database and return
 }
 
 export function getSaleById(id: number): Sale | undefined {
     return mockSalesData.find(sale => sale.id === id);
     // Todo: Read from database and return
-  }
-
-// Mock Data
-const mockSalesData: Sale[] = [
-    {
-      id: 1,
-      title: 'The Great Gatsby',
-      author: 'F. Scott Fitzgerald',
-      date: '01-2026',
-      quantity: 50,
-      publisherRevenue: 1499.50,
-      authorRoyalty: 374.88,
-      paid: 'paid',
-    },
-    {
-      id: 2,
-      title: 'To Kill a Mockingbird',
-      author: 'Harper Lee',
-      date: '01-2026',
-      quantity: 30,
-      publisherRevenue: 1199.70,
-      authorRoyalty: 299.93,
-      paid: 'pending',
-    },
-    {
-      id: 3,
-      title: '1984',
-      author: 'George Orwell',
-      date: '01-2026',
-      quantity: 75,
-      publisherRevenue: 1499.25,
-      authorRoyalty: 374.81,
-      paid: 'paid',
-    },
-    {
-      id: 4,
-      title: 'Pride and Prejudice',
-      author: 'Jane Austen',
-      date: '01-2026',
-      quantity: 25,
-      publisherRevenue: 624.75,
-      authorRoyalty: 156.19,
-      paid: 'paid',
-    },
-    {
-      id: 5,
-      title: 'The Catcher in the Rye',
-      author: 'J.D. Salinger',
-      date: '01-2026',
-      quantity: 40,
-      publisherRevenue: 999.60,
-      authorRoyalty: 249.90,
-      paid: 'pending',
-    },
-    {
-      id: 6,
-      title: 'Brave New World',
-      author: 'Aldous Huxley',
-      date: '01-2026',
-      quantity: 60,
-      publisherRevenue: 1439.40,
-      authorRoyalty: 359.85,
-      paid: 'paid',
-    },
-    {
-      id: 7,
-      title: 'The Hobbit',
-      author: 'J.R.R. Tolkien',
-      date: '01-2026',
-      quantity: 100,
-      publisherRevenue: 2999.00,
-      authorRoyalty: 749.75,
-      paid: 'pending',
-    },
-    {
-      id: 8,
-      title: 'Moby-Dick',
-      author: 'Herman Melville',
-      date: '01-2026',
-      quantity: 20,
-      publisherRevenue: 579.80,
-      authorRoyalty: 144.95,
-      paid: 'paid',
-    },
-    {
-      id: 9,
-      title: 'War and Peace',
-      author: 'Leo Tolstoy',
-      date: '01-2026',
-      quantity: 15,
-      publisherRevenue: 524.85,
-      authorRoyalty: 131.21,
-      paid: 'pending',
-    },
-    {
-      id: 10,
-      title: 'The Odyssey',
-      author: 'Homer',
-      date: '01-2026',
-      quantity: 35,
-      publisherRevenue: 874.65,
-      authorRoyalty: 218.66,
-      paid: 'paid',
-    },
-  ];
+}

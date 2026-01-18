@@ -28,8 +28,8 @@
 ## Phase 2: Interactive Features
 
 ### 2.1 Sales Listing - Sorting & Filtering
-- [ ] Implement column sorting (click headers to sort)
-- [ ] Set default sort: descending by month/year (newest first)
+- [x] Implement column sorting (click headers to sort)
+- [x] Set default sort: descending by month/year (newest first)
 - [ ] Add date range filter UI
 - [ ] Implement date range filtering logic
 
