@@ -34,9 +34,9 @@
 - [x] Implement date range filtering logic
 
 ### 2.2 Author Payments View - Sorting
-- [ ] Group records by author
-- [ ] Sort by author name
-- [ ] Within each author group, sort by month/year (newest first)
+- [x] Group records by author
+- [x] Sort by author name
+- [x] Within each author group, sort by month/year (newest first)
 
 ---
 
