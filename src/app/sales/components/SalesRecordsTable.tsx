@@ -1,9 +1,16 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { DataTable, ColumnDef } from "./DataTable";
-import { Sale } from "@/lib/data/sales";
+import { Sale } from "@/lib/data/records";
 
 export default function SalesRecordsTable({ salesData }: { salesData: Sale[] }) {
+    const router = useRouter();
+
+    // Handle row click to navigate to detail page
+    const handleRowClick = (sale: Sale) => {
+        router.push(`/sales/records/${sale.id}`);
+    };
 
     // Define columns with type safety
     const columns: ColumnDef<Sale>[] = [
@@ -76,7 +83,7 @@ export default function SalesRecordsTable({ salesData }: { salesData: Sale[] }) 
     ];
 
     return (
-        <DataTable<Sale> columns={columns} data={salesData} emptyMessage="No sales found" />
+        <DataTable<Sale> columns={columns} data={salesData} emptyMessage="No sales found" onRowClick={handleRowClick} />
     )
 
 

@@ -1,11 +1,9 @@
 import { getAuthorPaymentData, getSalesRecordData } from '../action';
-import AuthorPaymentsTable from '../components/AuthorPaymentsTable';
 import SalesRecordsTable from '../components/SalesRecordsTable';
 export default function SalesRecordsPage() {
     
     // getSalesRecordData is a function, call it to get the sales data
     const salesData = getSalesRecordData();
-    const authorPaymentData = getAuthorPaymentData();
 
     return (
         <div className="container mx-auto py-10">

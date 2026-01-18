@@ -21,12 +21,14 @@ export interface DataTableProps<T> {
   columns: ColumnDef<T>[];
   data: T[];
   emptyMessage?: string;
+  onRowClick?: (row: T) => void;
 }
 
 export function DataTable<T extends Record<string, any>>({
   columns,
   data,
   emptyMessage = 'No data available',
+  onRowClick
 }: DataTableProps<T>) {
   
     const getCellValue = (row: T, column: ColumnDef<T>) => {
@@ -62,7 +64,7 @@ export function DataTable<T extends Record<string, any>>({
           </TableRow>
         ) : (
           data.map((row, rowIndex) => (
-            <TableRow key={rowIndex}>
+            <TableRow key={rowIndex} onClick={() => onRowClick?.(row)} className={onRowClick ? 'cursor-pointer hover:bg-muted/50' : ''}>
               {columns.map((column) => (
                 <TableCell key={column.key} className={cn(column.className)}>
                   {getCellValue(row, column)}

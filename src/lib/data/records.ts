@@ -14,6 +14,11 @@ export default function awaitSalesData(): Sale[] {
     // Todo: Read from database and return
 }
 
+export function getSaleById(id: number): Sale | undefined {
+    return mockSalesData.find(sale => sale.id === id);
+    // Todo: Read from database and return
+  }
+
 // Mock Data
 const mockSalesData: Sale[] = [
     {

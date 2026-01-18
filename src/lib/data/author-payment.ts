@@ -1,4 +1,4 @@
-import { Sale } from "./sales";
+import { Sale } from "./records";
 
 
 export interface AuthorGroup {

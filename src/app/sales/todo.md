@@ -20,8 +20,8 @@
 - [x] Show subtotal of unpaid royalties per author
 
 ### 1.3 Sales Record Detail View - Basic Display
-- [ ] Create detail page showing all record fields
-- [ ] Display read-only data
+- [x] Create detail page showing all record fields
+- [x] Display read-only data
 
 ---
 
