@@ -3,7 +3,7 @@
 import { DataTable, ColumnDef } from "./DataTable";
 import { Sale } from "@/lib/data/sales";
 
-export default function SalesListView({ salesData }: { salesData: Sale[] }) {
+export default function SalesRecordsTable({ salesData }: { salesData: Sale[] }) {
 
     // Define columns with type safety
     const columns: ColumnDef<Sale>[] = [

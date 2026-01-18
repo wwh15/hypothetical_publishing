@@ -9,7 +9,7 @@ import {
 import { AuthorGroup } from "@/lib/data/author-payment";
 
 
-export default function AuthorPaymentsView({authorPaymentData}: {authorPaymentData: AuthorGroup[]}) {
+export default function AuthorPaymentsTable({authorPaymentData}: {authorPaymentData: AuthorGroup[]}) {
 
   const paidStyles = {
     paid: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
