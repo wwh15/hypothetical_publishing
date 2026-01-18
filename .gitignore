@@ -44,3 +44,6 @@ next-env.d.ts
 
 gh_actions_vm
 gh_actions_vm.pub
+
+# docker
+docker-compose.override.yml
