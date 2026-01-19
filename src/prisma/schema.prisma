@@ -19,3 +19,18 @@ model User {
   createdAt DateTime @default(now())
 }
 
+model Sale {
+  id               Int      @id @default(autoincrement())
+  title            String
+  author           String
+  date             String   // MM-YYYY format
+  quantity         Int
+  publisherRevenue Float    @map("publisher_revenue")
+  authorRoyalty    Float    @map("author_royalty")
+  paid             String   // 'paid' or 'pending'
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@map("sales")
+}
+
