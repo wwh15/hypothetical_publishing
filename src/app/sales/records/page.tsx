@@ -1,9 +1,9 @@
 import { getSalesRecordData } from '../action';
 import SalesRecordsTable from '../components/SalesRecordsTable';
-export default function SalesRecordsPage() {
+export default async function SalesRecordsPage() {
     
     // getSalesRecordData is a function, call it to get the sales data
-    const salesData = getSalesRecordData();
+    const salesData = await getSalesRecordData();
 
     return (
         <div className="container mx-auto py-10">

@@ -1,9 +1,9 @@
 import { getAuthorPaymentData, getSalesRecordData } from '../action';
 import AuthorPaymentsTable from '../components/AuthorPaymentsTable';
-export default function AuthorPaymentsPage() {
+export default async function AuthorPaymentsPage() {
     
     // getAuthorPaymentData is a function, call it to get the sales data
-    const authorPaymentData = getAuthorPaymentData();
+    const authorPaymentData = await getAuthorPaymentData();
 
     return (
         <div className="container mx-auto py-10">

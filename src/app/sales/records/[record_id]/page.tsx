@@ -1,6 +1,7 @@
-import { getSaleById, Sale } from '@/lib/data/records';
+import { asyncGetSaleById } from '@/lib/data/records';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { getSaleById } from '../../action';
 
 interface PageProps {
   params: Promise<{ record_id: string }>;
@@ -11,7 +12,7 @@ export default async function SalesRecordDetailPage({ params }: PageProps) {
   const saleId = parseInt(record_id);
 
   // Fetch the sale data
-  const sale = getSaleById(saleId);
+  const sale = await getSaleById(saleId);
 
   // If sale not found, show 404
   if (!sale) {
@@ -50,7 +51,7 @@ export default async function SalesRecordDetailPage({ params }: PageProps) {
             <label className="text-sm font-medium text-gray-500 dark:text-gray-400">
               Book Title
             </label>
-            <p className="text-lg font-semibold mt-1">{sale.title}</p>
+            <p className="text-lg font-semibold mt-1">{sale.book.title}</p>
           </div>
 
           {/* Author */}
@@ -58,7 +59,7 @@ export default async function SalesRecordDetailPage({ params }: PageProps) {
             <label className="text-sm font-medium text-gray-500 dark:text-gray-400">
               Author
             </label>
-            <p className="text-lg font-semibold mt-1">{sale.author}</p>
+            <p className="text-lg font-semibold mt-1">{sale.book.author.name}</p>
           </div>
 
           {/* Date */}
@@ -105,12 +106,12 @@ export default async function SalesRecordDetailPage({ params }: PageProps) {
             <div className="mt-1">
               <span
                 className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${
-                  sale.paid === 'paid'
+                  sale.paid
                     ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
                     : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
                 }`}
               >
-                {sale.paid.charAt(0).toUpperCase() + sale.paid.slice(1)}
+                {sale.paid ? 'Paid' : 'Pending'}
               </span>
             </div>
           </div>
