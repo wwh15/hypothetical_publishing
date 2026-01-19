@@ -13,6 +13,8 @@ import { useTablePagination } from "../hooks/useTablePagination";
 import { cn } from "@/lib/utils";
 import { Sale } from "@/lib/data/records";
 import { useRouter } from "next/navigation";
+import { PaginationControls } from "./PaginationControls";
+import { TableInfo } from "./TableInfo";
 
 export default function AuthorPaymentsTable({ authorPaymentData }: { authorPaymentData: AuthorGroup[] }) {
   const router = useRouter();
@@ -58,26 +60,15 @@ export default function AuthorPaymentsTable({ authorPaymentData }: { authorPayme
 
   return (
     <div className="space-y-4">
-      {/* Header with record count and Show All button */}
-      {totalRecords > 0 && (
-        <div className="flex justify-between items-center">
-          <p className="text-sm text-muted-foreground">
-            {showAll
-              ? `Showing all ${totalRecords} authors`
-              : `Showing ${startRecord}-${endRecord} of ${totalRecords} authors`
-            }
-          </p>
-
-          {totalRecords > 10 && (
-            <button
-              onClick={toggleShowAll}
-              className="px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-md transition-colors"
-            >
-              {showAll ? 'Show Paginated' : 'Show All Authors'}
-            </button>
-          )}
-        </div>
-      )}
+      {/* Table Info - Using reusable component */}
+      <TableInfo
+        startRecord={startRecord}
+        endRecord={endRecord}
+        totalRecords={totalRecords}
+        showAll={showAll}
+        itemsPerPage={10}
+        onToggleShowAll={toggleShowAll}
+      />
 
       {/* Table */}
       <Table>
@@ -171,57 +162,13 @@ export default function AuthorPaymentsTable({ authorPaymentData }: { authorPayme
         </TableBody>
       </Table>
 
-      {/* Pagination Controls */}
-      {!showAll && totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => goToPage(currentPage - 1)}
-              disabled={currentPage === 1}
-              className={cn(
-                'px-3 py-2 text-sm font-medium rounded-md transition-colors',
-                currentPage === 1
-                  ? 'text-gray-400 cursor-not-allowed'
-                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
-              )}
-            >
-              ← Previous
-            </button>
-
-            <span className="text-sm text-muted-foreground px-2">
-              Page {currentPage} of {totalPages}
-            </span>
-
-            <button
-              onClick={() => goToPage(currentPage + 1)}
-              disabled={currentPage === totalPages}
-              className={cn(
-                'px-3 py-2 text-sm font-medium rounded-md transition-colors',
-                currentPage === totalPages
-                  ? 'text-gray-400 cursor-not-allowed'
-                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
-              )}
-            >
-              Next →
-            </button>
-          </div>
-
-          {/* Page jump input */}
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">Go to page:</span>
-            <input
-              type="number"
-              min="1"
-              max={totalPages}
-              value={currentPage}
-              onChange={(e) => {
-                const page = parseInt(e.target.value);
-                if (!isNaN(page)) goToPage(page);
-              }}
-              className="w-16 px-2 py-1 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800"
-            />
-          </div>
-        </div>
+      {/* Pagination Controls - Using reusable component */}
+      {!showAll && (
+        <PaginationControls
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={goToPage}
+        />
       )}
     </div>
   );
