@@ -16,6 +16,67 @@ datasource db {
 model User {
   id        Int      @id @default(autoincrement())
   email     String   @unique
-  createdAt DateTime @default(now())
+  createdAt DateTime @default(now()) @map("created_at")
+  
+  @@map("users")
+}
+
+model Author {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  email     String?  @unique // Optional: for payment notifications
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  books     Book[]
+  
+  @@index([name]) // For search and sorting
+  @@map("authors")
+}
+
+model Book {
+  id                Int      @id @default(autoincrement())
+  title             String
+  authorId          Int      @map("author_id")
+  isbn13            String?  @unique // ISBN-13 format, stored without dashes
+  isbn10            String?  @unique // ISBN-10 format, stored without dashes
+  authorRoyaltyRate Float    @default(0.25) @map("author_royalty_rate") // Default 25%, stored as decimal (0.25)
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  author            Author   @relation(fields: [authorId], references: [id], onDelete: Restrict)
+  sales             Sale[]
+  
+  // Indexes for efficient search and autocomplete
+  @@index([title]) // For title search
+  @@index([isbn13]) // For ISBN search
+  @@index([isbn10]) // For ISBN search
+  @@index([authorId]) // For filtering by author
+  @@map("books")
+}
+
+model Sale {
+  id               Int      @id @default(autoincrement())
+  bookId           Int      @map("book_id")
+  date             String   // MM-YYYY format (e.g., "01-2025")
+  quantity         Int
+  publisherRevenue Float    @map("publisher_revenue")
+  authorRoyalty    Float    @map("author_royalty")
+  royaltyOverridden Boolean @default(false) @map("royalty_overridden") // Track if manually set
+  paid             Boolean  @default(false) // Payment status
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  book             Book     @relation(fields: [bookId], references: [id], onDelete: Restrict)
+  
+  // Indexes for common query patterns
+  @@index([bookId]) // For filtering by book
+  @@index([paid]) // For filtering paid/unpaid
+  @@index([date]) // For date range filtering and sorting
+  @@index([bookId, date]) // Composite for book sales over time
+  @@map("sales")
 }
 

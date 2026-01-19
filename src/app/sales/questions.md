@@ -1,0 +1,2 @@
+- Req 3.1
+    - For sorting, do I only need to sort by descending or ascending order for each column?
