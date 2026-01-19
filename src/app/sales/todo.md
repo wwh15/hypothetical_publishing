@@ -48,7 +48,7 @@
 - [ ] Add link/button to open sales input tool
 
 ### 3.2 Author Payments View - Navigation
-- [ ] Add link/button to navigate to sales record detail
+- [x] Add link/button to navigate to sales record detail
 - [ ] Add link/button to navigate to book detail view
 - [ ] Add link/button to open sales input tool
 
@@ -71,10 +71,10 @@
 ## Phase 4: Advanced Payment Features
 
 ### 4.1 Author Payments - Bulk Payment Action
-- [ ] Add "Mark as Paid" button next to each author's unpaid total
-- [ ] Implement confirmation dialog for bulk payment
-- [ ] Update all unpaid records for selected author to "paid"
-- [ ] Refresh subtotals after update
+- [x] Add "Mark as Paid" button next to each author's unpaid total
+- [x] Implement confirmation dialog for bulk payment
+- [x] Update all unpaid records for selected author to "paid"
+- [x] Refresh subtotals after update
 
 ---
 
