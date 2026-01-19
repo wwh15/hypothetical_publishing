@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { DataTable, ColumnDef } from "./DataTable";
+import { DataTable, ColumnDef } from "@/components/DataTable";
 import { Sale } from "@/lib/data/records";
 
 export default function SalesRecordsTable({ salesData }: { salesData: Sale[] }) {
