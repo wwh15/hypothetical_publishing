@@ -1,6 +1,8 @@
 // src/app/sales/page.tsx
 import Link from 'next/link';
 
+export const dynamic = "force-dynamic";
+
 export default function SalesLanding() {
   return (
     <div className="container mx-auto py-10">

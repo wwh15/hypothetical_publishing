@@ -2,6 +2,8 @@ import { getAuthorPaymentData } from '../action';
 import AuthorPaymentsTable from '../components/AuthorPaymentsTable';
 import Link from 'next/link';
 
+export const dynamic = "force-dynamic";
+
 export default async function AuthorPaymentsPage() {
     
     // getAuthorPaymentData is a function, call it to get the sales data

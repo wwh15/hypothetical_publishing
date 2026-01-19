@@ -3,6 +3,8 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import EditForm from './EditForm';
 
+export const dynamic = "force-dynamic";
+
 interface PageProps {
   params: Promise<{ record_id: string }>;
   searchParams: Promise<{ from?: string }>;
