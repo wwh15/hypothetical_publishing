@@ -7,9 +7,9 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
-import { useTableSort } from '../hooks/useTableSort';
-import { useTablePagination } from '../hooks/useTablePagination';
-import { useTableFilter } from '../hooks/useTableFilter';
+import { useTableSort } from '@/hooks/useTableSort';
+import { useTablePagination } from '@/hooks/useTablePagination';
+import { useTableFilter } from '@/hooks/useTableFilter';
 import { DateRangeFilter } from './DateRangeFilter';
 import { TableHeaderCell } from './TableHeaderCell';
 import { PaginationControls } from './PaginationControls';
