@@ -43,7 +43,7 @@
 ## Phase 3: Navigation & Basic Actions
 
 ### 3.1 Sales Listing - Navigation
-- [ ] Add link/button to navigate to sales record detail
+- [x] Add link/button to navigate to sales record detail
 - [ ] Add link/button to navigate to book detail view
 - [ ] Add link/button to open sales input tool
 
@@ -53,18 +53,18 @@
 - [ ] Add link/button to open sales input tool
 
 ### 3.3 Sales Record Detail - Edit Mode
-- [ ] Enable editing of month/year
-- [ ] Enable editing of book reference
-- [ ] Enable editing of quantity sold
-- [ ] Enable editing of publisher revenue
-- [ ] Enable editing/overriding of author royalty
-- [ ] Enable toggling of author-Royalty Status
-- [ ] Add save functionality
+- [x] Enable editing of month/year
+- [x] Enable editing of book reference
+- [x] Enable editing of quantity sold
+- [x] Enable editing of publisher revenue
+- [x] Enable editing/overriding of author royalty
+- [x] Enable toggling of author-Royalty Status
+- [x] Add save functionality
 
 ### 3.4 Sales Record Detail - Delete
-- [ ] Add delete button
-- [ ] Implement confirmation dialog
-- [ ] Handle record deletion
+- [x] Add delete button
+- [x] Implement confirmation dialog
+- [x] Handle record deletion
 
 ---
 
