@@ -3,6 +3,8 @@ services:
     build:
       context: ../..
       dockerfile: Dockerfile
+      args:
+        DATABASE_URL: ${DATABASE_URL}
     environment:
       NODE_ENV: production
       DATABASE_URL: ${DATABASE_URL}
