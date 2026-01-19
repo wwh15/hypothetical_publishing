@@ -2,6 +2,8 @@ import { getSalesRecordData } from '../action';
 import SalesRecordsTable from '../components/SalesRecordsTable';
 import Link from 'next/link';
 
+export const dynamic = "force-dynamic";
+
 export default async function SalesRecordsPage() {
     
     // getSalesRecordData is a function, call it to get the sales data
