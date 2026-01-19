@@ -1,5 +1,4 @@
 'use server';
-export const dynamic = "force-dynamic";
 
 
 import asyncGetAuthorPaymentData from "@/lib/data/author-payment";
