@@ -24,38 +24,38 @@ model User {
 model Author {
   id        Int      @id @default(autoincrement())
   name      String   @unique
-  email     String?  @unique
+  email     String?  @unique // Optional: for payment notifications
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
-
-  // many-to-many
+  
+  // Relations
   books     Book[]
-
-  @@index([name])
+  
+  @@index([name]) // For search and sorting
   @@map("authors")
 }
 
 model Book {
   id                Int      @id @default(autoincrement())
   title             String
-  isbn13            String?  @unique
-  isbn10            String?  @unique
-  authorRoyaltyRate Float    @default(0.25) @map("author_royalty_rate")
+  authorId          Int      @map("author_id")
+  isbn13            String?  @unique // ISBN-13 format, stored without dashes
+  isbn10            String?  @unique // ISBN-10 format, stored without dashes
+  authorRoyaltyRate Float    @default(0.25) @map("author_royalty_rate") // Default 25%, stored as decimal (0.25)
   createdAt         DateTime @default(now()) @map("created_at")
   updatedAt         DateTime @updatedAt @map("updated_at")
-
-  // many-to-many
-  authors           Author[]
-
+  
   // Relations
+  author            Author   @relation(fields: [authorId], references: [id], onDelete: Restrict)
   sales             Sale[]
-
-  @@index([title])
-  @@index([isbn13])
-  @@index([isbn10])
+  
+  // Indexes for efficient search and autocomplete
+  @@index([title]) // For title search
+  @@index([isbn13]) // For ISBN search
+  @@index([isbn10]) // For ISBN search
+  @@index([authorId]) // For filtering by author
   @@map("books")
 }
-
 
 model Sale {
   id               Int      @id @default(autoincrement())
