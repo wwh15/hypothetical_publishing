@@ -13,8 +13,8 @@ import { useTablePagination } from "@/hooks/useTablePagination";
 import { cn } from "@/lib/utils";
 import { Sale } from "@/lib/data/records";
 import { useRouter } from "next/navigation";
-import { PaginationControls } from "./PaginationControls";
-import { TableInfo } from "./TableInfo";
+import { PaginationControls } from "../../../components/PaginationControls";
+import { TableInfo } from "../../../components/TableInfo";
 
 export default function AuthorPaymentsTable({ authorPaymentData }: { authorPaymentData: AuthorGroup[] }) {
   const router = useRouter();
