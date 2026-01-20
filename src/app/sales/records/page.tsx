@@ -23,7 +23,7 @@ export default async function SalesRecordsPage() {
                     View and manage all sales transactions
                 </p>
             </div>
-            <SalesRecordsTable salesData={salesData} />
+            <SalesRecordsTable rows={salesData} />
         </div>
     );
 }

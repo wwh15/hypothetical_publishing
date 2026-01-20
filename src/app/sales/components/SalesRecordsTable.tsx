@@ -1,99 +1,106 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { DataTable, ColumnDef } from "@/components/DataTable";
+import { DataTable } from "@/components/DataTable";
 import { SaleListItem } from "@/lib/data/records";
+import { 
+  salesTablePresets, 
+  getPresetColumns, 
+  getColumnsByVisibleIds,
+  SalesColumnId 
+} from "@/lib/table-configs/sales-columns";
+import { createSalesRecordPath } from "@/lib/table-configs/navigation";
 
-export default function SalesRecordsTable({ salesData }: { salesData: SaleListItem[] }) {
-    const router = useRouter();
+export type SalesTablePreset = keyof typeof salesTablePresets;
 
-    const handleRowClick = (sale: SaleListItem) => {
-        router.push(`/sales/records/${sale.id}`);
-    };
+interface SalesRecordsTableProps {
+  /** Sales data to display (view DTOs, not Prisma payloads) */
+  rows: SaleListItem[];
+  
+  /** Preset configuration for column selection */
+  preset?: SalesTablePreset;
+  
+  /** Explicit allowlist of columns to show (overrides preset) */
+  visibleColumns?: SalesColumnId[];
+  
+  /** Custom row click handler */
+  onRowClick?: (row: SaleListItem) => void;
+  
+  /** Navigation context - adds query params to default path */
+  navigationContext?: Record<string, string | number>;
+  
+  /** Override date filter visibility */
+  showDateFilter?: boolean;
+}
 
-    const columns: ColumnDef<SaleListItem>[] = [
-        {
-            key: 'id',
-            header: 'ID',
-            accessor: 'id',
-            className: 'w-[80px]',
-            sortable: true, // Enable sorting
-        },
-        {
-            key: 'title',
-            header: 'Title',
-            accessor: 'title',
-            sortable: true,
-        },
-        {
-            key: 'author',
-            header: 'Author',
-            accessor: 'author',
-            sortable: true,
-        },
-        {
-            key: 'quantity',
-            header: 'Quantity',
-            accessor: 'quantity',
-            sortable: true,
-            render: (row) => (
-                <span>{row.quantity}</span>
-            ),
-        },
-        {
-            key: 'publisherRevenue',
-            header: 'Publisher Revenue',
-            accessor: 'publisherRevenue',
-            sortable: true,
-            render: (row) => (
-                <span className="font-medium">${row.publisherRevenue.toFixed(2)}</span>
-            ),
-        },
-        {
-            key: 'authorRoyalty',
-            header: 'Author Royalty',
-            accessor: 'authorRoyalty',
-            sortable: true,
-            render: (row) => (
-                <span className="font-medium">${row.authorRoyalty.toFixed(2)}</span>
-            ),
-        },
-        {
-            key: 'date',
-            header: 'Date',
-            accessor: 'date',
-            sortable: true,
-        },
-        {
-            key: 'paid',
-            header: 'Royalty Status',
-            sortable: false, // Don't need to sort by status badge
-            render: (row) => {
-                const paidStyles = {
-                    paid: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-                    pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
-                } as const;
-                return (
-                    <span
-                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${paidStyles[row.paid]}`}
-                    >
-                        {row.paid.charAt(0).toUpperCase() + row.paid.slice(1)}
-                    </span>
-                );
-            },
-        },
-    ];
+/**
+ * Sales records table component
+ * 
+ * Uses view DTOs (SaleListItem) for display, never Prisma payloads.
+ * 
+ * @example
+ * // Use preset
+ * <SalesRecordsTable rows={sales} preset="bookDetail" />
+ * 
+ * @example
+ * // Custom columns
+ * <SalesRecordsTable 
+ *   rows={sales} 
+ *   visibleColumns={['date', 'quantity', 'publisherRevenue']} 
+ * />
+ * 
+ * @example
+ * // Custom navigation with context
+ * <SalesRecordsTable 
+ *   rows={sales}
+ *   navigationContext={{ from: 'book', bookId: 123 }}
+ * />
+ */
+export default function SalesRecordsTable({ 
+  rows,
+  preset = 'full',
+  visibleColumns,
+  onRowClick,
+  navigationContext,
+  showDateFilter,
+}: SalesRecordsTableProps) {
+  const router = useRouter();
 
-    return (
-        <DataTable<SaleListItem> 
-            columns={columns} 
-            data={salesData} 
-            emptyMessage="No sales found" 
-            onRowClick={handleRowClick}
-            defaultSortField="date"        
-            defaultSortDirection="desc"    
-            showDateFilter={true}        
-            dateFilterField="date"
-        />
-    );
+  // Select columns: explicit allowlist > preset > default
+  const columns = visibleColumns
+    ? getColumnsByVisibleIds(visibleColumns)
+    : getPresetColumns(preset);
+
+  // Get table config from preset
+  const tableConfig = salesTablePresets[preset];
+
+  // Navigation: onRowClick > navigationContext > default
+  const handleRowClick = onRowClick || ((row: SaleListItem) => {
+    if (navigationContext) {
+      // Filter out undefined values and convert to strings
+      const params: Record<string, string> = {};
+      Object.entries(navigationContext).forEach(([key, value]) => {
+        if (value !== undefined) {
+          params[key] = String(value);
+        }
+      });
+      const path = createSalesRecordPath(row.id, '/sales/records', params);
+      router.push(path);
+    } else {
+      router.push(createSalesRecordPath(row.id));
+    }
+  });
+
+  return (
+    <DataTable<SaleListItem> 
+      columns={columns} 
+      data={rows} 
+      emptyMessage="No sales found" 
+      onRowClick={handleRowClick}
+      defaultSortField={tableConfig.defaultSortField}
+      defaultSortDirection={tableConfig.defaultSortDirection}
+      showDateFilter={showDateFilter ?? tableConfig.showDateFilter}
+      dateFilterField="date"
+    />
+  );
 }

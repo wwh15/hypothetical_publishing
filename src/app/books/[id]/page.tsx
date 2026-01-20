@@ -1,6 +1,7 @@
 import { getBookById } from '../action';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import SalesRecordsTable from '@/app/sales/components/SalesRecordsTable';
 
 export const dynamic = "force-dynamic";
 
@@ -122,6 +123,18 @@ export default async function BookDetailPage({ params }: PageProps) {
             </div>
           </div>
         </section>
+
+        {/* Sales Records Section */}
+        {book.sales && book.sales.length > 0 && (
+          <section>
+            <h2 className="text-xl font-semibold mb-4">Sales Records</h2>
+            <SalesRecordsTable 
+              rows={book.sales} 
+              preset="bookDetail"
+              navigationContext={{ from: 'book', bookId: book.id }}
+            />
+          </section>
+        )}
 
         {/* Action Buttons */}
         <section className="pt-4 border-t border-gray-200 dark:border-gray-700">
