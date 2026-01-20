@@ -3,7 +3,7 @@
 ## Phase 0: Data + API Foundations
 
 ### 0.1 Data model and constraints
-- [ ] Define `Book` fields:
+- [x] Define `Book` fields:
   - `id`
   - `title`
   - `authors`

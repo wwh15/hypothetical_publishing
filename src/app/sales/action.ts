@@ -3,7 +3,7 @@
 
 import asyncGetAuthorPaymentData from "@/lib/data/author-payment";
 import asyncGetSalesData, { asyncGetSaleById } from "@/lib/data/records";
-import { Sale } from "@/lib/data/records";
+import { SaleListItem } from "@/lib/data/records";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -67,7 +67,7 @@ export async function togglePaidStatus(id: number, currentStatus: boolean) {
   }
 }
 
-export async function getSalesRecordData(): Promise<Sale[]> {
+export async function getSalesRecordData(): Promise<SaleListItem[]> {
   const sales = await asyncGetSalesData();
 
   // Transform Prisma data to flat Sale type

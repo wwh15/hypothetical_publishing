@@ -11,7 +11,7 @@ import {
 import { AuthorGroup, markAuthorPaid } from "@/lib/data/author-payment";
 import { useTablePagination } from "@/hooks/useTablePagination";
 import { cn } from "@/lib/utils";
-import { Sale } from "@/lib/data/records";
+import { SaleListItem } from "@/lib/data/records";
 import { useRouter } from "next/navigation";
 import { PaginationControls } from "../../../components/PaginationControls";
 import { TableInfo } from "../../../components/TableInfo";
@@ -20,7 +20,7 @@ export default function AuthorPaymentsTable({ authorPaymentData }: { authorPayme
   const router = useRouter();
   const [loading, setLoading] = useState(false); // Add loading state
 
-  const handleRowClick = (sale: Sale) => {
+  const handleRowClick = (sale: SaleListItem) => {
     router.push(`/sales/records/${sale.id}?from=payments`);
   };
 

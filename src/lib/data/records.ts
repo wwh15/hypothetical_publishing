@@ -1,6 +1,6 @@
 import { prisma } from "../prisma";
 
-export interface Sale {
+export interface SaleListItem {
     id: number;
     title: string;
     author: string;
