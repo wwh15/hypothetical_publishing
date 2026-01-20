@@ -2,16 +2,16 @@
 
 import { useRouter } from "next/navigation";
 import { DataTable, ColumnDef } from "@/components/DataTable";
-import { Sale } from "@/lib/data/records";
+import { SaleListItem } from "@/lib/data/records";
 
-export default function SalesRecordsTable({ salesData }: { salesData: Sale[] }) {
+export default function SalesRecordsTable({ salesData }: { salesData: SaleListItem[] }) {
     const router = useRouter();
 
-    const handleRowClick = (sale: Sale) => {
+    const handleRowClick = (sale: SaleListItem) => {
         router.push(`/sales/records/${sale.id}`);
     };
 
-    const columns: ColumnDef<Sale>[] = [
+    const columns: ColumnDef<SaleListItem>[] = [
         {
             key: 'id',
             header: 'ID',
@@ -85,7 +85,7 @@ export default function SalesRecordsTable({ salesData }: { salesData: Sale[] }) 
     ];
 
     return (
-        <DataTable<Sale> 
+        <DataTable<SaleListItem> 
             columns={columns} 
             data={salesData} 
             emptyMessage="No sales found" 

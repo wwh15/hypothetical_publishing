@@ -2,22 +2,11 @@
 
 import { useState } from 'react';
 import { updateSale, deleteSale, togglePaidStatus } from '@/app/sales/action';
+import type { SaleDetailPayload } from "@/lib/data/records";
+
 
 interface EditFormProps {
-  sale: {
-    id: number;
-    bookId: number;
-    date: string;
-    quantity: number;
-    publisherRevenue: number;
-    authorRoyalty: number;
-    royaltyOverridden: boolean;
-    paid: boolean;
-    book: {
-      title: string;
-      author: { name: string };
-    };
-  };
+  sale: SaleDetailPayload;
 }
 
 export default function EditForm({ sale }: EditFormProps) {

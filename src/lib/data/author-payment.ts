@@ -2,13 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "../prisma";
-import { Sale } from "./records";
+import { SaleListItem } from "./records";
 
 export interface AuthorGroup {
   author: string;
   authorId: number;  // Add this line
   unpaidTotal: number;
-  sales: Sale[];
+  sales: SaleListItem[];
 }
 
 export default async function asyncGetAuthorPaymentData(): Promise<AuthorGroup[]> {
