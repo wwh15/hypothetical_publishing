@@ -49,7 +49,7 @@
 ## Phase 1: Book List View
 
 ### 1.1 Basic table
-- [ ] Create table with columns:
+- [x] Create table with columns:
   - Title
   - Author(s)
   - ISBN-13
@@ -57,12 +57,12 @@
   - Publication month/year
   - Author royalty rate
   - Total sales to date
-- [ ] Display mock or real data
+- [x] Display mock or real data
 
 ### 1.2 Sorting
-- [ ] Implement column sorting
-- [ ] Support sorting for all displayed fields
-- [ ] Choose default sort order
+- [x] Implement column sorting
+- [x] Support sorting for all displayed fields
+- [x] Choose default sort order
 
 ### 1.3 Keyword search
 - [ ] Add keyword search input
@@ -73,7 +73,7 @@
 - [ ] Add clear/reset behavior
 
 ### 1.4 Navigation
-- [ ] Row click or action navigates to book detail view
+- [x] Row click or action navigates to book detail view
 - [ ] Add “New Book” button to start book creation
 
 ---
@@ -81,8 +81,8 @@
 ## Phase 2: Book Detail View
 
 ### 2.1 Read-only book detail
-- [ ] Display all book fields
-- [ ] Add Edit and Delete buttons
+- [x] Display all book fields
+- [x] Add Edit and Delete buttons
 
 ### 2.2 Sales records section
 - [ ] Show all sales records for this book
@@ -90,7 +90,7 @@
 - [ ] Allow navigation to sales record detail
 
 ### 2.3 Totals section
-- [ ] Display totals:
+- [x] Display totals:
   - publisher revenue
   - unpaid author royalty
   - paid author royalty
