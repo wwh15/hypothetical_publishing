@@ -223,7 +223,7 @@ export function getMockBookById(id: number): BookDetail | null {
 export default async function asyncGetBooksData() {
   return await prisma.book.findMany({
     include: {
-      author: true,
+      authors: true,
     },
     orderBy: {
       title: 'asc',
@@ -235,7 +235,7 @@ export async function asyncGetBookById(id: number) {
   return await prisma.book.findUnique({
     where: { id },
     include: {
-      author: true,
+      authors: true,
       sales: {
         orderBy: {
           date: 'desc',

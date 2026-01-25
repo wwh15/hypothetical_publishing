@@ -67,7 +67,7 @@ export async function markAuthorPaid(authorId: number) {
   try {
     // Get all books by this author
     const authorBooks = await prisma.book.findMany({
-      where: { authorId },
+      where: { authors: { some: { id: authorId } } },
       select: { id: true },
     });
 

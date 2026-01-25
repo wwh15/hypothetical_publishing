@@ -38,7 +38,6 @@ model Author {
 model Book {
   id                Int      @id @default(autoincrement())
   title             String
-  authorId          Int      @map("author_id")
   isbn13            String?  @unique // ISBN-13 format, stored without dashes
   isbn10            String?  @unique // ISBN-10 format, stored without dashes
   authorRoyaltyRate Float    @default(0.25) @map("author_royalty_rate") // Default 25%, stored as decimal (0.25)
@@ -46,14 +45,13 @@ model Book {
   updatedAt         DateTime @updatedAt @map("updated_at")
   
   // Relations
-  author            Author   @relation(fields: [authorId], references: [id], onDelete: Restrict)
+  authors           Author[]
   sales             Sale[]
   
   // Indexes for efficient search and autocomplete
   @@index([title]) // For title search
   @@index([isbn13]) // For ISBN search
   @@index([isbn10]) // For ISBN search
-  @@index([authorId]) // For filtering by author
   @@map("books")
 }
 

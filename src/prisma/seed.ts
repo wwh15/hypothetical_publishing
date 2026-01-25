@@ -83,7 +83,7 @@ async function main() {
       return prisma.book.create({
         data: {
           title: book.title,
-          authorId: author.id,
+          authors: { connect: [{ id: author.id }] },
           isbn13: book.isbn13,
           authorRoyaltyRate: 0.25, // 25% default
         },
