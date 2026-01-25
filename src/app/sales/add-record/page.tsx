@@ -36,6 +36,10 @@ export default function SalesInputPage() {
     },
   ]);
 
+  const handleAddRecord = (record: PendingSaleItem) => {
+    setPendingRecords((prev) => [...prev, record]);
+  }
+
   const handleClearAll = () => {
     setPendingRecords([]);
   };
@@ -63,7 +67,7 @@ export default function SalesInputPage() {
       </div>
 
       {/* Input form will go here */}
-      <p className="mb-4">Input Form will go here</p>
+      <InputRecordForm onAddRecord={handleAddRecord}/>
 
       {/* Pending Records Table */}
       <PendingRecordsTable
