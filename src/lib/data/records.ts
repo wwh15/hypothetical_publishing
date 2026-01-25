@@ -13,6 +13,19 @@ export interface SaleListItem {
   paid: "paid" | "pending";
 }
 
+export interface PendingSaleItem {
+  // No id - these aren't saved yet
+  bookId: number;
+  title: string;
+  author: string;
+  date: string; // MM-YYYY format
+  quantity: number;
+  publisherRevenue: number;
+  authorRoyalty: number;
+  royaltyOverridden: boolean; // Whether user manually overrode the calculated royalty
+  paid: boolean; // Always false for pending, but included for consistency
+}
+
 export type SaleDetailPayload = Prisma.SaleGetPayload<{
   include: { book: { include: { authors: true } } };
 }>;
