@@ -58,7 +58,11 @@ export default function EditForm({ sale }: EditFormProps) {
           
           <div>
             <label className="text-sm font-medium text-gray-500">Author</label>
-            <p className="text-lg font-semibold mt-1">{sale.book.author.name}</p>
+            <p className="text-lg font-semibold mt-1">
+              {sale.book.authors.length > 0
+                ? sale.book.authors.map((a) => a.name).join(", ")
+                : "-"}
+            </p>
           </div>
 
           <div>

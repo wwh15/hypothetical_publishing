@@ -14,12 +14,12 @@ export interface SaleListItem {
 }
 
 export type SaleDetailPayload = Prisma.SaleGetPayload<{
-  include: { book: { include: { author: true } } };
+  include: { book: { include: { authors: true } } };
 }>;
 
 export default async function asyncGetSalesData() {
   return await prisma.sale.findMany({
-    include: { book: { include: { author: true } } },
+    include: { book: { include: { authors: true } } },
     orderBy: { date: "desc" },
   });
 }
@@ -27,7 +27,7 @@ export default async function asyncGetSalesData() {
 export async function asyncGetSaleById(id: number) {
   return await prisma.sale.findUnique({
     where: { id },
-    include: { book: { include: { author: true } } },
+    include: { book: { include: { authors: true } } },
   });
 }
 
@@ -39,12 +39,12 @@ export function toSaleListItem(sale: {
   publisherRevenue: number;
   authorRoyalty: number;
   paid: boolean;
-  book: { title: string; author: { name: string } };
+  book: { title: string; authors: { name: string }[] };
 }): SaleListItem {
   return {
     id: sale.id,
     title: sale.book.title,
-    author: sale.book.author.name,
+    author: sale.book.authors.map((a) => a.name).join(", "),
     date: sale.date,
     quantity: sale.quantity,
     publisherRevenue: sale.publisherRevenue,
