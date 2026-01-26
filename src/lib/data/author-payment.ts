@@ -5,95 +5,135 @@ import { prisma } from "../prisma";
 import { SaleListItem } from "./records";
 
 export interface AuthorGroup {
-  author: string;
-  authorId: number;  // Add this line
+  authors: string[];      // All authors in this group (could be 1 or many)
+  authorIds: number[];  // All author IDs in this group
   unpaidTotal: number;
   sales: SaleListItem[];
 }
 
 export default async function asyncGetAuthorPaymentData(): Promise<AuthorGroup[]> {
-  // Get all authors with their books and ALL sales (both paid and unpaid)
-  const authors = await prisma.author.findMany({
+  // Get all books with their authors and sales
+  const books = await prisma.book.findMany({
     include: {
-      books: {
-        include: {
-          sales: {
-            // Remove the where filter - get all sales
-            orderBy: {
-              date: 'desc',
-            },
-          },
+      authors: {
+        orderBy: {
+          name: 'asc', // Sort authors for consistent grouping
+        },
+      },
+      sales: {
+        orderBy: {
+          date: 'desc',
         },
       },
     },
-    orderBy: {
-      name: 'asc',
-    },
   });
 
-  // Transform to AuthorGroup format
-  return authors
-    .map((author) => {
-      const sales = author.books.flatMap((book) =>
-        book.sales.map((sale) => ({
-          id: sale.id,
-          title: book.title,
-          author: author.name,
-          date: sale.date,
-          quantity: sale.quantity,
-          publisherRevenue: sale.publisherRevenue,
-          authorRoyalty: sale.authorRoyalty,
-          paid: sale.paid ? 'paid' : 'pending' as 'paid' | 'pending',
-        }))
-      );
+  // Build a map: author combination key -> { author info, sales array }
+  // Key is sorted author IDs joined (e.g., "1,2" for authors with IDs 1 and 2)
+  const authorGroupMap = new Map<string, {
+    authorNames: string[];
+    authorIds: number[];
+    sales: SaleListItem[];
+  }>();
 
-      // Calculate unpaid total (filter for pending only)
+  // Process each book and group by author combination
+  books.forEach((book) => {
+    // Create a unique key for this author combination (sorted IDs)
+    const authorIds = book.authors.map(a => a.id).sort((a, b) => a - b);
+    const groupKey = authorIds.join(',');
+
+    // Get or create the group for this author combination
+    if (!authorGroupMap.has(groupKey)) {
+      authorGroupMap.set(groupKey, {
+        authorNames: book.authors.map(a => a.name).sort(),
+        authorIds: authorIds,
+        sales: [],
+      });
+    }
+
+    const group = authorGroupMap.get(groupKey)!;
+
+    // Add all sales from this book to the group
+    book.sales.forEach((sale) => {
+      group.sales.push({
+        id: sale.id,
+        title: book.title,
+        author: book.authors.map(a => a.name).join(', '), // Show all authors
+        date: sale.date,
+        quantity: sale.quantity,
+        publisherRevenue: sale.publisherRevenue,
+        authorRoyalty: sale.authorRoyalty,
+        paid: sale.paid ? 'paid' : 'pending' as 'paid' | 'pending',
+      });
+    });
+  });
+
+  // Convert map to array and calculate totals
+  return Array.from(authorGroupMap.values())
+    .map(({ authorNames, authorIds, sales }) => {
       const unpaidTotal = sales
         .filter(sale => sale.paid === 'pending')
         .reduce((sum, sale) => sum + sale.authorRoyalty, 0);
 
       return {
-        author: author.name,
-        authorId: author.id,
+        authors: authorNames,    // Array of author names for this group
+        authorIds: authorIds,    // Array of author IDs for this group
         unpaidTotal: +unpaidTotal.toFixed(2),
-        sales, // All sales (both paid and unpaid)
+        sales,
       };
     })
-    .filter((group) => group.sales.length > 0); // Authors with any sales
+    .filter((group) => group.sales.length > 0)
+    .sort((a, b) => {
+      // Sort by first author name, then by number of authors
+      const aFirst = a.authors[0];
+      const bFirst = b.authors[0];
+      if (aFirst !== bFirst) {
+        return aFirst.localeCompare(bFirst);
+      }
+      return a.authors.length - b.authors.length;
+    });
 }
 
-// Mark all unpaid sales for an author as paid
-export async function markAuthorPaid(authorId: number) {
+// Mark all unpaid sales for an author group as paid
+export async function markAuthorPaid(authorIds: number[]) {
   try {
-    // Get all books by this author
+    // Get all books that have exactly these authors (and no others)
     const authorBooks = await prisma.book.findMany({
-      where: { authors: { some: { id: authorId } } },
-      select: { id: true },
+      where: {
+        authors: {
+          every: { id: { in: authorIds } },
+        },
+      },
+      include: { authors: { select: { id: true } } },
     });
+    
+    // Filter to exact matches
+    const exactMatchBooks = authorBooks.filter(
+      book => book.authors.length === authorIds.length
+    );
 
-    const bookIds = authorBooks.map(book => book.id);
+    const bookIds = exactMatchBooks.map(book => book.id);
 
     // Update all unpaid sales for these books to paid
     const result = await prisma.sale.updateMany({
       where: {
         bookId: { in: bookIds },
-        paid: false, // Only update unpaid records
+        paid: false,
       },
       data: {
         paid: true,
       },
     });
 
-    // Revalidate the payments page to show updated data
     revalidatePath('/sales/payments');
 
     return {
       success: true,
-      count: result.count, // Number of records updated
+      count: result.count,
       message: `Marked ${result.count} sale(s) as paid`
     };
   } catch (error) {
-    console.error('Error marking author paid:', error);
+    console.error('Error marking author group paid:', error);
     return {
       success: false,
       error: 'Failed to mark sales as paid'
