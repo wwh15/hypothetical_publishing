@@ -148,3 +148,73 @@ export async function getBookById(id: number): Promise<BookDetail | null> {
     sales,
   };
 }
+
+export async function createBook(input: CreateBookInput): Promise<{ success: true; bookId: number } | { success: false; error: string }> {
+  try {
+    // Parse authors (comma-separated string)
+    const authorNames = input.authors
+      .split(',')
+      .map(name => name.trim())
+      .filter(name => name.length > 0);
+
+    if (authorNames.length === 0) {
+      return { success: false, error: 'At least one author is required' };
+    }
+
+    // Convert royalty rate from percentage to decimal (e.g., 50 -> 0.50)
+    const authorRoyaltyRate = input.defaultRoyaltyRate 
+      ? input.defaultRoyaltyRate / 100 
+      : 0.25; // Default to 25%
+
+    // Find or create authors
+    const authorConnections = await Promise.all(
+      authorNames.map(async (name) => {
+        // Try to find existing author
+        let author = await prisma.author.findUnique({
+          where: { name },
+        });
+
+        // Create if doesn't exist
+        if (!author) {
+          author = await prisma.author.create({
+            data: { name },
+          });
+        }
+
+        return { id: author.id };
+      })
+    );
+
+    // Create the book
+    const book = await prisma.book.create({
+      data: {
+        title: input.title,
+        isbn13: input.isbn13 || null,
+        isbn10: input.isbn10 || null,
+        authorRoyaltyRate,
+        authors: {
+          connect: authorConnections,
+        },
+      },
+      include: {
+        authors: true,
+      },
+    });
+
+    return { success: true, bookId: book.id };
+  } catch (error: any) {
+    // Handle unique constraint violations (ISBN duplicates)
+    if (error.code === 'P2002') {
+      const field = error.meta?.target?.[0];
+      return { 
+        success: false, 
+        error: `A book with this ${field === 'isbn13' ? 'ISBN-13' : 'ISBN-10'} already exists` 
+      };
+    }
+    
+    return { 
+      success: false, 
+      error: error.message || 'Failed to create book' 
+    };
+  }
+}

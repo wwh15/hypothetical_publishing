@@ -9,11 +9,20 @@ export default async function BooksPage() {
 
     return (
         <div className="container mx-auto py-10">
-            <div className="mb-6">
-                <h1 className="text-3xl font-bold">Books</h1>
-                <p className="text-muted-foreground mt-2">
-                    View and manage all books
-                </p>
+            <div className="mb-6 flex justify-between items-start">
+                <div>
+                    <h1 className="text-3xl font-bold">Books</h1>
+                    <p className="text-muted-foreground mt-2">
+                        View and manage all books
+                    </p>
+                </div>
+                <Link
+                    href="/books/add"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors inline-flex items-center gap-2"
+                >
+                    <span>+</span>
+                    Add Book
+                </Link>
             </div>
             <BooksTable booksData={booksData} />
         </div>
