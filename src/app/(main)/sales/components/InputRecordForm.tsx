@@ -17,6 +17,9 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
+import { useSalesForm } from "../hooks/useSalesForm";
+import { useBookSearch } from "@/hooks/useBookSearch";
+import { useBookSelection } from "@/hooks/useBookSelection";
 
 interface Book {
   id: number;
@@ -47,161 +50,17 @@ const MOCK_BOOKS: Book[] = [
 
 export default function InputRecordForm({ onAddRecord }: InputRecordFormProps) {
   const [books] = useState<Book[]>(MOCK_BOOKS); // Use mock data - no API fetch needed
-  const [formData, setFormData] = useState({
-    month: "",
-    year: new Date().getFullYear().toString(),
-    bookId: "",
-    quantity: "",
-    publisherRevenue: "",
-    authorRoyalty: "",
-    royaltyOverridden: false,
-  });
-  const [searchQuery, setSearchQuery] = useState("");
-  const [open, setOpen] = useState(false)
-
-  // Filter books from search
-  const filteredBooks = useMemo(() => {
-    if (!searchQuery.trim()) {
-      return books;
-    }
-    const query = searchQuery.toLowerCase();
-    return books.filter(
-      (book) =>
-        book.title.toLowerCase().includes(query) ||
-        book.author.name.toLowerCase().includes(query)
-    );
-  }, [books, searchQuery]);
-
-  const handleBookSelect = (bookId: string) => {
-    handleInputChange("bookId", bookId);
-    setOpen(false);
-    setSearchQuery("");
-  };
-
-  // Calculate royalty when publisher revenue or book changes
-  useEffect(() => {
-    if (
-      formData.bookId &&
-      formData.publisherRevenue &&
-      !formData.royaltyOverridden
-    ) {
-      const book = books.find((b) => b.id === parseInt(formData.bookId));
-      if (book) {
-        const calculatedRoyalty =
-          parseFloat(formData.publisherRevenue) * book.authorRoyaltyRate;
-        setFormData((prev) => ({
-          ...prev,
-          authorRoyalty: isNaN(calculatedRoyalty)
-            ? ""
-            : calculatedRoyalty.toFixed(2),
-        }));
-      }
-    }
-  }, [
-    formData.bookId,
-    formData.publisherRevenue,
-    formData.royaltyOverridden,
+  const { searchQuery, setSearchQuery, filteredBooks } = useBookSearch(books);
+  const { formData, handleInputChange, handleRoyaltyChange, handleSubmit, revertRoyalty } =
+    useSalesForm(books, onAddRecord);
+  const { open, setOpen, bookDisplayValue, handleBookSelect } = useBookSelection(
     books,
-  ]);
-
-  const handleInputChange = (field: string, value: string | boolean) => {
-    setFormData((prev) => ({
-      ...prev,
-      [field]: value,
-      // Reset royalty override when publisher revenue or book changes
-      ...(field === "publisherRevenue" || field === "bookId"
-        ? { royaltyOverridden: false }
-        : {}),
-    }));
-  };
-
-  const handleRoyaltyChange = (value: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      authorRoyalty: value,
-      royaltyOverridden:
-        value !== "" &&
-        value !==
-          (() => {
-            const book = books.find((b) => b.id === parseInt(prev.bookId));
-            if (book && prev.publisherRevenue) {
-              return (
-                parseFloat(prev.publisherRevenue) * book.authorRoyaltyRate
-              ).toFixed(2);
-            }
-            return "";
-          })(),
-    }));
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-
-    // Validation
-    if (
-      !formData.month ||
-      !formData.year ||
-      !formData.bookId ||
-      !formData.quantity ||
-      !formData.publisherRevenue ||
-      !formData.authorRoyalty
-    ) {
-      alert("Please fill in all required fields");
-      return;
+    formData.bookId,
+    (bookId) => {
+      handleInputChange("bookId", bookId);
+      setSearchQuery(""); // Clear search when book is selected
     }
-
-    const selectedBook = books.find((b) => b.id === parseInt(formData.bookId));
-    if (!selectedBook) {
-      alert("Please select a valid book");
-      return;
-    }
-
-    const date = `${formData.month.padStart(2, "0")}-${formData.year}`;
-    const newRecord: PendingSaleItem = {
-      bookId: parseInt(formData.bookId),
-      title: selectedBook.title,
-      author: selectedBook.author.name,
-      date,
-      quantity: parseInt(formData.quantity),
-      publisherRevenue: parseFloat(formData.publisherRevenue),
-      authorRoyalty: parseFloat(formData.authorRoyalty),
-      royaltyOverridden: formData.royaltyOverridden,
-      paid: false,
-    };
-
-    onAddRecord(newRecord);
-
-    // Clear form but keep month/year and book for efficient input
-    setFormData((prev) => ({
-      month: prev.month, // Keep month
-      year: prev.year, // Keep year
-      bookId: prev.bookId, // Keep book
-      quantity: "",
-      publisherRevenue: "",
-      authorRoyalty: "",
-      royaltyOverridden: false,
-    }));
-  };
-
-  const revertRoyalty = () => {
-    const book = books.find((b) => b.id === parseInt(formData.bookId));
-    if (book && formData.publisherRevenue) {
-      const calculated =
-        parseFloat(formData.publisherRevenue) * book.authorRoyaltyRate;
-      setFormData((prev) => ({
-        ...prev,
-        authorRoyalty: calculated.toFixed(2),
-        royaltyOverridden: false,
-      }));
-    }
-  };
-
-  const selectedBook = books.find((b) => b.id === parseInt(formData.bookId));
-  
-  // Get selected book display value
-  const bookDisplayValue = selectedBook
-    ? `${selectedBook.title} - ${selectedBook.author.name}`
-    : "Select Book";
+  );
 
   return (
     <form
