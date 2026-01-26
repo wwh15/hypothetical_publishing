@@ -6,7 +6,7 @@ import { SaleListItem } from "./records";
 
 export interface AuthorGroup {
   author: string[];      // All authors in this group (could be 1 or many)
-  authorIds: number[];  // All author IDs in this group
+  authorId: number[];  // All author IDs in this group
   unpaidTotal: number;
   sales: SaleListItem[];
 }
@@ -77,7 +77,7 @@ export default async function asyncGetAuthorPaymentData(): Promise<AuthorGroup[]
 
       return {
         author: authorNames,    // Array of author names for this group
-        authorIds: authorIds,    // Array of author IDs for this group
+        authorId: authorIds,    // Array of author IDs for this group
         unpaidTotal: +unpaidTotal.toFixed(2),
         sales,
       };
@@ -101,20 +101,16 @@ export async function markAuthorPaid(authorIds: number[]) {
     const authorBooks = await prisma.book.findMany({
       where: {
         authors: {
-          every: { id: { in: authorIds } }, // All authors must be in the list
+          every: { id: { in: authorIds } },
         },
-        // Ensure the book has exactly the same number of authors
-        // This requires checking that the count matches
       },
-      select: { id: true },
+      include: { authors: { select: { id: true } } },
     });
-
-    // Filter to books that have exactly these authors (no more, no less)
-    const exactMatchBooks = authorBooks.filter(book => {
-      // This requires another query to check author count
-      // For now, we'll use a simpler approach: books where all specified authors are present
-      return true; // Simplified - you may need to refine this logic
-    });
+    
+    // Filter to exact matches
+    const exactMatchBooks = authorBooks.filter(
+      book => book.authors.length === authorIds.length
+    );
 
     const bookIds = exactMatchBooks.map(book => book.id);
 
