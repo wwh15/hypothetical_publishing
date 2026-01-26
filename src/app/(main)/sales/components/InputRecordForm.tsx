@@ -1,9 +1,22 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Plus } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { Plus, ChevronsUpDown, Check } from "lucide-react";
 import { PendingSaleItem } from "@/lib/data/records";
 import { cn } from "@/lib/utils";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 
 interface Book {
   id: number;
@@ -18,16 +31,18 @@ interface InputRecordFormProps {
 
 // Mock books data - replace with real API call when books API is ready
 const MOCK_BOOKS: Book[] = [
-  { id: 1, title: "1984", author: { name: "George Orwell" }, authorRoyaltyRate: 0.25 },
-  { id: 2, title: "Animal Farm", author: { name: "George Orwell" }, authorRoyaltyRate: 0.25 },
-  { id: 3, title: "Pride and Prejudice", author: { name: "Jane Austen" }, authorRoyaltyRate: 0.25 },
-  { id: 4, title: "The Great Gatsby", author: { name: "F. Scott Fitzgerald" }, authorRoyaltyRate: 0.25 },
-  { id: 5, title: "To Kill a Mockingbird", author: { name: "Harper Lee" }, authorRoyaltyRate: 0.25 },
-  { id: 6, title: "The Catcher in the Rye", author: { name: "J.D. Salinger" }, authorRoyaltyRate: 0.25 },
-  { id: 7, title: "Brave New World", author: { name: "Aldous Huxley" }, authorRoyaltyRate: 0.25 },
-  { id: 8, title: "The Hobbit", author: { name: "J.R.R. Tolkien" }, authorRoyaltyRate: 0.25 },
-  { id: 9, title: "Lord of the Rings", author: { name: "J.R.R. Tolkien" }, authorRoyaltyRate: 0.25 },
-  { id: 10, title: "Moby-Dick", author: { name: "Herman Melville" }, authorRoyaltyRate: 0.25 },
+  // Books with single author
+  { id: 1, title: "The Test Novel", author: { name: "Alice Johnson" }, authorRoyaltyRate: 0.25 },
+  { id: 2, title: "Sample Story", author: { name: "Bob Smith" }, authorRoyaltyRate: 0.25 },
+  { id: 3, title: "Example Book", author: { name: "Carol Williams" }, authorRoyaltyRate: 0.25 },
+  { id: 4, title: "Demo Fiction", author: { name: "David Brown" }, authorRoyaltyRate: 0.25 },
+  { id: 5, title: "Test Data Chronicles", author: { name: "Emma Davis" }, authorRoyaltyRate: 0.25 },
+  // Books with multiple authors
+  { id: 6, title: "Collaborative Work", author: { name: "Alice Johnson, Bob Smith" }, authorRoyaltyRate: 0.25 },
+  { id: 7, title: "Joint Publication", author: { name: "David Brown, Carol Williams" }, authorRoyaltyRate: 0.25 },
+  { id: 8, title: "Multi-Author Project", author: { name: "Bob Smith, Alice Johnson, Carol Williams" }, authorRoyaltyRate: 0.25 },
+  { id: 9, title: "Team Effort", author: { name: "Emma Davis, David Brown" }, authorRoyaltyRate: 0.25 },
+  { id: 10, title: "Group Collaboration", author: { name: "Carol Williams, Emma Davis, Bob Smith" }, authorRoyaltyRate: 0.25 },
 ];
 
 export default function InputRecordForm({ onAddRecord }: InputRecordFormProps) {
@@ -41,6 +56,27 @@ export default function InputRecordForm({ onAddRecord }: InputRecordFormProps) {
     authorRoyalty: "",
     royaltyOverridden: false,
   });
+  const [searchQuery, setSearchQuery] = useState("");
+  const [open, setOpen] = useState(false)
+
+  // Filter books from search
+  const filteredBooks = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return books;
+    }
+    const query = searchQuery.toLowerCase();
+    return books.filter(
+      (book) =>
+        book.title.toLowerCase().includes(query) ||
+        book.author.name.toLowerCase().includes(query)
+    );
+  }, [books, searchQuery]);
+
+  const handleBookSelect = (bookId: string) => {
+    handleInputChange("bookId", bookId);
+    setOpen(false);
+    setSearchQuery("");
+  };
 
   // Calculate royalty when publisher revenue or book changes
   useEffect(() => {
@@ -160,6 +196,13 @@ export default function InputRecordForm({ onAddRecord }: InputRecordFormProps) {
     }
   };
 
+  const selectedBook = books.find((b) => b.id === parseInt(formData.bookId));
+  
+  // Get selected book display value
+  const bookDisplayValue = selectedBook
+    ? `${selectedBook.title} - ${selectedBook.author.name}`
+    : "Select Book";
+
   return (
     <form
       onSubmit={handleSubmit}
@@ -234,27 +277,57 @@ export default function InputRecordForm({ onAddRecord }: InputRecordFormProps) {
           >
             Book <span className="text-red-500">*</span>
           </label>
-          <select
-            id="book"
-            value={formData.bookId}
-            onChange={(e) => handleInputChange("bookId", e.target.value)}
-            className={cn(
-              "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background",
-              "file:border-0 file:bg-transparent file:text-sm file:font-medium",
-              "placeholder:text-muted-foreground",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-              "disabled:cursor-not-allowed disabled:opacity-50",
-              "dark:bg-gray-700"
-            )}
-            required
-          >
-            <option value="">Select Book</option>
-            {books.map((book) => (
-              <option key={book.id} value={book.id}>
-                {book.title} - {book.author.name}
-              </option>
-            ))}
-          </select>
+          <Popover open={open} onOpenChange={setOpen}>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                role="combobox"
+                aria-expanded={open}
+                className={cn(
+                  "flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background",
+                  "placeholder:text-muted-foreground",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                  "disabled:cursor-not-allowed disabled:opacity-50",
+                  "dark:bg-gray-700",
+                  !formData.bookId && "text-muted-foreground"
+                )}
+              >
+                <span className="truncate">{bookDisplayValue}</span>
+                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+              <Command>
+                <CommandInput
+                  placeholder="Search books..."
+                  value={searchQuery}
+                  onValueChange={setSearchQuery}
+                />
+                <CommandList>
+                  <CommandEmpty>No book found.</CommandEmpty>
+                  <CommandGroup>
+                    {filteredBooks.map((book) => (
+                      <CommandItem
+                        key={book.id}
+                        value={`${book.title} ${book.author.name}`}
+                        onSelect={() => handleBookSelect(book.id.toString())}
+                      >
+                        <Check
+                          className={cn(
+                            "mr-2 h-4 w-4",
+                            formData.bookId === book.id.toString()
+                              ? "opacity-100"
+                              : "opacity-0"
+                          )}
+                        />
+                        {book.title} - {book.author.name}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
         </div>
 
         {/* Quantity */}
