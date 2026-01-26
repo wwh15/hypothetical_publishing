@@ -1,7 +1,7 @@
 import { getBookById } from '../action';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import SalesRecordsTable from '@/app/sales/components/SalesRecordsTable';
+import SalesRecordsTable from '@/app/(main)/sales/components/SalesRecordsTable';
 
 export const dynamic = "force-dynamic";
 
