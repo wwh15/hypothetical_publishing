@@ -5,8 +5,8 @@ import { prisma } from "../prisma";
 import { SaleListItem } from "./records";
 
 export interface AuthorGroup {
-  author: string[];      // All authors in this group (could be 1 or many)
-  authorId: number[];  // All author IDs in this group
+  authors: string[];      // All authors in this group (could be 1 or many)
+  authorIds: number[];  // All author IDs in this group
   unpaidTotal: number;
   sales: SaleListItem[];
 }
@@ -76,8 +76,8 @@ export default async function asyncGetAuthorPaymentData(): Promise<AuthorGroup[]
         .reduce((sum, sale) => sum + sale.authorRoyalty, 0);
 
       return {
-        author: authorNames,    // Array of author names for this group
-        authorId: authorIds,    // Array of author IDs for this group
+        authors: authorNames,    // Array of author names for this group
+        authorIds: authorIds,    // Array of author IDs for this group
         unpaidTotal: +unpaidTotal.toFixed(2),
         sales,
       };
@@ -85,12 +85,12 @@ export default async function asyncGetAuthorPaymentData(): Promise<AuthorGroup[]
     .filter((group) => group.sales.length > 0)
     .sort((a, b) => {
       // Sort by first author name, then by number of authors
-      const aFirst = a.author[0];
-      const bFirst = b.author[0];
+      const aFirst = a.authors[0];
+      const bFirst = b.authors[0];
       if (aFirst !== bFirst) {
         return aFirst.localeCompare(bFirst);
       }
-      return a.author.length - b.author.length;
+      return a.authors.length - b.authors.length;
     });
 }
 

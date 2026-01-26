@@ -24,9 +24,9 @@ export default function AuthorPaymentsTable({ authorPaymentData }: { authorPayme
     router.push(`/sales/records/${sale.id}?from=payments`);
   };
 
-  const handleMarkAllPaid = async (authorIds: number[], authorName: string[]) => {
-    const authorNames = authorName.join(", ");
-    if (!confirm(`Mark all unpaid royalties for ${authorNames} as paid?`)) {
+  const handleMarkAllPaid = async (authorIds: number[], authorNames: string[]) => {
+    const names = authorNames.join(", ");
+    if (!confirm(`Mark all unpaid royalties for ${names} as paid?`)) {
       return;
     }
     
@@ -79,14 +79,14 @@ export default function AuthorPaymentsTable({ authorPaymentData }: { authorPayme
               {/* Author Header Row */}
               <TableRow className="bg-muted/50">
                 <TableCell colSpan={2} className="font-semibold text-base">
-                  {group.author.join(", ")}
+                  {group.authors.join(", ")}
                 </TableCell>
                 <TableCell colSpan={2} className="text-right font-semibold">
                   Unpaid Total: ${group.unpaidTotal.toFixed(2)}
                 </TableCell>
                 <TableCell colSpan={2} className="text-right">
                   <button 
-                    onClick={() => handleMarkAllPaid(group.authorIds, group.author)}
+                    onClick={() => handleMarkAllPaid(group.authorIds, group.authors)}
                     disabled={loading || group.unpaidTotal === 0}
                     className={cn(
                       "text-sm font-medium transition-colors px-3 py-1 rounded",
