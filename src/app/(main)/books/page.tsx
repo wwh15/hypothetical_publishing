@@ -1,5 +1,5 @@
 import { getBooksData } from './action';
-import BooksTable from './components/BooksTable';
+import BooksTable from "./components/BooksTable";
 import Link from 'next/link';
 
 export const dynamic = "force-dynamic";

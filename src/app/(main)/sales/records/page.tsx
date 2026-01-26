@@ -1,5 +1,5 @@
 import { getSalesRecordData } from '../action';
-import SalesRecordsTable from '../components/SalesRecordsTable';
+import SalesRecordsTable from '@/app/(main)/sales/components/SalesRecordsTable';
 import Link from 'next/link';
 
 export const dynamic = "force-dynamic";
