@@ -11,30 +11,36 @@ const authorNames = [
 ];
 
 const bookData = [
-  { title: '1984', author: 'George Orwell', isbn13: '9780451524935' },
-  { title: 'Animal Farm', author: 'George Orwell', isbn13: '9780452284241' },
-  { title: 'Pride and Prejudice', author: 'Jane Austen', isbn13: '9780141439518' },
-  { title: 'Sense and Sensibility', author: 'Jane Austen', isbn13: '9780141439662' },
-  { title: 'The Great Gatsby', author: 'F. Scott Fitzgerald', isbn13: '9780743273565' },
-  { title: 'To Kill a Mockingbird', author: 'Harper Lee', isbn13: '9780061120084' },
-  { title: 'The Catcher in the Rye', author: 'J.D. Salinger', isbn13: '9780316769174' },
-  { title: 'Brave New World', author: 'Aldous Huxley', isbn13: '9780060850524' },
-  { title: 'The Hobbit', author: 'J.R.R. Tolkien', isbn13: '9780547928227' },
-  { title: 'Lord of the Rings', author: 'J.R.R. Tolkien', isbn13: '9780544003415' },
-  { title: 'Moby-Dick', author: 'Herman Melville', isbn13: '9781503280786' },
-  { title: 'War and Peace', author: 'Leo Tolstoy', isbn13: '9780143039990' },
-  { title: 'Anna Karenina', author: 'Leo Tolstoy', isbn13: '9780143035008' },
-  { title: 'The Odyssey', author: 'Homer', isbn13: '9780140268867' },
-  { title: 'Wuthering Heights', author: 'Emily Brontë', isbn13: '9780141439556' },
-  { title: 'Jane Eyre', author: 'Charlotte Brontë', isbn13: '9780141441146' },
-  { title: 'The Adventures of Tom Sawyer', author: 'Mark Twain', isbn13: '9780486400778' },
-  { title: 'Great Expectations', author: 'Charles Dickens', isbn13: '9780141439563' },
-  { title: 'The Old Man and the Sea', author: 'Ernest Hemingway', isbn13: '9780684801223' },
-  { title: 'Fahrenheit 451', author: 'Ray Bradbury', isbn13: '9781451673319' },
-  { title: 'Slaughterhouse-Five', author: 'Kurt Vonnegut', isbn13: '9780385333849' },
-  { title: 'Frankenstein', author: 'Mary Shelley', isbn13: '9780486282114' },
-  { title: 'Dracula', author: 'Bram Stoker', isbn13: '9780486411095' },
-  { title: 'The Grapes of Wrath', author: 'John Steinbeck', isbn13: '9780143039433' },
+  // Single author books (most books)
+  { title: '1984', authors: ['George Orwell'], isbn13: '9780451524935' },
+  { title: 'Animal Farm', authors: ['George Orwell'], isbn13: '9780452284241' },
+  { title: 'Pride and Prejudice', authors: ['Jane Austen'], isbn13: '9780141439518' },
+  { title: 'Sense and Sensibility', authors: ['Jane Austen'], isbn13: '9780141439662' },
+  { title: 'The Great Gatsby', authors: ['F. Scott Fitzgerald'], isbn13: '9780743273565' },
+  { title: 'To Kill a Mockingbird', authors: ['Harper Lee'], isbn13: '9780061120084' },
+  { title: 'The Catcher in the Rye', authors: ['J.D. Salinger'], isbn13: '9780316769174' },
+  { title: 'Brave New World', authors: ['Aldous Huxley'], isbn13: '9780060850524' },
+  { title: 'The Hobbit', authors: ['J.R.R. Tolkien'], isbn13: '9780547928227' },
+  { title: 'Lord of the Rings', authors: ['J.R.R. Tolkien'], isbn13: '9780544003415' },
+  { title: 'Moby-Dick', authors: ['Herman Melville'], isbn13: '9781503280786' },
+  { title: 'War and Peace', authors: ['Leo Tolstoy'], isbn13: '9780143039990' },
+  { title: 'Anna Karenina', authors: ['Leo Tolstoy'], isbn13: '9780143035008' },
+  { title: 'The Odyssey', authors: ['Homer'], isbn13: '9780140268867' },
+  { title: 'Wuthering Heights', authors: ['Emily Brontë'], isbn13: '9780141439556' },
+  { title: 'Jane Eyre', authors: ['Charlotte Brontë'], isbn13: '9780141441146' },
+  { title: 'The Adventures of Tom Sawyer', authors: ['Mark Twain'], isbn13: '9780486400778' },
+  { title: 'Great Expectations', authors: ['Charles Dickens'], isbn13: '9780141439563' },
+  { title: 'The Old Man and the Sea', authors: ['Ernest Hemingway'], isbn13: '9780684801223' },
+  { title: 'Fahrenheit 451', authors: ['Ray Bradbury'], isbn13: '9781451673319' },
+  { title: 'Slaughterhouse-Five', authors: ['Kurt Vonnegut'], isbn13: '9780385333849' },
+  { title: 'Frankenstein', authors: ['Mary Shelley'], isbn13: '9780486282114' },
+  { title: 'Dracula', authors: ['Bram Stoker'], isbn13: '9780486411095' },
+  // Multiple author books (some books have 2 authors)
+  { title: 'The Grapes of Wrath', authors: ['John Steinbeck', 'Ernest Hemingway'], isbn13: '9780143039433' },
+  { title: 'Classic Literature Collection', authors: ['Charles Dickens', 'Mark Twain'], isbn13: '9780143039440' },
+  { title: 'Modern Classics', authors: ['Ray Bradbury', 'Kurt Vonnegut'], isbn13: '9780143039451' },
+  { title: 'Gothic Tales', authors: ['Mary Shelley', 'Bram Stoker'], isbn13: '9780143039462' },
+  { title: 'Epic Adventures', authors: ['J.R.R. Tolkien', 'Homer'], isbn13: '9780143039473' },
 ];
 
 const months = [
@@ -77,20 +83,41 @@ async function main() {
   // Create books (linked to authors)
   const books = await Promise.all(
     bookData.map((book) => {
-      const author = authors.find((a) => a.name === book.author);
-      if (!author) throw new Error(`Author not found: ${book.author}`);
+      // Find all authors for this book
+      const bookAuthors = book.authors
+        .map((authorName) => {
+          const author = authors.find((a) => a.name === authorName);
+          if (!author) {
+            throw new Error(`Author not found: ${authorName}`);
+          }
+          return author;
+        })
+        .filter((author) => author !== undefined);
 
+      if (bookAuthors.length === 0) {
+        throw new Error(`No valid authors found for book: ${book.title}`);
+      }
+
+      // Connect all authors to this book
       return prisma.book.create({
         data: {
           title: book.title,
-          authors: { connect: [{ id: author.id }] },
+          authors: {
+            connect: bookAuthors.map((author) => ({ id: author.id })),
+          },
           isbn13: book.isbn13,
-          authorRoyaltyRate: 0.25, // 25% default
+          authorRoyaltyRate: +(Math.random() * 0.30 + 0.10).toFixed(2), // 25% default
         },
       });
     })
   );
   console.log(`✅ Created ${books.length} books`);
+  
+  // Count books by author count
+  const booksWithOneAuthor = bookData.filter((b) => b.authors.length === 1).length;
+  const booksWithTwoAuthors = bookData.filter((b) => b.authors.length === 2).length;
+  console.log(`   - Books with 1 author: ${booksWithOneAuthor}`);
+  console.log(`   - Books with 2 authors: ${booksWithTwoAuthors}`);
 
   // Create 250 sales records (linked to books)
   const salesData = [];
@@ -99,7 +126,7 @@ async function main() {
     const quantity = randomInt(5, 120);
     const pricePerBook = Math.random() * 20 + 25; // $25-$45
     const publisherRevenue = +(quantity * pricePerBook).toFixed(2);
-    const authorRoyalty = +(publisherRevenue * 0.25).toFixed(2);
+    const authorRoyalty = +(publisherRevenue * book.authorRoyaltyRate).toFixed(2);
     const paid = Math.random() < 0.65; // 65% paid, 35% unpaid
 
     salesData.push({
