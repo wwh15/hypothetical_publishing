@@ -5,8 +5,8 @@ import { DataTable } from "@/components/DataTable";
 import { ColumnDef } from "@/components/DataTable";
 import { PendingSaleItem } from "@/lib/data/records";
 import { X } from "lucide-react";
-import PendingRecordsTable from "../components/PendingRecordsTable";
-import InputRecordForm from "../components/InputRecordForm";
+import PendingRecordsTable from "@/app/(main)/sales/components/PendingRecordsTable";
+import InputRecordForm from "@/app/(main)/sales/components/InputRecordForm";
 
 export default function SalesInputPage() {
   // Mock pending records for now - you'll replace this with actual state management

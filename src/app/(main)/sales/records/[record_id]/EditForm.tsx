@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { updateSale, deleteSale, togglePaidStatus } from '@/app/sales/action';
+import { updateSale, deleteSale, togglePaidStatus } from '@/app/(main)/sales/action';
 import type { SaleDetailPayload } from "@/lib/data/records";
 
 
