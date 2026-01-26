@@ -1,13 +1,13 @@
 'use server';
 
-import { getMockBooksData, getMockBookById, BookListItem, BookDetail } from "@/lib/data/books";
+import { getBooksData as getBooksDataFromDb, getBookById as getBookByIdFromDb, BookListItem, BookDetail } from "@/lib/data/books";
 
-// Get books list data (using mock data for now)
+// Get books list data
 export async function getBooksData(): Promise<BookListItem[]> {
-  return getMockBooksData();
+  return getBooksDataFromDb();
 }
 
-// Get book by ID (using mock data for now)
+// Get book by ID
 export async function getBookById(id: number): Promise<BookDetail | null> {
-  return getMockBookById(id);
+  return getBookByIdFromDb(id);
 }
