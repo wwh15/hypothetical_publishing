@@ -23,6 +23,8 @@ interface Book {
   title: string;
   author: { name: string };
   authorRoyaltyRate: number;
+  isbn13?: string | null;
+  isbn10?: string | null;
 }
 
 interface BookSelectBoxProps {
@@ -71,30 +73,47 @@ export function BookSelectBox({
       <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
         <Command>
           <CommandInput
-            placeholder="Search books..."
+            placeholder="Search by title, author, or ISBN..."
             value={searchQuery}
             onValueChange={setSearchQuery}
           />
           <CommandList>
             <CommandEmpty>No book found.</CommandEmpty>
             <CommandGroup>
-              {filteredBooks.map((book) => (
-                <CommandItem
-                  key={book.id}
-                  value={`${book.title} ${book.author.name}`}
-                  onSelect={() => handleBookSelect(book.id.toString())}
-                >
-                  <Check
-                    className={cn(
-                      "mr-2 h-4 w-4",
-                      selectedBookId === book.id.toString()
-                        ? "opacity-100"
-                        : "opacity-0"
+              {filteredBooks.map((book) => {
+                // Build search value including ISBN for better matching
+                const searchValue = [
+                  book.title,
+                  book.author.name,
+                  book.isbn13,
+                  book.isbn10,
+                ]
+                  .filter(Boolean)
+                  .join(" ");
+
+                return (
+                  <CommandItem
+                    key={book.id}
+                    value={searchValue}
+                    onSelect={() => handleBookSelect(book.id.toString())}
+                  >
+                    <Check
+                      className={cn(
+                        "mr-2 h-4 w-4",
+                        selectedBookId === book.id.toString()
+                          ? "opacity-100"
+                          : "opacity-0"
+                      )}
+                    />
+                    {book.title} - {book.author.name}
+                    {book.isbn13 && (
+                      <span className="ml-2 text-xs text-muted-foreground">
+                        ({book.isbn13})
+                      </span>
                     )}
-                  />
-                  {book.title} - {book.author.name}
-                </CommandItem>
-              ))}
+                  </CommandItem>
+                );
+              })}
             </CommandGroup>
           </CommandList>
         </Command>
