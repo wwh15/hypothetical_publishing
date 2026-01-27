@@ -13,6 +13,8 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useBulkPastePreview } from "../hooks/useBulkPastePreview";
+import { useBulkPasteSubmit } from "../hooks/useBulkPasteSubmit";
+import { PendingSaleItem } from "@/lib/data/records";
 
 interface Book {
   id: number;
@@ -36,15 +38,19 @@ interface Book {
 // 05-2026,9788899001122,110,5500
 
 interface BulkPasteSalesPanelProps {
+  onAddRecord: (record: PendingSaleItem) => void;
   booksData: Book[];
 }
 
 export default function BulkPasteSalesPanel({
+  onAddRecord,
   booksData,
 }: BulkPasteSalesPanelProps) {
   const [text, setText] = useState("");
   const { previewRows, invalidRows, handlePreview, clearPreview } =
     useBulkPastePreview();
+
+  const { submitFromRows } = useBulkPasteSubmit(booksData, onAddRecord);
 
   const isbnLookup = useMemo(() => {
     const map = new Map<string, Book>();
@@ -180,7 +186,14 @@ export default function BulkPasteSalesPanel({
         >
           Preview
         </Button>
-        <Button type="button" disabled={!text.trim()}>
+        <Button
+          type="button"
+          onClick={() => {
+            submitFromRows(previewRows);
+            clearPreview();
+            setText("");
+          }}
+        >
           Add valid rows
         </Button>
       </CardFooter>

@@ -160,7 +160,7 @@ export default function SalesInputPage() {
           Input sales records and review before submitting to the database.
         </p>
       </div>
-      <BulkPasteSalesPanel booksData={MOCK_BOOKS} />
+      <BulkPasteSalesPanel onAddRecord={handleAddRecord} booksData={MOCK_BOOKS} />
       {/* Input form will go here */}
       <InputRecordForm onAddRecord={handleAddRecord} booksData={MOCK_BOOKS}/>
 
