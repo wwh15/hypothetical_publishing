@@ -1,13 +1,27 @@
 'use server';
 
-import { getMockBooksData, getMockBookById, BookListItem, BookDetail } from "@/lib/data/books";
+import { getBooksData as getBooksDataFromDb, getBookById as getBookByIdFromDb, createBook as createBookInDb, BookListItem, BookDetail, CreateBookInput } from "@/lib/data/books";
+import { revalidatePath } from "next/cache";
 
-// Get books list data (using mock data for now)
+// Get books list data
 export async function getBooksData(): Promise<BookListItem[]> {
-  return getMockBooksData();
+  return getBooksDataFromDb();
 }
 
-// Get book by ID (using mock data for now)
+// Get book by ID
 export async function getBookById(id: number): Promise<BookDetail | null> {
-  return getMockBookById(id);
+  return getBookByIdFromDb(id);
+}
+
+// Create a new book
+export async function createBook(input: CreateBookInput) {
+  const result = await createBookInDb(input);
+  
+  // Revalidate the books pages after successful creation
+  if (result.success) {
+    revalidatePath('/books');
+    revalidatePath(`/books/${result.bookId}`);
+  }
+  
+  return result;
 }
