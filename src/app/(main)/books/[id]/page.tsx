@@ -2,6 +2,7 @@ import { getBookById } from '../action';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import SalesRecordsTable from '@/app/(main)/sales/components/SalesRecordsTable';
+import DeleteBookButton from './components/DeleteBookButton';
 
 export const dynamic = "force-dynamic";
 
@@ -139,12 +140,13 @@ export default async function BookDetailPage({ params }: PageProps) {
         {/* Action Buttons */}
         <section className="pt-4 border-t border-gray-200 dark:border-gray-700">
           <div className="flex gap-4">
-            <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+            <Link
+              href={`/books/${bookId}/edit`}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors inline-block"
+            >
               Edit Book
-            </button>
-            <button className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">
-              Delete Book
-            </button>
+            </Link>
+            <DeleteBookButton bookId={bookId} bookTitle={book.title} />
           </div>
         </section>
       </div>

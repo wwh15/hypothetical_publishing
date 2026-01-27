@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import AddBookForm from '../components/AddBookForm';
+import BookForm from '../components/BookForm';
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +19,7 @@ export default function AddBookPage() {
         </p>
       </div>
 
-      <AddBookForm />
+      <BookForm mode="create" />
     </div>
   );
 }

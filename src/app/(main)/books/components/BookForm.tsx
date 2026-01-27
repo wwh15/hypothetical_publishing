@@ -1,11 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { createBook } from "../action";
+import { createBook, updateBook } from "../action";
+import { BookDetail } from "@/lib/data/books";
 import { cn } from "@/lib/utils";
 
-export default function AddBookForm() {
+interface BookFormProps {
+  bookId?: number;
+  initialData?: BookDetail;
+  mode?: 'create' | 'edit';
+}
+
+export default function BookForm({ bookId, initialData, mode = 'create' }: BookFormProps) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -18,6 +25,21 @@ export default function AddBookForm() {
     publicationYear: "",
     defaultRoyaltyRate: "25", // Default 25%
   });
+
+  // Populate form with initial data if editing
+  useEffect(() => {
+    if (initialData && mode === 'edit') {
+      setFormData({
+        title: initialData.title,
+        authors: initialData.authors,
+        isbn13: initialData.isbn13 || "",
+        isbn10: initialData.isbn10 || "",
+        publicationMonth: initialData.publicationMonth || "",
+        publicationYear: initialData.publicationYear?.toString() || "",
+        defaultRoyaltyRate: initialData.defaultRoyaltyRate.toString(),
+      });
+    }
+  }, [initialData, mode]);
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({
@@ -94,7 +116,7 @@ export default function AddBookForm() {
     }
 
     try {
-      const result = await createBook({
+      const bookData = {
         title: formData.title.trim(),
         authors: formData.authors.trim(),
         isbn13: isbn13 || undefined,
@@ -102,13 +124,24 @@ export default function AddBookForm() {
         publicationMonth: formData.publicationMonth || undefined,
         publicationYear: publicationYear,
         defaultRoyaltyRate: royaltyRate,
-      });
+      };
+
+      let result;
+      if (mode === 'edit' && bookId) {
+        result = await updateBook({
+          id: bookId,
+          ...bookData,
+        });
+      } else {
+        result = await createBook(bookData);
+      }
 
       if (result.success) {
-        // Redirect to the new book's detail page
-        router.push(`/books/${result.bookId}`);
+        // Redirect to the book's detail page
+        const redirectId = mode === 'edit' ? bookId : result.bookId;
+        router.push(`/books/${redirectId}`);
       } else {
-        setError(result.error || "Failed to create book");
+        setError(result.error || `Failed to ${mode} book`);
         setIsSubmitting(false);
       }
     } catch (err: unknown) {
@@ -358,7 +391,7 @@ export default function AddBookForm() {
             isSubmitting && "opacity-50 cursor-not-allowed"
           )}
         >
-          {isSubmitting ? "Creating..." : "Create Book"}
+          {isSubmitting ? (mode === 'edit' ? "Updating..." : "Creating...") : (mode === 'edit' ? "Update Book" : "Create Book")}
         </button>
       </div>
     </form>
