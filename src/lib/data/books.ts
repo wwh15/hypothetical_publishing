@@ -166,39 +166,42 @@ export async function createBook(input: CreateBookInput): Promise<{ success: tru
       ? input.defaultRoyaltyRate / 100 
       : 0.25; // Default to 25%
 
-    // Find or create authors
-    const authorConnections = await Promise.all(
-      authorNames.map(async (name) => {
-        // Try to find existing author
-        let author = await prisma.author.findUnique({
-          where: { name },
-        });
-
-        // Create if doesn't exist
-        if (!author) {
-          author = await prisma.author.create({
-            data: { name },
+    // Wrap author creation and book creation in a single transaction
+    const book = await prisma.$transaction(async (tx) => {
+      // Find or create authors within the transaction
+      const authorConnections = await Promise.all(
+        authorNames.map(async (name) => {
+          // Try to find existing author
+          let author = await tx.author.findUnique({
+            where: { name },
           });
-        }
 
-        return { id: author.id };
-      })
-    );
+          // Create if doesn't exist
+          if (!author) {
+            author = await tx.author.create({
+              data: { name },
+            });
+          }
 
-    // Create the book
-    const book = await prisma.book.create({
-      data: {
-        title: input.title,
-        isbn13: input.isbn13 || null,
-        isbn10: input.isbn10 || null,
-        authorRoyaltyRate,
-        authors: {
-          connect: authorConnections,
+          return { id: author.id };
+        })
+      );
+
+      // Create the book, connected to all authors
+      return tx.book.create({
+        data: {
+          title: input.title,
+          isbn13: input.isbn13 || null,
+          isbn10: input.isbn10 || null,
+          authorRoyaltyRate,
+          authors: {
+            connect: authorConnections,
+          },
         },
-      },
-      include: {
-        authors: true,
-      },
+        include: {
+          authors: true,
+        },
+      });
     });
 
     return { success: true, bookId: book.id };

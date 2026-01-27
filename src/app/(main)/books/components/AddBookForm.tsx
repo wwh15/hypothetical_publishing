@@ -104,15 +104,19 @@ export default function AddBookForm() {
         defaultRoyaltyRate: royaltyRate,
       });
 
-      if (result.success && result.bookId) {
+      if (result.success) {
         // Redirect to the new book's detail page
         router.push(`/books/${result.bookId}`);
       } else {
         setError(result.error || "Failed to create book");
         setIsSubmitting(false);
       }
-    } catch (err: any) {
-      setError(err.message || "An unexpected error occurred");
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message || "An unexpected error occurred");
+      } else {
+        setError("An unexpected error occurred");
+      }
       setIsSubmitting(false);
     }
   };
