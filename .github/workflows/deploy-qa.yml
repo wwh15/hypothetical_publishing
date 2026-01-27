@@ -23,9 +23,9 @@ jobs:
             git reset --hard origin/qa
 
             cd /opt/hypothetical_publishing-qa/repo/docker/qa
-            docker compose --env-file /opt/hypothetical_publishing-qa/repo/qa/qa.env up -d --build
+            docker compose --env-file /opt/hypothetical_publishing-qa/.env up -d --build
 
-            docker compose --env-file /opt/hypothetical_publishing-qa/repo/qa/qa.env run --rm app \
+            docker compose --env-file /opt/hypothetical_publishing-qa/.env run --rm app \
               npx prisma migrate deploy --schema=src/prisma/schema.prisma
 
             docker compose --env-file /opt/hypothetical_publishing-qa/.env up -d
