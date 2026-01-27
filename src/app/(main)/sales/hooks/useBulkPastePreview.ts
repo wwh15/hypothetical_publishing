@@ -9,6 +9,7 @@ export type ParsedSaleRow = {
   isbn: string;
   quantity: number;
   revenue: number;
+  authorRoyalty?: number;
   raw: string;
 };
 
@@ -21,19 +22,29 @@ export type InvalidSaleRow = {
 const MONTH_RE = /^(0[1-9]|1[0-2])-(\d{4})$/;
 const ISBN_RE = /^\d{10}(\d{3})?$/;
 
+// Expected format for a given line is MM-YYYY,ISBN,Quantity,PublisherRevenue,AuthorRoyalty (optional)
+// AuthorRoyalty is optional
+
 function parseLine(line: string, lineNumber: number) {
   const parts = line.split(",").map((p) => p.trim());
-  if (parts.length !== 4) {
+  
+  if (parts.length === 4) {
+    return extractFields(parts, line, lineNumber);
+  } else if (parts.length === 5) {
+    return extractFields(parts, line, lineNumber);
+  } else {
     return {
       invalid: {
         line: lineNumber,
         raw: line,
-        reason: "Expected 4 comma-separated fields",
+        reason: "Expected either 4 or 5 comma-separated fields. Please ensure all fields are specified.",
       } satisfies InvalidSaleRow,
     };
   }
+}
 
-  const [monthYear, isbnRaw, quantityRaw, revenueRaw] = parts;
+function extractFields(parts: string[], line: string, lineNumber: number) {
+  const [monthYear, isbnRaw, quantityRaw, revenueRaw, authorRoyaltyRaw] = parts;
 
   // Normalize ISBN: remove all non-digits (spaces, dashes, etc.)
   const isbnDigits = isbnRaw.replace(/\D/g, "");
@@ -80,18 +91,51 @@ function parseLine(line: string, lineNumber: number) {
     };
   }
 
+  // Handle optional author royalty field
+  let authorRoyalty: number | undefined;
+  if (authorRoyaltyRaw !== undefined && authorRoyaltyRaw.trim() !== "") {
+    const parsedRoyalty = Number.parseFloat(authorRoyaltyRaw);
+    if (Number.isNaN(parsedRoyalty)) {
+      return {
+        invalid: {
+          line: lineNumber,
+          raw: line,
+          reason: "AuthorRoyalty must be a number",
+        } satisfies InvalidSaleRow,
+      };
+    }
+    
+    if (parsedRoyalty >= revenue) {
+      return {
+        invalid: {
+          line: lineNumber,
+          raw: line,
+          reason: "AuthorRoyalty must be less than PublisherRevenue",
+        } satisfies InvalidSaleRow,
+      };
+    }
+    
+    authorRoyalty = parsedRoyalty;
+  }
+
   const [month, year] = monthYear.split("-");
 
+  const result: ParsedSaleRow = {
+    line: lineNumber,
+    month,
+    year,
+    isbn: isbnDigits,
+    quantity,
+    revenue,
+    raw: line,
+  };
+
+  if (authorRoyalty !== undefined) {
+    result.authorRoyalty = authorRoyalty;
+  }
+
   return {
-    valid: {
-      line: lineNumber,
-      month,
-      year,
-      isbn: isbnDigits,
-      quantity,
-      revenue,
-      raw: line,
-    } satisfies ParsedSaleRow,
+    valid: result,
   };
 }
 

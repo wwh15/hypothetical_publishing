@@ -34,17 +34,28 @@ export function useBulkPasteSubmit(
   }, [books]);
 
   function submitFromRows(rows: ParsedSaleRow[]) {
+    const missingBooks: string[] = [];
+
     rows.forEach((row) => {
       const book = isbnLookup.get(row.isbn);
       if (!book) {
-        // Add logic to alert publisher and force them to create book/record
-        // Or force full details always but handle adding new data to database
+        missingBooks.push(`ISBN ${row.isbn} (Line ${row.line})`);
         return;
       }
 
       const date = `${row.month}-${row.year}`;
       const publisherRevenue = row.revenue;
-      const authorRoyalty = publisherRevenue * book.authorRoyaltyRate;
+      
+      // Compute expected royalty from book rate
+      const computedRoyalty = publisherRevenue * book.authorRoyaltyRate;
+      
+      // Use provided royalty if it exists, otherwise use computed
+      const authorRoyalty = row.authorRoyalty ?? computedRoyalty;
+      
+      // Check if overridden: provided royalty exists and differs from computed
+      const royaltyOverridden =
+        row.authorRoyalty !== undefined &&
+        Math.abs(row.authorRoyalty - computedRoyalty) > 0.01; // Small tolerance for floating point
 
       const record: PendingSaleItem = {
         bookId: book.id,
@@ -54,12 +65,17 @@ export function useBulkPasteSubmit(
         quantity: row.quantity,
         publisherRevenue,
         authorRoyalty,
-        royaltyOverridden: false,
+        royaltyOverridden,
         paid: false,
       };
 
       onAddRecord(record);
     });
+
+    if (missingBooks.length > 0) {
+      console.warn("Missing books:", missingBooks);
+      // Alert is handled in the component, but log here for debugging
+    }
   }
 
   return { submitFromRows };

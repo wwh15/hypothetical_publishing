@@ -69,6 +69,39 @@ export default function BulkPasteSalesPanel({
     return map;
   }, [booksData]);
 
+  // Compute royalties and detect overrides
+  const rowsWithRoyalty = useMemo(() => {
+    return previewRows.map((row) => {
+      const book = isbnLookup.get(row.isbn);
+      const computedRoyalty = book
+        ? row.revenue * book.authorRoyaltyRate
+        : undefined;
+      const providedRoyalty = row.authorRoyalty;
+      
+      // Determine final royalty: use provided if exists, otherwise computed
+      const finalRoyalty = providedRoyalty ?? computedRoyalty;
+      
+      // Check if overridden: provided royalty exists and differs from computed
+      const isOverridden =
+        providedRoyalty !== undefined &&
+        computedRoyalty !== undefined &&
+        Math.abs(providedRoyalty - computedRoyalty) > 0.01; // Small tolerance for floating point
+
+      return {
+        ...row,
+        book,
+        computedRoyalty,
+        finalRoyalty,
+        isOverridden,
+      };
+    });
+  }, [previewRows, isbnLookup]);
+
+  // Find rows with missing books
+  const missingBookRows = useMemo(() => {
+    return rowsWithRoyalty.filter((row) => !row.book);
+  }, [rowsWithRoyalty]);
+
   return (
     <Card className="mb-6">
       <CardHeader>
@@ -83,7 +116,7 @@ export default function BulkPasteSalesPanel({
         <div className="rounded-lg border bg-muted/30 p-4 text-sm">
           <div className="font-medium mb-2">Expected format</div>
           <pre className="whitespace-pre-wrap text-xs text-muted-foreground">
-            MM-YYYY,ISBN,Quantity,PublisherRevenue
+            MM-YYYY,ISBN,Quantity,PublisherRevenue,AuthorRoyalty (optional)
           </pre>
         </div>
 
@@ -111,20 +144,22 @@ export default function BulkPasteSalesPanel({
 
           {previewRows.length ? (
             <div className="space-y-1">
-              {previewRows.map((row) => {
-                const book = isbnLookup.get(row.isbn);
-
+              {rowsWithRoyalty.map((row) => {
                 return (
                   <div
                     key={`${row.line}-${row.isbn}-${row.quantity}`}
-                    className="rounded border bg-background px-3 py-2 text-xs flex flex-col gap-1"
+                    className={`rounded border px-3 py-2 text-xs flex flex-col gap-1 ${
+                      !row.book
+                        ? "bg-destructive/5 border-destructive/30"
+                        : "bg-background"
+                    }`}
                   >
                     <div className="flex flex-wrap items-baseline gap-2">
                       <span className="font-semibold">
-                        {book ? book.title : "Unknown title"}
+                        {row.book ? row.book.title : "Unknown title"}
                       </span>
                       <span className="text-muted-foreground">
-                        {book ? book.author.name : "Unknown author"}
+                        {row.book ? row.book.author.name : "Unknown author"}
                       </span>
                     </div>
                     <div className="flex flex-wrap gap-3">
@@ -142,6 +177,25 @@ export default function BulkPasteSalesPanel({
                           maximumFractionDigits: 2,
                         })}
                       </span>
+                      {row.finalRoyalty !== undefined && (
+                        <span className="font-mono">
+                          Royalty:{" "}
+                          {row.finalRoyalty.toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
+                          {row.isOverridden && (
+                            <span className="ml-1 text-orange-600 font-semibold">
+                              (Overridden)
+                            </span>
+                          )}
+                        </span>
+                      )}
+                      {!row.book && (
+                        <span className="text-destructive font-semibold">
+                          ⚠️ Book not found. Please add the specified book to database.
+                        </span>
+                      )}
                     </div>
                   </div>
                 );
@@ -189,10 +243,17 @@ export default function BulkPasteSalesPanel({
         <Button
           type="button"
           onClick={() => {
+            if (missingBookRows.length > 0) {
+              alert(
+                `Cannot submit: ${missingBookRows.length} book(s) not found. Please add the missing books to the database first.`
+              );
+              return;
+            }
             submitFromRows(previewRows);
             clearPreview();
             setText("");
           }}
+          disabled={previewRows.length === 0 || missingBookRows.length > 0}
         >
           Add valid rows
         </Button>
