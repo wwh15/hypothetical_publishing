@@ -16,6 +16,7 @@ import { useBulkPastePreview } from "../hooks/useBulkPastePreview";
 import { useBulkPasteSubmit } from "../hooks/useBulkPasteSubmit";
 import { PendingSaleItem } from "@/lib/data/records";
 import { BookListItem } from "@/lib/data/books";
+import AddBookModal from "./AddBookModal";
 
 
 
@@ -71,10 +72,10 @@ export default function BulkPasteSalesPanel({
         ? row.revenue * book.defaultRoyaltyRate / 100
         : undefined;
       const providedRoyalty = row.authorRoyalty;
-      
+
       // Determine final royalty: use provided if exists, otherwise computed
       const finalRoyalty = providedRoyalty ?? computedRoyalty;
-      
+
       // Check if overridden: provided royalty exists and differs from computed
       const isOverridden =
         providedRoyalty !== undefined &&
@@ -186,9 +187,12 @@ export default function BulkPasteSalesPanel({
                         </span>
                       )}
                       {!row.book && (
-                        <span className="text-destructive font-semibold">
-                          ⚠️ Book not found. Please add the specified book to database.
-                        </span>
+                        <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                          <span className="text-destructive font-semibold">
+                            ⚠️ Book not found. Please add the specified book to
+                            database.
+                          </span>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -239,7 +243,7 @@ export default function BulkPasteSalesPanel({
           onClick={() => {
             if (missingBookRows.length > 0) {
               alert(
-                `Cannot submit: ${missingBookRows.length} book(s) not found. Please add the missing books to the database first.`
+                `Cannot submit: ${missingBookRows.length} book(s) not found. Please add the missing books to the database first.`,
               );
               return;
             }
@@ -251,6 +255,7 @@ export default function BulkPasteSalesPanel({
         >
           Add valid rows
         </Button>
+        <AddBookModal />
       </CardFooter>
     </Card>
   );

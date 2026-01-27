@@ -88,7 +88,7 @@ export default function PendingRecordsTable({
   ];
 
   return (
-    <div className="mb-6">
+    <div className="mb-6 mt-6">
       <h2 className="text-xl font-semibold mb-4">
         Pending Records ({pendingRecords.length})
       </h2>
