@@ -15,6 +15,26 @@ export default async function Navbar() {
         <div className="flex items-center gap-4">
           {user ? (
             <>
+              <nav className="flex items-center gap-4">
+                <Link
+                  href="/books"
+                  className="text-sm text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                >
+                  Books
+                </Link>
+                <Link
+                  href="/sales"
+                  className="text-sm text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                >
+                  Sales
+                </Link>
+                <Link
+                  href="/sales/add-record"
+                  className="text-sm text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                >
+                  Add Record
+                </Link>
+              </nav>
               <span className="text-sm text-gray-600 dark:text-gray-400">
                 {user.email}
               </span>
