@@ -48,24 +48,99 @@ export interface BookDetail {
 }
 
 // Database functions
-export async function getBooksData(): Promise<BookListItem[]> {
-  const books = await prisma.book.findMany({
-    include: {
-      authors: true,
-      sales: true, // Include sales to calculate totalSales
-    },
-    orderBy: {
-      title: 'asc',
-    },
-  });
+export async function getBooksData({
+  search,
+  page = 1,
+  pageSize = 20,
+}: {
+  search?: string;
+  page?: number;
+  pageSize?: number;
+}): Promise<{
+  items: BookListItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+}> {
+  const currentPage = Math.max(1, page || 1);
+  const limit = Math.max(1, Math.min(pageSize || 20, 100));
 
-  return books.map(book => {
+  // Build search filter
+  const where: any = {};
+
+  const trimmedSearch = search?.trim();
+  if (trimmedSearch) {
+    const query = trimmedSearch;
+    const normalizedIsbn = trimmedSearch.replace(/[-\s]/g, "");
+
+    const orConditions: any[] = [
+      // Title match (case-insensitive)
+      {
+        title: {
+          contains: query,
+          mode: "insensitive",
+        },
+      },
+      // Author name match (case-insensitive)
+      {
+        authors: {
+          some: {
+            name: {
+              contains: query,
+              mode: "insensitive",
+            },
+          },
+        },
+      },
+    ];
+
+    // Only add ISBN conditions if we have a normalized ISBN (not empty after removing dashes/spaces)
+    if (normalizedIsbn) {
+      orConditions.push(
+        // ISBN-13 match (stored without dashes)
+        {
+          isbn13: {
+            contains: normalizedIsbn,
+          },
+        },
+        // ISBN-10 match (stored without dashes)
+        {
+          isbn10: {
+            contains: normalizedIsbn,
+          },
+        },
+      );
+    }
+
+    where.OR = orConditions;
+  }
+
+  const [books, total] = await Promise.all([
+    prisma.book.findMany({
+      where,
+      include: {
+        authors: true,
+        sales: true, // Include sales to calculate totalSales
+      },
+      orderBy: {
+        title: "asc",
+      },
+      skip: (currentPage - 1) * limit,
+      take: limit,
+    }),
+    prisma.book.count({ where }),
+  ]);
+
+  const items: BookListItem[] = books.map((book) => {
     // Calculate total sales (sum of quantity from all sales)
-    const totalSales = book.sales.reduce((sum, sale) => sum + sale.quantity, 0);
-    
+    const totalSales = book.sales.reduce(
+      (sum, sale) => sum + sale.quantity,
+      0,
+    );
+
     // Join authors into a comma-separated string
-    const authors = book.authors.map(a => a.name).join(", ");
-    
+    const authors = book.authors.map((a) => a.name).join(", ");
+
     // Convert authorRoyaltyRate from decimal (0.25) to percentage (25)
     const defaultRoyaltyRate = Math.round(book.authorRoyaltyRate * 100);
 
@@ -81,6 +156,13 @@ export async function getBooksData(): Promise<BookListItem[]> {
       totalSales,
     };
   });
+
+  return {
+    items,
+    total,
+    page: currentPage,
+    pageSize: limit,
+  };
 }
 
 export async function getBookById(id: number): Promise<BookDetail | null> {
