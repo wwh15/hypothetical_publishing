@@ -41,7 +41,7 @@ export async function signIn(formData: FormData) {
   }
 
   revalidatePath("/", "layout");
-  redirect("/books");
+  redirect("/");
 }
 
 export async function signOut() {
