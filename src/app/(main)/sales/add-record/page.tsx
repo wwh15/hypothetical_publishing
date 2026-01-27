@@ -7,6 +7,7 @@ import { PendingSaleItem } from "@/lib/data/records";
 import { X } from "lucide-react";
 import PendingRecordsTable from "@/app/(main)/sales/components/PendingRecordsTable";
 import InputRecordForm from "@/app/(main)/sales/components/InputRecordForm";
+import BulkPasteSalesPanel from "../components/BulkPasteSalesPanel";
 
 export default function SalesInputPage() {
   // Mock pending records for now - you'll replace this with actual state management
@@ -65,7 +66,7 @@ export default function SalesInputPage() {
           Input sales records and review before submitting to the database.
         </p>
       </div>
-
+      <BulkPasteSalesPanel />
       {/* Input form will go here */}
       <InputRecordForm onAddRecord={handleAddRecord}/>
 

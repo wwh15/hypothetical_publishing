@@ -147,6 +147,15 @@ export default function InputRecordForm({ onAddRecord }: InputRecordFormProps) {
       onSubmit={handleSubmit}
       className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6"
     >
+      <div className="mb-6 pb-4 border-b border-gray-200 dark:border-gray-700">
+        <h2 className="text-xl font-semibold tracking-tight">
+          Add single sales record
+        </h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Select the details for a sales record to add to the pending table.
+        </p>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {/* Month */}
         <FormField label="Month" required htmlFor="month">
