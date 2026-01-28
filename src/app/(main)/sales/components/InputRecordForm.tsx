@@ -19,93 +19,8 @@ interface Book {
 
 interface InputRecordFormProps {
   onAddRecord: (record: PendingSaleItem) => void;
+  booksData: Book[];
 }
-
-// Mock books data - replace with real API call when books API is ready
-const MOCK_BOOKS: Book[] = [
-  // Books with single author
-  {
-    id: 1,
-    title: "The Test Novel",
-    author: { name: "Alice Johnson" },
-    authorRoyaltyRate: 0.25,
-    isbn13: "9781234567890",
-    isbn10: "1234567890",
-  },
-  {
-    id: 2,
-    title: "Sample Story",
-    author: { name: "Bob Smith" },
-    authorRoyaltyRate: 0.25,
-    isbn13: "9780987654321",
-    isbn10: "0987654321",
-  },
-  {
-    id: 3,
-    title: "Example Book",
-    author: { name: "Carol Williams" },
-    authorRoyaltyRate: 0.25,
-    isbn13: "9781122334455",
-    isbn10: "1122334455",
-  },
-  {
-    id: 4,
-    title: "Demo Fiction",
-    author: { name: "David Brown" },
-    authorRoyaltyRate: 0.25,
-    isbn13: "9785566778899",
-    isbn10: "5566778899",
-  },
-  {
-    id: 5,
-    title: "Test Data Chronicles",
-    author: { name: "Emma Davis" },
-    authorRoyaltyRate: 0.25,
-    isbn13: "9786677889900",
-    isbn10: "6677889900",
-  },
-  // Books with multiple authors
-  {
-    id: 6,
-    title: "Collaborative Work",
-    author: { name: "Alice Johnson, Bob Smith" },
-    authorRoyaltyRate: 0.25,
-    isbn13: "9782233445566",
-    isbn10: "2233445566",
-  },
-  {
-    id: 7,
-    title: "Joint Publication",
-    author: { name: "David Brown, Carol Williams" },
-    authorRoyaltyRate: 0.25,
-    isbn13: "9783344556677",
-    isbn10: "3344556677",
-  },
-  {
-    id: 8,
-    title: "Multi-Author Project",
-    author: { name: "Bob Smith, Alice Johnson, Carol Williams" },
-    authorRoyaltyRate: 0.25,
-    isbn13: "9784455667788",
-    isbn10: "4455667788",
-  },
-  {
-    id: 9,
-    title: "Team Effort",
-    author: { name: "Emma Davis, David Brown" },
-    authorRoyaltyRate: 0.25,
-    isbn13: "9787788990011",
-    isbn10: "7788990011",
-  },
-  {
-    id: 10,
-    title: "Group Collaboration",
-    author: { name: "Carol Williams, Emma Davis, Bob Smith" },
-    authorRoyaltyRate: 0.25,
-    isbn13: "9788899001122",
-    isbn10: "8899001122",
-  },
-];
 
 // Simple FormField wrapper component
 function FormField({
@@ -132,8 +47,8 @@ function FormField({
   );
 }
 
-export default function InputRecordForm({ onAddRecord }: InputRecordFormProps) {
-  const [books] = useState<Book[]>(MOCK_BOOKS);
+export default function InputRecordForm({ onAddRecord, booksData }: InputRecordFormProps) {
+  const [books] = useState<Book[]>(booksData);
   const {
     formData,
     handleInputChange,
@@ -147,6 +62,15 @@ export default function InputRecordForm({ onAddRecord }: InputRecordFormProps) {
       onSubmit={handleSubmit}
       className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6"
     >
+      <div className="mb-6 pb-4 border-b border-gray-200 dark:border-gray-700">
+        <h2 className="text-xl font-semibold tracking-tight">
+          Add single sales record
+        </h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Select the details for a sales record to add to the pending table.
+        </p>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {/* Month */}
         <FormField label="Month" required htmlFor="month">
