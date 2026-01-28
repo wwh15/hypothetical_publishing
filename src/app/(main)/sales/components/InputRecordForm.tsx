@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useSalesForm } from "../hooks/useSalesForm";
 import { BookSelectBox } from "@/components/BookSelectBox";
+import { BookListItem } from "@/lib/data/books";
 
 interface Book {
   id: number;
@@ -19,7 +20,7 @@ interface Book {
 
 interface InputRecordFormProps {
   onAddRecord: (record: PendingSaleItem) => void;
-  booksData: Book[];
+  booksData: BookListItem[];
 }
 
 // Simple FormField wrapper component
@@ -48,7 +49,7 @@ function FormField({
 }
 
 export default function InputRecordForm({ onAddRecord, booksData }: InputRecordFormProps) {
-  const [books] = useState<Book[]>(booksData);
+  const [books] = useState<BookListItem[]>(booksData);
   const {
     formData,
     handleInputChange,
