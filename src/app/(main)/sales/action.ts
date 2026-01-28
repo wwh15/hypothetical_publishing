@@ -7,9 +7,22 @@ import asyncGetSalesData, {
   asyncUpdateSale,
   toSaleListItem,
   SaleListItem,
+  asyncAddSale,
 } from "@/lib/data/records";
+import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+
+export async function addSale(data: Prisma.SaleUncheckedCreateInput) {
+  try {
+    await asyncAddSale(data);
+    revalidatePath("/sales/records");
+    revalidatePath("/sales/add-record");
+    return { success: true };
+  } catch {
+    return { success: false, error: "Failed to add sale" };
+  }
+}
 
 export async function updateSale(
   id: number,

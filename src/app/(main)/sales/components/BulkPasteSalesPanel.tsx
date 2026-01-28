@@ -15,15 +15,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { useBulkPastePreview } from "../hooks/useBulkPastePreview";
 import { useBulkPasteSubmit } from "../hooks/useBulkPasteSubmit";
 import { PendingSaleItem } from "@/lib/data/records";
+import { BookListItem } from "@/lib/data/books";
 
-interface Book {
-  id: number;
-  title: string;
-  author: { name: string };
-  authorRoyaltyRate: number;
-  isbn13?: string | null;
-  isbn10?: string | null;
-}
+
 
 // Examples of lines to paste in bulk form
 // 01-2026,9781234567890,120,4125.50
@@ -39,7 +33,7 @@ interface Book {
 
 interface BulkPasteSalesPanelProps {
   onAddRecord: (record: PendingSaleItem) => void;
-  booksData: Book[];
+  booksData: BookListItem[];
 }
 
 export default function BulkPasteSalesPanel({
@@ -53,7 +47,7 @@ export default function BulkPasteSalesPanel({
   const { submitFromRows } = useBulkPasteSubmit(booksData, onAddRecord);
 
   const isbnLookup = useMemo(() => {
-    const map = new Map<string, Book>();
+    const map = new Map<string, BookListItem>();
 
     const normalize = (isbn?: string | null) =>
       isbn ? isbn.replace(/\D/g, "") : null;
@@ -74,7 +68,7 @@ export default function BulkPasteSalesPanel({
     return previewRows.map((row) => {
       const book = isbnLookup.get(row.isbn);
       const computedRoyalty = book
-        ? row.revenue * book.authorRoyaltyRate
+        ? row.revenue * book.defaultRoyaltyRate / 100
         : undefined;
       const providedRoyalty = row.authorRoyalty;
       
@@ -159,7 +153,7 @@ export default function BulkPasteSalesPanel({
                         {row.book ? row.book.title : "Unknown title"}
                       </span>
                       <span className="text-muted-foreground">
-                        {row.book ? row.book.author.name : "Unknown author"}
+                        {row.book ? row.book.authors : "Unknown author(s)"}
                       </span>
                     </div>
                     <div className="flex flex-wrap gap-3">
