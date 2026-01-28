@@ -14,9 +14,22 @@ import {
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-// Get books list data
-export async function getBooksData(): Promise<BookListItem[]> {
-  return getBooksDataFromDb();
+// Get books list data with server-side search & pagination
+export async function getBooksData({
+  search,
+  page,
+  pageSize,
+}: {
+  search?: string;
+  page?: number;
+  pageSize?: number;
+}): Promise<{
+  items: BookListItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+}> {
+  return getBooksDataFromDb({ search, page, pageSize });
 }
 
 // Get book by ID
@@ -190,13 +203,13 @@ export async function fetchBookFromOpenLibrary(isbn: string): Promise<{
 // Create a new book
 export async function createBook(input: CreateBookInput) {
   const result = await createBookInDb(input);
-  
+
   // Revalidate the books pages after successful creation
   if (result.success) {
-    revalidatePath('/books');
+    revalidatePath("/books");
     revalidatePath(`/books/${result.bookId}`);
   }
-  
+
   return result;
 }
 
