@@ -7,7 +7,7 @@ export interface BookListItem {
     authors: string;
     isbn13: string | null;
     isbn10: string | null;
-    publicationMonth: string | null;
+    publicationMonth: string | null; // "01" to "12"
     publicationYear: number | null;
     defaultRoyaltyRate: number; // As percentage (e.g., 50 for 50%)
     totalSales: number; // Total sales to date
@@ -19,7 +19,7 @@ export interface CreateBookInput {
     authors: string; // later: could be string[] when authors becomes a relation
     isbn13?: string;
     isbn10?: string;
-    publicationMonth?: string; // "01" - "12"
+    publicationMonth?: string; // "01" to "12"
     publicationYear?: number;
     defaultRoyaltyRate?: number; // percentage (e.g., 50), default handled by server
 }
@@ -34,7 +34,7 @@ export interface BookDetail {
     authors: string;
     isbn13: string | null;
     isbn10: string | null;
-    publicationMonth: string | null;
+    publicationMonth: string | null; // "01" to "12"
     publicationYear: number | null;
     defaultRoyaltyRate: number;
     createdAt: Date;
@@ -75,8 +75,8 @@ export async function getBooksData(): Promise<BookListItem[]> {
       authors,
       isbn13: book.isbn13,
       isbn10: book.isbn10,
-      publicationMonth: null, // Not in schema
-      publicationYear: null, // Not in schema
+      publicationMonth: book.publicationMonth,
+      publicationYear: book.publicationYear,
       defaultRoyaltyRate,
       totalSales,
     };
@@ -135,8 +135,8 @@ export async function getBookById(id: number): Promise<BookDetail | null> {
     authors,
     isbn13: book.isbn13,
     isbn10: book.isbn10,
-    publicationMonth: null, // Not in schema
-    publicationYear: null, // Not in schema
+    publicationMonth: book.publicationMonth,
+    publicationYear: book.publicationYear,
     defaultRoyaltyRate,
     createdAt: book.createdAt,
     updatedAt: book.updatedAt,
@@ -194,6 +194,8 @@ export async function createBook(input: CreateBookInput): Promise<{ success: tru
           isbn13: input.isbn13 || null,
           isbn10: input.isbn10 || null,
           authorRoyaltyRate,
+          publicationMonth: input.publicationMonth ?? null,
+          publicationYear: input.publicationYear ?? null,
           authors: {
             connect: authorConnections,
           },
@@ -274,6 +276,8 @@ export async function updateBook(input: UpdateBookInput): Promise<{ success: tru
         if (input.defaultRoyaltyRate !== undefined) {
           updateData.authorRoyaltyRate = input.defaultRoyaltyRate / 100;
         }
+        if (input.publicationMonth !== undefined) updateData.publicationMonth = input.publicationMonth ?? null;
+        if (input.publicationYear !== undefined) updateData.publicationYear = input.publicationYear ?? null;
 
         // Update authors if provided
         if (authorConnections) {
@@ -302,6 +306,8 @@ export async function updateBook(input: UpdateBookInput): Promise<{ success: tru
       if (input.defaultRoyaltyRate !== undefined) {
         updateData.authorRoyaltyRate = input.defaultRoyaltyRate / 100;
       }
+      if (input.publicationMonth !== undefined) updateData.publicationMonth = input.publicationMonth ?? null;
+      if (input.publicationYear !== undefined) updateData.publicationYear = input.publicationYear ?? null;
 
       const updatedBook = await prisma.book.update({
         where: { id: input.id },
