@@ -303,3 +303,156 @@ export async function createBook(input: CreateBookInput): Promise<{ success: tru
     };
   }
 }
+
+export async function updateBook(input: UpdateBookInput): Promise<{ success: true; bookId: number } | { success: false; error: string }> {
+  try {
+    // Check if book exists
+    const existingBook = await prisma.book.findUnique({
+      where: { id: input.id },
+      include: { authors: true },
+    });
+
+    if (!existingBook) {
+      return { success: false, error: 'Book not found' };
+    }
+
+    // Parse authors if provided (comma-separated string)
+    let authorConnections: { id: number }[] | undefined;
+    if (input.authors !== undefined) {
+      const authorNames = input.authors
+        .split(',')
+        .map(name => name.trim())
+        .filter(name => name.length > 0);
+
+      if (authorNames.length === 0) {
+        return { success: false, error: 'At least one author is required' };
+      }
+
+      // Wrap author lookup/creation and book update in a transaction
+      const updatedBook = await prisma.$transaction(async (tx) => {
+        // Find or create authors within the transaction
+        authorConnections = await Promise.all(
+          authorNames.map(async (name) => {
+            let author = await tx.author.findUnique({
+              where: { name },
+            });
+
+            if (!author) {
+              author = await tx.author.create({
+                data: { name },
+              });
+            }
+
+            return { id: author.id };
+          })
+        );
+
+        // Update the book
+        const updateData: any = {};
+        
+        if (input.title !== undefined) updateData.title = input.title;
+        if (input.isbn13 !== undefined) updateData.isbn13 = input.isbn13 || null;
+        if (input.isbn10 !== undefined) updateData.isbn10 = input.isbn10 || null;
+        if (input.defaultRoyaltyRate !== undefined) {
+          updateData.authorRoyaltyRate = input.defaultRoyaltyRate / 100;
+        }
+
+        // Update authors if provided
+        if (authorConnections) {
+          // Disconnect all existing authors and connect new ones
+          updateData.authors = {
+            set: [], // Disconnect all
+            connect: authorConnections, // Connect new ones
+          };
+        }
+
+        return tx.book.update({
+          where: { id: input.id },
+          data: updateData,
+          include: { authors: true },
+        });
+      });
+
+      return { success: true, bookId: updatedBook.id };
+    } else {
+      // No author changes, just update other fields
+      const updateData: any = {};
+      
+      if (input.title !== undefined) updateData.title = input.title;
+      if (input.isbn13 !== undefined) updateData.isbn13 = input.isbn13 || null;
+      if (input.isbn10 !== undefined) updateData.isbn10 = input.isbn10 || null;
+      if (input.defaultRoyaltyRate !== undefined) {
+        updateData.authorRoyaltyRate = input.defaultRoyaltyRate / 100;
+      }
+
+      const updatedBook = await prisma.book.update({
+        where: { id: input.id },
+        data: updateData,
+        include: { authors: true },
+      });
+
+      return { success: true, bookId: updatedBook.id };
+    }
+  } catch (error: any) {
+    // Handle unique constraint violations (ISBN duplicates)
+    if (error.code === 'P2002') {
+      const field = error.meta?.target?.[0];
+      return { 
+        success: false, 
+        error: `A book with this ${field === 'isbn13' ? 'ISBN-13' : 'ISBN-10'} already exists` 
+      };
+    }
+    
+    return { 
+      success: false, 
+      error: error.message || 'Failed to update book' 
+    };
+  }
+}
+
+export async function deleteBook(id: number): Promise<{ success: true } | { success: false; error: string }> {
+  try {
+    // Check if book exists
+    const book = await prisma.book.findUnique({
+      where: { id },
+      include: {
+        sales: {
+          select: { id: true },
+          take: 1, // Just check if any sales exist
+        },
+      },
+    });
+
+    if (!book) {
+      return { success: false, error: 'Book not found' };
+    }
+
+    // Check if book has sales records
+    if (book.sales.length > 0) {
+      return { 
+        success: false, 
+        error: 'Cannot delete book with existing sales records. Please delete or reassign sales records first.' 
+      };
+    }
+
+    // Delete the book (authors will remain due to many-to-many relationship)
+    await prisma.book.delete({
+      where: { id },
+    });
+
+    return { success: true };
+  } catch (error: any) {
+    // Handle foreign key constraint violations
+    if (error.code === 'P2003') {
+      return { 
+        success: false, 
+        error: 'Cannot delete book: it has associated sales records' 
+      };
+    }
+    
+    return { 
+      success: false, 
+      error: error.message || 'Failed to delete book' 
+    };
+  }
+}

@@ -1,14 +1,25 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { createBook } from "../action";
+import { createBook, updateBook, fetchBookFromOpenLibrary } from "../action";
+import { BookDetail } from "@/lib/data/books";
 import { cn } from "@/lib/utils";
+import { Search, Loader2 } from "lucide-react";
 
-export default function AddBookForm() {
+interface BookFormProps {
+  bookId?: number;
+  initialData?: BookDetail;
+  mode?: 'create' | 'edit';
+}
+
+export default function BookForm({ bookId, initialData, mode = 'create' }: BookFormProps) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLookingUp, setIsLookingUp] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isbnLookup, setIsbnLookup] = useState("");
+  const [isImported, setIsImported] = useState(false);
   const [formData, setFormData] = useState({
     title: "",
     authors: "",
@@ -19,6 +30,21 @@ export default function AddBookForm() {
     defaultRoyaltyRate: "25", // Default 25%
   });
 
+  // Populate form with initial data if editing
+  useEffect(() => {
+    if (initialData && mode === 'edit') {
+      setFormData({
+        title: initialData.title,
+        authors: initialData.authors,
+        isbn13: initialData.isbn13 || "",
+        isbn10: initialData.isbn10 || "",
+        publicationMonth: initialData.publicationMonth || "",
+        publicationYear: initialData.publicationYear?.toString() || "",
+        defaultRoyaltyRate: initialData.defaultRoyaltyRate.toString(),
+      });
+    }
+  }, [initialData, mode]);
+
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({
       ...prev,
@@ -26,6 +52,47 @@ export default function AddBookForm() {
     }));
     // Clear error when user starts typing
     if (error) setError(null);
+    // Reset imported flag if user manually edits
+    if (isImported) setIsImported(false);
+  };
+
+  const handleIsbnLookup = async () => {
+    if (!isbnLookup.trim()) {
+      setError("Please enter an ISBN to lookup");
+      return;
+    }
+
+    setIsLookingUp(true);
+    setError(null);
+
+    try {
+      const result = await fetchBookFromOpenLibrary(isbnLookup.trim());
+
+      if (result.success) {
+        // Pre-populate form with fetched data
+        setFormData({
+          title: result.data.title || "",
+          authors: result.data.authors || "",
+          isbn13: result.data.isbn13 || "",
+          isbn10: result.data.isbn10 || "",
+          publicationMonth: result.data.publicationMonth || "",
+          publicationYear: result.data.publicationYear?.toString() || "",
+          defaultRoyaltyRate: "50", // Default to 50% for imported books
+        });
+        setIsImported(true);
+        setIsbnLookup(""); // Clear lookup input
+      } else {
+        setError(result.error || "Failed to fetch book data");
+      }
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message || "An unexpected error occurred");
+      } else {
+        setError("An unexpected error occurred");
+      }
+    } finally {
+      setIsLookingUp(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -94,7 +161,7 @@ export default function AddBookForm() {
     }
 
     try {
-      const result = await createBook({
+      const bookData = {
         title: formData.title.trim(),
         authors: formData.authors.trim(),
         isbn13: isbn13 || undefined,
@@ -102,13 +169,24 @@ export default function AddBookForm() {
         publicationMonth: formData.publicationMonth || undefined,
         publicationYear: publicationYear,
         defaultRoyaltyRate: royaltyRate,
-      });
+      };
+
+      let result;
+      if (mode === 'edit' && bookId) {
+        result = await updateBook({
+          id: bookId,
+          ...bookData,
+        });
+      } else {
+        result = await createBook(bookData);
+      }
 
       if (result.success) {
-        // Redirect to the new book's detail page
-        router.push(`/books/${result.bookId}`);
+        // Redirect to the book's detail page
+        const redirectId = mode === 'edit' ? bookId : result.bookId;
+        router.push(`/books/${redirectId}`);
       } else {
-        setError(result.error || "Failed to create book");
+        setError(result.error || `Failed to ${mode} book`);
         setIsSubmitting(false);
       }
     } catch (err: unknown) {
@@ -131,6 +209,67 @@ export default function AddBookForm() {
           {error}
         </div>
       )}
+
+      {/* ISBN Lookup Section */}
+      <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+        <h3 className="text-sm font-semibold mb-3 text-blue-900 dark:text-blue-100">
+          Import from Open Library
+        </h3>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={isbnLookup}
+            onChange={(e) => setIsbnLookup(e.target.value)}
+            placeholder="Enter ISBN-10 or ISBN-13"
+            className={cn(
+              "flex-1 h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background",
+              "placeholder:text-muted-foreground",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+              "disabled:cursor-not-allowed disabled:opacity-50",
+              "dark:bg-gray-700"
+            )}
+            disabled={isLookingUp}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                handleIsbnLookup();
+              }
+            }}
+          />
+          <button
+            type="button"
+            onClick={handleIsbnLookup}
+            disabled={isLookingUp || !isbnLookup.trim()}
+            className={cn(
+              "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium",
+              "h-10 px-4 py-2",
+              "bg-blue-600 text-white hover:bg-blue-700",
+              "disabled:opacity-50 disabled:cursor-not-allowed",
+              "transition-colors"
+            )}
+          >
+            {isLookingUp ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Looking up...
+              </>
+            ) : (
+              <>
+                <Search className="h-4 w-4" />
+                Lookup ISBN
+              </>
+            )}
+          </button>
+        </div>
+        <p className="text-xs text-muted-foreground mt-2">
+          Enter an ISBN to automatically fetch book information from Open Library. You can modify any fields before saving.
+        </p>
+        {isImported && (
+          <div className="mt-2 text-xs text-green-600 dark:text-green-400 font-medium">
+            ✓ Book data imported. Royalty rate set to 50% (default for imported books).
+          </div>
+        )}
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Title */}
@@ -320,13 +459,13 @@ export default function AddBookForm() {
               "disabled:cursor-not-allowed disabled:opacity-50",
               "dark:bg-gray-700"
             )}
-            placeholder="25"
+            placeholder="50"
             min="0"
             max="100"
             step="0.1"
           />
           <p className="text-xs text-muted-foreground">
-            Default: 25%. This is the percentage of publisher revenue that goes to authors.
+            Default: 50%. This is the percentage of publisher revenue that goes to authors.
           </p>
         </div>
       </div>
@@ -358,7 +497,7 @@ export default function AddBookForm() {
             isSubmitting && "opacity-50 cursor-not-allowed"
           )}
         >
-          {isSubmitting ? "Creating..." : "Create Book"}
+          {isSubmitting ? (mode === 'edit' ? "Updating..." : "Creating...") : (mode === 'edit' ? "Update Book" : "Create Book")}
         </button>
       </div>
     </form>
