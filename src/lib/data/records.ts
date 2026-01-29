@@ -4,6 +4,7 @@ import { prisma } from "../prisma";
 
 export interface SaleListItem {
   id: number;
+  bookId: number;
   title: string;
   author: string;
   date: string;
@@ -17,7 +18,7 @@ export interface PendingSaleItem {
   // No id - these aren't saved yet
   bookId: number;
   title: string;
-  author: string;
+  author: string[];
   date: string; // MM-YYYY format
   quantity: number;
   publisherRevenue: number;
@@ -47,6 +48,7 @@ export async function asyncGetSaleById(id: number) {
 // mapper used by list/payment screens
 export function toSaleListItem(sale: {
   id: number;
+  bookId: number;
   date: string;
   quantity: number;
   publisherRevenue: number;
@@ -56,6 +58,7 @@ export function toSaleListItem(sale: {
 }): SaleListItem {
   return {
     id: sale.id,
+    bookId: sale.bookId,
     title: sale.book.title,
     author: sale.book.authors.map((a) => a.name).join(", "),
     date: sale.date,
@@ -64,6 +67,10 @@ export function toSaleListItem(sale: {
     authorRoyalty: sale.authorRoyalty,
     paid: sale.paid ? "paid" : "pending",
   };
+}
+
+export async function asyncAddSale(data: Prisma.SaleUncheckedCreateInput) {
+  return await prisma.sale.create({ data });
 }
 
 // write ops moved here
@@ -77,7 +84,7 @@ export async function asyncUpdateSale(
     authorRoyalty?: number;
     royaltyOverridden?: boolean;
     paid?: boolean;
-  }
+  },
 ) {
   return await prisma.sale.update({ where: { id }, data });
 }
@@ -86,7 +93,10 @@ export async function asyncDeleteSale(id: number) {
   return await prisma.sale.delete({ where: { id } });
 }
 
-export async function asyncTogglePaidStatus(id: number, currentStatus: boolean) {
+export async function asyncTogglePaidStatus(
+  id: number,
+  currentStatus: boolean,
+) {
   return await prisma.sale.update({
     where: { id },
     data: { paid: !currentStatus },

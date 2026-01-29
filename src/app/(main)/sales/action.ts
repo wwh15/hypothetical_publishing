@@ -7,9 +7,24 @@ import asyncGetSalesData, {
   asyncUpdateSale,
   toSaleListItem,
   SaleListItem,
+  SaleDetailPayload,
+  asyncAddSale,
+  asyncGetSaleById,
 } from "@/lib/data/records";
+import { Prisma, Sale } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+
+export async function addSale(data: Prisma.SaleUncheckedCreateInput) {
+  try {
+    await asyncAddSale(data);
+    revalidatePath("/sales/records");
+    revalidatePath("/sales/add-record");
+    return { success: true };
+  } catch {
+    return { success: false, error: "Failed to add sale" };
+  }
+}
 
 export async function updateSale(
   id: number,
@@ -56,6 +71,10 @@ export async function togglePaidStatus(id: number, currentStatus: boolean) {
 export async function getSalesRecordData(): Promise<SaleListItem[]> {
   const sales = await asyncGetSalesData();
   return sales.map(toSaleListItem);
+}
+
+export async function getSaleById(id: number): Promise<SaleDetailPayload | null> {
+  return await asyncGetSaleById(id);
 }
 
 export async function getAuthorPaymentData() {

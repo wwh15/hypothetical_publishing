@@ -57,6 +57,7 @@ export default async function asyncGetAuthorPaymentData(): Promise<AuthorGroup[]
     book.sales.forEach((sale) => {
       group.sales.push({
         id: sale.id,
+        bookId: sale.bookId,
         title: book.title,
         author: book.authors.map(a => a.name).join(', '), // Show all authors
         date: sale.date,
