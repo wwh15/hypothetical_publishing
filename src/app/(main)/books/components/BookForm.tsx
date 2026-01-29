@@ -3,26 +3,31 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createBook, updateBook, fetchBookFromOpenLibrary } from "../action";
-import { BookDetail } from "@/lib/data/books";
+import { BookDetail, BookListItem } from "@/lib/data/books";
 import { cn } from "@/lib/utils";
 import { Search, Loader2 } from "lucide-react";
+import { title } from "process";
 
 interface BookFormProps {
   bookId?: number;
   initialData?: BookDetail;
   mode?: "create" | "edit";
+  initialIsbn?: string;
   inModal?: boolean;
   onModalSuccess?: () => void;
   onModalCancel?: () => void;
+  onBookCreated?: (book: BookListItem) => void;
 }
 
 export default function BookForm({
   bookId,
   initialData,
   mode = "create",
+  initialIsbn,
   inModal,
   onModalSuccess,
   onModalCancel,
+  onBookCreated,
 }: BookFormProps) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -54,6 +59,12 @@ export default function BookForm({
       });
     }
   }, [initialData, mode]);
+
+  useEffect(() => {
+    if (initialIsbn && mode === "create") {
+      setIsbnLookup(initialIsbn);
+    }
+  }, [mode, initialIsbn]);
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({
@@ -197,7 +208,29 @@ export default function BookForm({
       }
 
       if (result.success) {
+        let isbn13Val = isbn13 || null;
+        let isbn10Val = isbn10 || null;
+
+        if (initialIsbn) {
+          const n = initialIsbn.replace(/\D/g, "");
+          if (n.length === 13) isbn13Val = n;
+          else if (n.length === 10) isbn10Val = n;
+        }
+
         if (inModal && onModalSuccess) {
+          const book: BookListItem = {
+            id: result.bookId!,
+            title: formData.title.trim(),
+            authors: formData.authors.trim(),
+            isbn13: isbn13Val,
+            isbn10: isbn10Val,
+            publicationMonth: formData.publicationMonth || null,
+            publicationYear: publicationYear ?? null,
+            defaultRoyaltyRate: royaltyRate ?? 25,
+            totalSales: 0,
+          };
+
+          onBookCreated?.(book);
           setIsSubmitting(false);
           onModalSuccess();
         } else {
@@ -502,7 +535,7 @@ export default function BookForm({
       <div className="mt-6 flex justify-end gap-4">
         <button
           type="button"
-          onClick={() => inModal ? onModalCancel?.() : router.back()}
+          onClick={() => (inModal ? onModalCancel?.() : router.back())}
           className={cn(
             "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",

@@ -11,15 +11,22 @@ import {
 import BookForm from "../../books/components/BookForm";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { BookListItem } from "@/lib/data/books";
 
-export default function AddBookModal() {
+interface AddBookModalProps {
+  initialIsbn?: string;
+  inPreview?: boolean;
+  onBookCreated?: (book: BookListItem) => void;
+}
+
+export default function AddBookModal({ initialIsbn, inPreview = false, onBookCreated }: AddBookModalProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       {/* DialogTrigger wraps the button that opens the modal */}
       <DialogTrigger asChild>
-        <Button size="sm" variant="outline">
+        <Button size="sm" variant="outline" className={inPreview ? "h-7 px-2 text-xs" : ""}>
           Add Book
         </Button>
       </DialogTrigger>
@@ -31,15 +38,17 @@ export default function AddBookModal() {
         </DialogHeader>
 
         <BookForm
-        mode="create"
+          mode="create"
+          initialIsbn={initialIsbn}
           inModal={true}
           onModalSuccess={() => {
             setOpen(false);
-            router.refresh()
+            if (!inPreview) router.refresh();
           }}
           onModalCancel={() => {
             setOpen(false);
           }}
+          onBookCreated={onBookCreated}
         />
       </DialogContent>
     </Dialog>
