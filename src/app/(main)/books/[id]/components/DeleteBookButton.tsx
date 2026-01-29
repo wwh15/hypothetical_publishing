@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { deleteBook } from "../../action";
 import { cn } from "@/lib/utils";
 
@@ -11,7 +10,6 @@ interface DeleteBookButtonProps {
 }
 
 export default function DeleteBookButton({ bookId, bookTitle }: DeleteBookButtonProps) {
-  const router = useRouter();
   const [isDeleting, setIsDeleting] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 

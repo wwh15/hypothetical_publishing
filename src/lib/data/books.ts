@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "../prisma";
 
 // Flat Book type for table display (similar to Sale type)
@@ -66,14 +67,14 @@ export async function getBooksData({
   const limit = Math.max(1, Math.min(pageSize || 20, 100));
 
   // Build search filter
-  const where: any = {};
+  const where: Prisma.BookWhereInput = {};
 
   const trimmedSearch = search?.trim();
   if (trimmedSearch) {
     const query = trimmedSearch;
     const normalizedIsbn = trimmedSearch.replace(/[-\s]/g, "");
 
-    const orConditions: any[] = [
+    const orConditions: Prisma.BookWhereInput[] = [
       // Title match (case-insensitive)
       {
         title: {
@@ -290,19 +291,19 @@ export async function createBook(input: CreateBookInput): Promise<{ success: tru
     });
 
     return { success: true, bookId: book.id };
-  } catch (error: any) {
+  } catch (error: unknown) {
     // Handle unique constraint violations (ISBN duplicates)
-    if (error.code === 'P2002') {
-      const field = error.meta?.target?.[0];
-      return { 
-        success: false, 
-        error: `A book with this ${field === 'isbn13' ? 'ISBN-13' : 'ISBN-10'} already exists` 
+    if (error && typeof error === "object" && "code" in error && (error as { code: string }).code === "P2002") {
+      const field = (error as { meta?: { target?: string[] } }).meta?.target?.[0];
+      return {
+        success: false,
+        error: `A book with this ${field === "isbn13" ? "ISBN-13" : "ISBN-10"} already exists`,
       };
     }
-    
-    return { 
-      success: false, 
-      error: error.message || 'Failed to create book' 
+
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to create book",
     };
   }
 }
@@ -351,8 +352,8 @@ export async function updateBook(input: UpdateBookInput): Promise<{ success: tru
         );
 
         // Update the book
-        const updateData: any = {};
-        
+        const updateData: Prisma.BookUpdateInput = {};
+
         if (input.title !== undefined) updateData.title = input.title;
         if (input.isbn13 !== undefined) updateData.isbn13 = input.isbn13 || null;
         if (input.isbn10 !== undefined) updateData.isbn10 = input.isbn10 || null;
@@ -381,8 +382,8 @@ export async function updateBook(input: UpdateBookInput): Promise<{ success: tru
       return { success: true, bookId: updatedBook.id };
     } else {
       // No author changes, just update other fields
-      const updateData: any = {};
-      
+      const updateData: Prisma.BookUpdateInput = {};
+
       if (input.title !== undefined) updateData.title = input.title;
       if (input.isbn13 !== undefined) updateData.isbn13 = input.isbn13 || null;
       if (input.isbn10 !== undefined) updateData.isbn10 = input.isbn10 || null;
@@ -400,19 +401,19 @@ export async function updateBook(input: UpdateBookInput): Promise<{ success: tru
 
       return { success: true, bookId: updatedBook.id };
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     // Handle unique constraint violations (ISBN duplicates)
-    if (error.code === 'P2002') {
-      const field = error.meta?.target?.[0];
-      return { 
-        success: false, 
-        error: `A book with this ${field === 'isbn13' ? 'ISBN-13' : 'ISBN-10'} already exists` 
+    if (error && typeof error === "object" && "code" in error && (error as { code: string }).code === "P2002") {
+      const field = (error as { meta?: { target?: string[] } }).meta?.target?.[0];
+      return {
+        success: false,
+        error: `A book with this ${field === "isbn13" ? "ISBN-13" : "ISBN-10"} already exists`,
       };
     }
-    
-    return { 
-      success: false, 
-      error: error.message || 'Failed to update book' 
+
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to update book",
     };
   }
 }
@@ -448,18 +449,18 @@ export async function deleteBook(id: number): Promise<{ success: true } | { succ
     });
 
     return { success: true };
-  } catch (error: any) {
+  } catch (error: unknown) {
     // Handle foreign key constraint violations
-    if (error.code === 'P2003') {
-      return { 
-        success: false, 
-        error: 'Cannot delete book: it has associated sales records' 
-      };
+    if (error && typeof error === "object" && "code" in error && (error as { code: string }).code === "P2003") {
+    return {
+      success: false,
+      error: "Cannot delete book: it has associated sales records",
+    };
     }
-    
-    return { 
-      success: false, 
-      error: error.message || 'Failed to delete book' 
+
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to delete book",
     };
   }
 }

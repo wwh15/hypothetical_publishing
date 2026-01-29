@@ -1,8 +1,14 @@
 import { getBooksData } from "@/app/(main)/books/action";
 import SalesInputClient from "../components/SalesInputClient";
 
+export const dynamic = "force-dynamic";
+
 export default async function SalesInputPage() {
-  const { items: booksData } = await getBooksData({});
+  const { items: booksData } = await getBooksData({
+    search: "",
+    page: 1,
+    pageSize: 2000,
+  });
 
   return (
     <div className="container mx-auto py-10">

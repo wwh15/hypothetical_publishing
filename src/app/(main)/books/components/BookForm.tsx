@@ -378,7 +378,7 @@ export default function BookForm({
             required
           />
           <p className="text-xs text-muted-foreground">
-            Separate multiple authors with commas (e.g., "John Doe, Jane Smith")
+            Separate multiple authors with commas (e.g., &quot;John Doe, Jane Smith&quot;)
           </p>
         </div>
 
