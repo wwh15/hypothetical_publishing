@@ -42,7 +42,7 @@ export async function signIn(formData: FormData) {
   }
 
   revalidatePath("/", "layout");
-  redirect("/");
+  redirect("/books");
 }
 
 export async function signOut() {
