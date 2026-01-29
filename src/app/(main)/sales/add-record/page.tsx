@@ -1,153 +1,14 @@
-"use client";
+import { getBooksData } from "@/app/(main)/books/action";
+import SalesInputClient from "../components/SalesInputClient";
 
-import { useState } from "react";
-import { PendingSaleItem } from "@/lib/data/records";
-import PendingRecordsTable from "@/app/(main)/sales/components/PendingRecordsTable";
-import InputRecordForm from "@/app/(main)/sales/components/InputRecordForm";
-import BulkPasteSalesPanel from "../components/BulkPasteSalesPanel";
+export const dynamic = "force-dynamic";
 
-interface Book {
-  id: number;
-  title: string;
-  author: { name: string };
-  authorRoyaltyRate: number;
-  isbn13?: string | null;
-  isbn10?: string | null;
-}
-
-export default function SalesInputPage() {
-  // Mock pending records for now - you'll replace this with actual state management
-  const [pendingRecords, setPendingRecords] = useState<PendingSaleItem[]>([
-    // Example data - remove when you implement the form
-    {
-      bookId: 1,
-      title: "1984",
-      author: "George Orwell",
-      date: "01-2025",
-      quantity: 150,
-      publisherRevenue: 3750.0,
-      authorRoyalty: 937.5,
-      royaltyOverridden: true,
-      paid: false,
-    },
-    {
-      bookId: 2,
-      title: "Animal Farm",
-      author: "George Orwell",
-      date: "01-2025",
-      quantity: 200,
-      publisherRevenue: 5000.0,
-      authorRoyalty: 1250.0,
-      royaltyOverridden: false,
-      paid: false,
-    },
-  ]);
-
-  const MOCK_BOOKS: Book[] = [
-    // Books with single author
-    {
-      id: 1,
-      title: "The Test Novel",
-      author: { name: "Alice Johnson" },
-      authorRoyaltyRate: 0.25,
-      isbn13: "9781234567890",
-      isbn10: "1234567890",
-    },
-    {
-      id: 2,
-      title: "Sample Story",
-      author: { name: "Bob Smith" },
-      authorRoyaltyRate: 0.25,
-      isbn13: "9780987654321",
-      isbn10: "0987654321",
-    },
-    {
-      id: 3,
-      title: "Example Book",
-      author: { name: "Carol Williams" },
-      authorRoyaltyRate: 0.25,
-      isbn13: "9781122334455",
-      isbn10: "1122334455",
-    },
-    {
-      id: 4,
-      title: "Demo Fiction",
-      author: { name: "David Brown" },
-      authorRoyaltyRate: 0.25,
-      isbn13: "9785566778899",
-      isbn10: "5566778899",
-    },
-    {
-      id: 5,
-      title: "Test Data Chronicles",
-      author: { name: "Emma Davis" },
-      authorRoyaltyRate: 0.25,
-      isbn13: "9786677889900",
-      isbn10: "6677889900",
-    },
-    // Books with multiple authors
-    {
-      id: 6,
-      title: "Collaborative Work",
-      author: { name: "Alice Johnson, Bob Smith" },
-      authorRoyaltyRate: 0.25,
-      isbn13: "9782233445566",
-      isbn10: "2233445566",
-    },
-    {
-      id: 7,
-      title: "Joint Publication",
-      author: { name: "David Brown, Carol Williams" },
-      authorRoyaltyRate: 0.25,
-      isbn13: "9783344556677",
-      isbn10: "3344556677",
-    },
-    {
-      id: 8,
-      title: "Multi-Author Project",
-      author: { name: "Bob Smith, Alice Johnson, Carol Williams" },
-      authorRoyaltyRate: 0.25,
-      isbn13: "9784455667788",
-      isbn10: "4455667788",
-    },
-    {
-      id: 9,
-      title: "Team Effort",
-      author: { name: "Emma Davis, David Brown" },
-      authorRoyaltyRate: 0.25,
-      isbn13: "9787788990011",
-      isbn10: "7788990011",
-    },
-    {
-      id: 10,
-      title: "Group Collaboration",
-      author: { name: "Carol Williams, Emma Davis, Bob Smith" },
-      authorRoyaltyRate: 0.25,
-      isbn13: "9788899001122",
-      isbn10: "8899001122",
-    },
-  ];
-
-  const handleAddRecord = (record: PendingSaleItem) => {
-    setPendingRecords((prev) => [...prev, record]);
-  }
-
-  const handleClearAll = () => {
-    setPendingRecords([]);
-  };
-
-  const handleRemove = (row: PendingSaleItem) => {
-    setPendingRecords((prev) => {
-      const index = prev.findIndex(
-        (r) =>
-          r.bookId === row.bookId &&
-          r.date === row.date &&
-          r.quantity === row.quantity &&
-          r.publisherRevenue === row.publisherRevenue,
-      );
-      return index !== -1 ? prev.filter((_, i) => i !== index) : prev;
-    });
-  };
+export default async function SalesInputPage() {
+  const { items: booksData } = await getBooksData({
+    search: "",
+    page: 1,
+    pageSize: 2000,
+  });
 
   return (
     <div className="container mx-auto py-10">
@@ -157,31 +18,7 @@ export default function SalesInputPage() {
           Input sales records and review before submitting to the database.
         </p>
       </div>
-      <BulkPasteSalesPanel onAddRecord={handleAddRecord} booksData={MOCK_BOOKS} />
-      {/* Input form will go here */}
-      <InputRecordForm onAddRecord={handleAddRecord} booksData={MOCK_BOOKS}/>
-
-      {/* Pending Records Table */}
-      <PendingRecordsTable
-        pendingRecords={pendingRecords}
-        onRemove={handleRemove}
-      />
-
-      {/* Submit Button */}
-      {pendingRecords.length > 0 && (
-        <div className="flex justify-end gap-4">
-          <button
-            className="px-6 py-2 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
-            onClick={handleClearAll}
-          >
-            Clear All
-          </button>
-          <button className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-            Submit {pendingRecords.length} Record
-            {pendingRecords.length !== 1 ? "s" : ""}
-          </button>
-        </div>
-      )}
+      <SalesInputClient booksData={booksData} />
     </div>
   );
 }

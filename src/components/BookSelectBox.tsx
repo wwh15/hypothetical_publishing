@@ -18,18 +18,10 @@ import {
 } from "@/components/ui/command";
 import { useBookSearch } from "@/hooks/useBookSearch";
 import { useBookSelection } from "@/hooks/useBookSelection";
-
-interface Book {
-  id: number;
-  title: string;
-  author: { name: string };
-  authorRoyaltyRate: number;
-  isbn13?: string | null;
-  isbn10?: string | null;
-}
+import { BookListItem } from "@/lib/data/books";
 
 interface BookSelectBoxProps {
-  books: Book[];
+  books: BookListItem[];
   selectedBookId: string;
   onSelect: (bookId: string) => void;
   placeholder?: string;
@@ -87,7 +79,7 @@ export function BookSelectBox({
                 // Build search value including ISBN for better matching
                 const searchValue = [
                   book.title,
-                  book.author.name,
+                  book.authors,
                   book.isbn13,
                   book.isbn10,
                 ]
@@ -108,7 +100,7 @@ export function BookSelectBox({
                           : "opacity-0"
                       )}
                     />
-                    {book.title} - {book.author.name}
+                    {book.title} - {book.authors}
                     {book.isbn13 && (
                       <span className="ml-2 text-xs text-muted-foreground">
                         ({book.isbn13})

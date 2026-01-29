@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { PendingSaleItem } from "@/lib/data/records";
+import { BookListItem } from "@/lib/data/books";
 
 interface Book {
   id: number;
@@ -19,7 +20,7 @@ interface FormData {
 }
 
 export function useSalesForm(
-  books: Book[],
+  books: BookListItem[],
   onAddRecord: (record: PendingSaleItem) => void
 ) {
   const [formData, setFormData] = useState<FormData>({
@@ -46,7 +47,7 @@ export function useSalesForm(
         const book = books.find((b) => b.id === parseInt(next.bookId));
         const rev = parseFloat(next.publisherRevenue);
         next.authorRoyalty =
-          book && !isNaN(rev) ? (rev * book.authorRoyaltyRate).toFixed(2) : "";
+          book && !isNaN(rev) ? (rev * book.defaultRoyaltyRate / 100).toFixed(2) : "";
       }
       return next;
     });
@@ -57,7 +58,7 @@ export function useSalesForm(
       const book = books.find((b) => b.id === parseInt(prev.bookId));
       const calculatedValue =
         book && prev.publisherRevenue
-          ? (parseFloat(prev.publisherRevenue) * book.authorRoyaltyRate).toFixed(2)
+          ? (parseFloat(prev.publisherRevenue) * book.defaultRoyaltyRate / 100).toFixed(2)
           : "";
 
       return {
@@ -72,7 +73,7 @@ export function useSalesForm(
     const book = books.find((b) => b.id === parseInt(formData.bookId));
     if (book && formData.publisherRevenue) {
       const calculated =
-        parseFloat(formData.publisherRevenue) * book.authorRoyaltyRate;
+        parseFloat(formData.publisherRevenue) * book.defaultRoyaltyRate / 100;
       setFormData((prev) => ({
         ...prev,
         authorRoyalty: calculated.toFixed(2),
@@ -107,7 +108,7 @@ export function useSalesForm(
     const newRecord: PendingSaleItem = {
       bookId: parseInt(formData.bookId),
       title: selectedBook.title,
-      author: selectedBook.author.name,
+      author: selectedBook.authors.split(",").map(a => a.trim()),
       date,
       quantity: parseInt(formData.quantity),
       publisherRevenue: parseFloat(formData.publisherRevenue),

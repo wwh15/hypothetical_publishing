@@ -208,6 +208,7 @@ export async function createBook(input: CreateBookInput) {
   if (result.success) {
     revalidatePath("/books");
     revalidatePath(`/books/${result.bookId}`);
+    revalidatePath("/sales/add-record");
   }
 
   return result;

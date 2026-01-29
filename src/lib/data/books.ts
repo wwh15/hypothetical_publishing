@@ -203,6 +203,7 @@ export async function getBookById(id: number): Promise<BookDetail | null> {
   // Map sales to SaleListItem format
   const sales = book.sales.map(sale => ({
     id: sale.id,
+    bookId: sale.bookId,
     title: book.title,
     author: authors,
     date: sale.date,

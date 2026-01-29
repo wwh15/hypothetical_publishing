@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -15,77 +15,83 @@ import { Textarea } from "@/components/ui/textarea";
 import { useBulkPastePreview } from "../hooks/useBulkPastePreview";
 import { useBulkPasteSubmit } from "../hooks/useBulkPasteSubmit";
 import { PendingSaleItem } from "@/lib/data/records";
+import { BookListItem } from "@/lib/data/books";
+import AddBookModal from "./AddBookModal";
 
-interface Book {
-  id: number;
-  title: string;
-  author: { name: string };
-  authorRoyaltyRate: number;
-  isbn13?: string | null;
-  isbn10?: string | null;
-}
-
-// Examples of lines to paste in bulk form
-// 01-2026,9781234567890,120,4125.50
-// 01-2026,9780987654321,80,2600
-// 02-2026,9781122334455,50,1750
-// 02-2026,9785566778899,30,900
-// 03-2026,9786677889900,200,8000
-// 03-2026,9782233445566,60,2400
-// 04-2026,9783344556677,40,1600
-// 04-2026,9784455667788,75,3375
-// 05-2026,9787788990011,90,4050
-// 05-2026,9788899001122,110,5500
+// Examples: 01-2026,9781234567890,120,4125.50 | 01-2026,9780987654321,80,2600
 
 interface BulkPasteSalesPanelProps {
   onAddRecord: (record: PendingSaleItem) => void;
-  booksData: Book[];
+  booksData: BookListItem[];
+}
+
+// Create a map that maps isbn10/isbn13 to BookListItem objects
+function buildIsbnLookup(
+  booksData: BookListItem[],
+  extraBooks: BookListItem[]
+): Map<string, BookListItem> {
+  
+  const map = new Map<string, BookListItem>();
+
+  // Removes all characters that are NOT digits from ISBN
+  const normalize = (isbn?: string | null) =>
+    isbn ? isbn.replace(/\D/g, "") : null;
+
+  for (const book of [...booksData, ...extraBooks]) {
+    const isbn13 = normalize(book.isbn13);
+    const isbn10 = normalize(book.isbn10);
+    if (isbn13) map.set(isbn13, book);
+    if (isbn10) map.set(isbn10, book);
+  }
+  return map;
+
 }
 
 export default function BulkPasteSalesPanel({
   onAddRecord,
   booksData,
 }: BulkPasteSalesPanelProps) {
+
+  // Local useState
   const [text, setText] = useState("");
+  const [extraBooks, setExtraBooks] = useState<BookListItem[]>([]);
+
+  // Hook
   const { previewRows, invalidRows, handlePreview, clearPreview } =
-    useBulkPastePreview();
+useBulkPastePreview();
 
-  const { submitFromRows } = useBulkPasteSubmit(booksData, onAddRecord);
+  // Memoization; all recomputes arrays if data changes
+  const allBooks = useMemo(
+    () => [...booksData, ...extraBooks],
+    [booksData, extraBooks]
+  );
 
-  const isbnLookup = useMemo(() => {
-    const map = new Map<string, Book>();
+  // Hook
+  const { submitFromRows } = useBulkPasteSubmit(allBooks, onAddRecord);
 
-    const normalize = (isbn?: string | null) =>
-      isbn ? isbn.replace(/\D/g, "") : null;
+  // Callback function that passes through AddModal.tsx into BookForm.tsx
+  const handleBookCreated = useCallback((book: BookListItem) => {
+    setExtraBooks((prev) => [...prev, book]);
+  }, []);
 
-    for (const book of booksData) {
-      const isbn13 = normalize(book.isbn13);
-      const isbn10 = normalize(book.isbn10);
+  // Memoization
+  const isbnLookup = useMemo(
+    () => buildIsbnLookup(booksData, extraBooks),
+    [booksData, extraBooks]
+  );
 
-      if (isbn13) map.set(isbn13, book);
-      if (isbn10) map.set(isbn10, book);
-    }
-
-    return map;
-  }, [booksData]);
-
-  // Compute royalties and detect overrides
   const rowsWithRoyalty = useMemo(() => {
     return previewRows.map((row) => {
       const book = isbnLookup.get(row.isbn);
       const computedRoyalty = book
-        ? row.revenue * book.authorRoyaltyRate
+        ? (row.revenue * book.defaultRoyaltyRate) / 100
         : undefined;
       const providedRoyalty = row.authorRoyalty;
-      
-      // Determine final royalty: use provided if exists, otherwise computed
       const finalRoyalty = providedRoyalty ?? computedRoyalty;
-      
-      // Check if overridden: provided royalty exists and differs from computed
       const isOverridden =
         providedRoyalty !== undefined &&
         computedRoyalty !== undefined &&
-        Math.abs(providedRoyalty - computedRoyalty) > 0.01; // Small tolerance for floating point
+        Math.abs(providedRoyalty - computedRoyalty) > 0.01;
 
       return {
         ...row,
@@ -97,10 +103,28 @@ export default function BulkPasteSalesPanel({
     });
   }, [previewRows, isbnLookup]);
 
-  // Find rows with missing books
-  const missingBookRows = useMemo(() => {
-    return rowsWithRoyalty.filter((row) => !row.book);
-  }, [rowsWithRoyalty]);
+  const missingBookRows = useMemo(
+    () => rowsWithRoyalty.filter((row) => !row.book),
+    [rowsWithRoyalty]
+  );
+
+  const handleClear = useCallback(() => {
+    setExtraBooks([]);
+    setText("");
+    clearPreview();
+  }, [clearPreview]);
+
+  const handleAddValidRows = useCallback(() => {
+    if (missingBookRows.length > 0) {
+      alert(
+        `Cannot submit: ${missingBookRows.length} book(s) not found. Please add the missing books to the database first.`
+      );
+      return;
+    }
+    submitFromRows(previewRows);
+    clearPreview();
+    setText("");
+  }, [missingBookRows.length, previewRows, submitFromRows, clearPreview]);
 
   return (
     <Card className="mb-6">
@@ -142,64 +166,69 @@ export default function BulkPasteSalesPanel({
             </span>
           </div>
 
-          {previewRows.length ? (
+          {previewRows.length > 0 ? (
             <div className="space-y-1">
-              {rowsWithRoyalty.map((row) => {
-                return (
-                  <div
-                    key={`${row.line}-${row.isbn}-${row.quantity}`}
-                    className={`rounded border px-3 py-2 text-xs flex flex-col gap-1 ${
-                      !row.book
-                        ? "bg-destructive/5 border-destructive/30"
-                        : "bg-background"
-                    }`}
-                  >
-                    <div className="flex flex-wrap items-baseline gap-2">
-                      <span className="font-semibold">
-                        {row.book ? row.book.title : "Unknown title"}
-                      </span>
-                      <span className="text-muted-foreground">
-                        {row.book ? row.book.author.name : "Unknown author"}
-                      </span>
-                    </div>
-                    <div className="flex flex-wrap gap-3">
-                      <span className="font-mono text-muted-foreground">
-                        ISBN: {row.isbn}
-                      </span>
-                      <span>
-                        Date: {row.month}-{row.year}
-                      </span>
-                      <span>Qty: {row.quantity}</span>
+              {rowsWithRoyalty.map((row) => (
+                <div
+                  key={`${row.line}-${row.isbn}-${row.quantity}`}
+                  className={`rounded border px-3 py-2 text-xs flex flex-col gap-1 ${
+                    !row.book
+                      ? "bg-destructive/5 border-destructive/30"
+                      : "bg-background"
+                  }`}
+                >
+                  <div className="flex flex-wrap items-baseline gap-2">
+                    <span className="font-semibold">
+                      {row.book ? row.book.title : "Unknown title"}
+                    </span>
+                    <span className="text-muted-foreground">
+                      {row.book ? row.book.authors : "Unknown author(s)"}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-3">
+                    <span className="font-mono text-muted-foreground">
+                      ISBN: {row.isbn}
+                    </span>
+                    <span>
+                      Date: {row.month}-{row.year}
+                    </span>
+                    <span>Qty: {row.quantity}</span>
+                    <span className="font-mono">
+                      Rev:{" "}
+                      {row.revenue.toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </span>
+                    {row.finalRoyalty !== undefined && (
                       <span className="font-mono">
-                        Rev:{" "}
-                        {row.revenue.toLocaleString(undefined, {
+                        Royalty:{" "}
+                        {row.finalRoyalty.toLocaleString(undefined, {
                           minimumFractionDigits: 2,
                           maximumFractionDigits: 2,
                         })}
+                        {row.isOverridden && (
+                          <span className="ml-1 text-orange-600 font-semibold">
+                            (Overridden)
+                          </span>
+                        )}
                       </span>
-                      {row.finalRoyalty !== undefined && (
-                        <span className="font-mono">
-                          Royalty:{" "}
-                          {row.finalRoyalty.toLocaleString(undefined, {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })}
-                          {row.isOverridden && (
-                            <span className="ml-1 text-orange-600 font-semibold">
-                              (Overridden)
-                            </span>
-                          )}
-                        </span>
-                      )}
-                      {!row.book && (
+                    )}
+                    {!row.book && (
+                      <div className="flex items-center gap-2">
                         <span className="text-destructive font-semibold">
-                          ⚠️ Book not found. Please add the specified book to database.
+                          ⚠️ Book not found.
                         </span>
-                      )}
-                    </div>
+                        <AddBookModal
+                          initialIsbn={row.isbn}
+                          inPreview
+                          onBookCreated={handleBookCreated}
+                        />
+                      </div>
+                    )}
                   </div>
-                );
-              })}
+                </div>
+              ))}
             </div>
           ) : (
             <div className="text-muted-foreground">
@@ -222,16 +251,12 @@ export default function BulkPasteSalesPanel({
       <CardFooter className="flex flex-wrap justify-end gap-3">
         <Button
           type="button"
-          variant="outline"
-          onClick={() => {
-            setText("");
-            clearPreview();
-          }}
+          variant="destructive"
+          onClick={handleClear}
           disabled={!text.trim()}
         >
           Clear
         </Button>
-
         <Button
           type="button"
           variant="secondary"
@@ -242,21 +267,12 @@ export default function BulkPasteSalesPanel({
         </Button>
         <Button
           type="button"
-          onClick={() => {
-            if (missingBookRows.length > 0) {
-              alert(
-                `Cannot submit: ${missingBookRows.length} book(s) not found. Please add the missing books to the database first.`
-              );
-              return;
-            }
-            submitFromRows(previewRows);
-            clearPreview();
-            setText("");
-          }}
+          onClick={handleAddValidRows}
           disabled={previewRows.length === 0 || missingBookRows.length > 0}
         >
           Add valid rows
         </Button>
+        <AddBookModal />
       </CardFooter>
     </Card>
   );
