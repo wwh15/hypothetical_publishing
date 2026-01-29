@@ -3,12 +3,18 @@ services:
     build:
       context: ../..
       dockerfile: Dockerfile
+    args:
+      DATABASE_URL: {$DATABASE_URL}
+      NEXT_PUBLIC_SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
+      SUPABASE_SECRET_KEY: ${SUPABASE_SECRET_KEY}
     environment:
       NODE_ENV: production
-      DATABASE_URL: ${DATABASE_URL}
-      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      NEXT_PUBLIC_SUPABASE_URL: ${SUPABASE_URL}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
       SUPABASE_SECRET_KEY: ${SUPABASE_SECRET_KEY}
+    depends_on:
+      - db
     restart: unless-stopped
     networks:
       - internal
@@ -20,7 +26,7 @@ services:
       - /var/www/letsencrypt/hp.colab.duke.edu:/var/www/letsencrypt/hp.colab.duke.edu
       - /etc/letsencrypt:/etc/letsencrypt:ro
     ports:
-      - "8081:8081"
+      - "8081:8081" # VM port 8081 -> container port 80
     depends_on:
       - app
     restart: unless-stopped
@@ -29,3 +35,6 @@ services:
 
 networks:
   internal:
+
+volumes:
+  qa_db_data:
