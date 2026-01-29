@@ -3,27 +3,20 @@
 import { useMemo, useState } from "react";
 import type { ParsedSaleRow } from "./useBulkPastePreview";
 import type { PendingSaleItem } from "@/lib/data/records";
+import { BookListItem } from "@/lib/data/books";
 
-type Book = {
-  id: number;
-  title: string;
-  author: { name: string };
-  authorRoyaltyRate: number;
-  isbn13?: string | null;
-  isbn10?: string | null;
-};
 
 export function useBulkPasteSubmit(
-  books: Book[],
+  booksData: BookListItem[],
   onAddRecord: (record: PendingSaleItem) => void,
 ) {
   // Optional: build an ISBN -> Book lookup exactly once
   const isbnLookup = useMemo(() => {
-    const map = new Map<string, Book>();
+    const map = new Map<string, BookListItem>();
     const normalize = (isbn?: string | null) =>
       isbn ? isbn.replace(/\D/g, "") : null;
 
-    for (const book of books) {
+    for (const book of booksData) {
       const isbn13 = normalize(book.isbn13);
       const isbn10 = normalize(book.isbn10);
       if (isbn13) map.set(isbn13, book);
@@ -31,7 +24,7 @@ export function useBulkPasteSubmit(
     }
 
     return map;
-  }, [books]);
+  }, [booksData]);
 
   function submitFromRows(rows: ParsedSaleRow[]) {
     const missingBooks: string[] = [];
@@ -47,7 +40,7 @@ export function useBulkPasteSubmit(
       const publisherRevenue = row.revenue;
       
       // Compute expected royalty from book rate
-      const computedRoyalty = publisherRevenue * book.authorRoyaltyRate;
+      const computedRoyalty = publisherRevenue * book.defaultRoyaltyRate / 100;
       
       // Use provided royalty if it exists, otherwise use computed
       const authorRoyalty = row.authorRoyalty ?? computedRoyalty;
@@ -60,7 +53,7 @@ export function useBulkPasteSubmit(
       const record: PendingSaleItem = {
         bookId: book.id,
         title: book.title,
-        author: book.author.name,
+        author: book.authors.split(",").map(a => a.trim()),
         date,
         quantity: row.quantity,
         publisherRevenue,
