@@ -2,9 +2,8 @@
 
 import { createClient } from "./server";
 import { redirect } from "next/navigation";
-import { revalidatePath } from "next/cache";3
+import { revalidatePath } from "next/cache";
 import { supabaseAdmin } from '@/lib/supabase/admin';
-import LoginPage from '../../app/(auth)/login/page';
 /**
  * Server Actions for authentication
  * Call these from Client Components or forms
