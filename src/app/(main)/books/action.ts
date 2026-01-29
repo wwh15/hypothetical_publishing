@@ -102,7 +102,7 @@ export async function fetchBookFromOpenLibrary(isbn: string): Promise<{
     if (data.authors && Array.isArray(data.authors)) {
       // Authors can be objects with 'key' or strings
       authors = await Promise.all(
-        data.authors.map(async (author: any) => {
+        data.authors.map(async (author: { key?: string } | string) => {
           if (typeof author === "string") {
             return author;
           }

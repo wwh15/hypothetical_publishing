@@ -1,5 +1,6 @@
 "use client";
 
+import { useId } from "react";
 import { ChevronsUpDown, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -40,6 +41,7 @@ export function BookSelectBox({
   onSelect,
   placeholder = "Select Book",
 }: BookSelectBoxProps) {
+  const contentId = useId();
   const { searchQuery, setSearchQuery, filteredBooks } = useBookSearch(books);
   const { open, setOpen, bookDisplayValue, handleBookSelect } = useBookSelection(
     books,
@@ -57,6 +59,7 @@ export function BookSelectBox({
           type="button"
           role="combobox"
           aria-expanded={open}
+          aria-controls={contentId}
           className={cn(
             "flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background",
             "placeholder:text-muted-foreground",
@@ -70,7 +73,7 @@ export function BookSelectBox({
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+      <PopoverContent id={contentId} className="w-[--radix-popover-trigger-width] p-0">
         <Command>
           <CommandInput
             placeholder="Search by title, author, or ISBN..."

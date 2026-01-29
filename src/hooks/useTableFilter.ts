@@ -10,7 +10,7 @@ export interface UseTableFilterOptions<T> {
   dateField?: keyof T; // Which field to filter on (e.g., 'date')
 }
 
-export function useTableFilter<T extends Record<string, any>>({
+export function useTableFilter<T extends Record<string, unknown>>({
   data,
   dateField,
 }: UseTableFilterOptions<T>) {

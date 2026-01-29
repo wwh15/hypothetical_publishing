@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { DataTable, ColumnDef } from "@/components/DataTable";
 import { BookListItem } from "@/lib/data/books";
@@ -24,12 +24,8 @@ export default function BooksTable({
   search,
 }: BooksTableProps) {
   const router = useRouter();
+  // Key by search so when URL search changes (e.g. back/forward), input resets
   const [searchQuery, setSearchQuery] = useState(search ?? "");
-
-  // Keep local search input in sync with server-provided search
-  useEffect(() => {
-    setSearchQuery(search ?? "");
-  }, [search]);
 
   const totalPages = useMemo(
     () => (total > 0 ? Math.ceil(total / pageSize) : 1),

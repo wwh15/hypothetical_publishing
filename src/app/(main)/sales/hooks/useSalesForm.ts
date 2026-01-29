@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { PendingSaleItem } from "@/lib/data/records";
 
 interface Book {
@@ -32,40 +32,24 @@ export function useSalesForm(
     royaltyOverridden: false,
   });
 
-  // Calculate royalty when publisher revenue or book changes
-  useEffect(() => {
-    if (
-      formData.bookId &&
-      formData.publisherRevenue &&
-      !formData.royaltyOverridden
-    ) {
-      const book = books.find((b) => b.id === parseInt(formData.bookId));
-      if (book) {
-        const calculatedRoyalty =
-          parseFloat(formData.publisherRevenue) * book.authorRoyaltyRate;
-        setFormData((prev) => ({
-          ...prev,
-          authorRoyalty: isNaN(calculatedRoyalty)
-            ? ""
-            : calculatedRoyalty.toFixed(2),
-        }));
-      }
-    }
-  }, [
-    formData.bookId,
-    formData.publisherRevenue,
-    formData.royaltyOverridden,
-    books,
-  ]);
-
   const handleInputChange = (field: string, value: string | boolean) => {
-    setFormData((prev) => ({
-      ...prev,
-      [field]: value,
-      ...(field === "publisherRevenue" || field === "bookId"
-        ? { royaltyOverridden: false }
-        : {}),
-    }));
+    setFormData((prev) => {
+      const next = {
+        ...prev,
+        [field]: value,
+        ...(field === "publisherRevenue" || field === "bookId"
+          ? { royaltyOverridden: false }
+          : {}),
+      } as FormData;
+      // Derive author royalty when book or revenue changes (no effect needed)
+      if (field === "publisherRevenue" || field === "bookId") {
+        const book = books.find((b) => b.id === parseInt(next.bookId));
+        const rev = parseFloat(next.publisherRevenue);
+        next.authorRoyalty =
+          book && !isNaN(rev) ? (rev * book.authorRoyaltyRate).toFixed(2) : "";
+      }
+      return next;
+    });
   };
 
   const handleRoyaltyChange = (value: string) => {

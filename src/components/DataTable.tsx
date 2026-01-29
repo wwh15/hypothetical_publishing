@@ -37,7 +37,7 @@ export interface DataTableProps<T> {
     showDateFilter?: boolean;
 }
 
-export function DataTable<T extends Record<string, any>>({
+export function DataTable<T extends Record<string, unknown>>({
     columns,
     data,
     emptyMessage = 'No data available',

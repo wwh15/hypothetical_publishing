@@ -1,10 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { DataTable } from "@/components/DataTable";
-import { ColumnDef } from "@/components/DataTable";
 import { PendingSaleItem } from "@/lib/data/records";
-import { X } from "lucide-react";
 import PendingRecordsTable from "@/app/(main)/sales/components/PendingRecordsTable";
 import InputRecordForm from "@/app/(main)/sales/components/InputRecordForm";
 import BulkPasteSalesPanel from "../components/BulkPasteSalesPanel";

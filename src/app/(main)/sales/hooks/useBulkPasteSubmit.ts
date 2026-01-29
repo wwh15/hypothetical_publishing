@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import type { ParsedSaleRow } from "./useBulkPastePreview";
 import type { PendingSaleItem } from "@/lib/data/records";
 
