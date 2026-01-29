@@ -1,9 +1,13 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { updateSale, deleteSale, togglePaidStatus } from '@/app/(main)/sales/action';
+import { useState } from "react";
+import {
+  updateSale,
+  deleteSale,
+  togglePaidStatus,
+} from "@/app/(main)/sales/action";
 import type { SaleDetailPayload } from "@/lib/data/records";
-
+import Link from "next/link";
 
 interface EditFormProps {
   sale: SaleDetailPayload;
@@ -25,7 +29,7 @@ export default function EditForm({ sale }: EditFormProps) {
     setLoading(true);
     const result = await updateSale(sale.id, formData);
     setLoading(false);
-    
+
     if (result.success) {
       setIsEditing(false);
     } else {
@@ -52,10 +56,20 @@ export default function EditForm({ sale }: EditFormProps) {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Display fields */}
           <div>
-            <label className="text-sm font-medium text-gray-500">Book Title</label>
-            <p className="text-lg font-semibold mt-1">{sale.book.title}</p>
+            <label className="text-sm font-medium text-gray-500">
+              Book Title
+            </label>
+            <p className="text-lg font-semibold mt-1">
+              <Link
+                href={`/books/${sale.bookId}`}
+                onClick={(e) => e.stopPropagation()}
+                className="text-blue-600 hover:underline focus:outline focus:underline"
+              >
+                {sale.book.title}
+              </Link>
+            </p>
           </div>
-          
+
           <div>
             <label className="text-sm font-medium text-gray-500">Author</label>
             <p className="text-lg font-semibold mt-1">
@@ -71,19 +85,25 @@ export default function EditForm({ sale }: EditFormProps) {
           </div>
 
           <div>
-            <label className="text-sm font-medium text-gray-500">Quantity</label>
+            <label className="text-sm font-medium text-gray-500">
+              Quantity
+            </label>
             <p className="text-lg font-semibold mt-1">{sale.quantity} units</p>
           </div>
 
           <div>
-            <label className="text-sm font-medium text-gray-500">Publisher Revenue</label>
+            <label className="text-sm font-medium text-gray-500">
+              Publisher Revenue
+            </label>
             <p className="text-lg font-semibold mt-1 text-green-600">
               ${sale.publisherRevenue.toFixed(2)}
             </p>
           </div>
 
           <div>
-            <label className="text-sm font-medium text-gray-500">Author Royalty</label>
+            <label className="text-sm font-medium text-gray-500">
+              Author Royalty
+            </label>
             <p className="text-lg font-semibold mt-1 text-blue-600">
               ${sale.authorRoyalty.toFixed(2)}
               {sale.royaltyOverridden && (
@@ -93,16 +113,18 @@ export default function EditForm({ sale }: EditFormProps) {
           </div>
 
           <div>
-            <label className="text-sm font-medium text-gray-500">Payment Status</label>
+            <label className="text-sm font-medium text-gray-500">
+              Payment Status
+            </label>
             <div className="mt-1 flex items-center gap-2">
               <span
                 className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${
                   sale.paid
-                    ? 'bg-green-100 text-green-800'
-                    : 'bg-yellow-100 text-yellow-800'
+                    ? "bg-green-100 text-green-800"
+                    : "bg-yellow-100 text-yellow-800"
                 }`}
               >
-                {sale.paid ? 'Paid' : 'Pending'}
+                {sale.paid ? "Paid" : "Pending"}
               </span>
               <button
                 onClick={handleTogglePaid}
@@ -136,14 +158,16 @@ export default function EditForm({ sale }: EditFormProps) {
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white dark:bg-gray-800 p-6 rounded-lg max-w-md">
               <h3 className="text-lg font-bold mb-4">Confirm Delete</h3>
-              <p className="mb-6">Are you sure you want to delete this sale record?</p>
+              <p className="mb-6">
+                Are you sure you want to delete this sale record?
+              </p>
               <div className="flex gap-4">
                 <button
                   onClick={handleDelete}
                   disabled={loading}
                   className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
                 >
-                  {loading ? 'Deleting...' : 'Delete'}
+                  {loading ? "Deleting..." : "Delete"}
                 </button>
                 <button
                   onClick={() => setShowDeleteConfirm(false)}
@@ -163,11 +187,13 @@ export default function EditForm({ sale }: EditFormProps) {
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg border p-6">
       <h2 className="text-xl font-bold mb-4">Edit Sale Record</h2>
-      
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Date */}
         <div>
-          <label className="block text-sm font-medium mb-2">Period (MM-YYYY)</label>
+          <label className="block text-sm font-medium mb-2">
+            Period (MM-YYYY)
+          </label>
           <input
             type="text"
             value={formData.date}
@@ -179,30 +205,43 @@ export default function EditForm({ sale }: EditFormProps) {
 
         {/* Quantity */}
         <div>
-          <label className="block text-sm font-medium mb-2">Quantity Sold</label>
+          <label className="block text-sm font-medium mb-2">
+            Quantity Sold
+          </label>
           <input
             type="number"
             value={formData.quantity}
-            onChange={(e) => setFormData({ ...formData, quantity: parseInt(e.target.value) })}
+            onChange={(e) =>
+              setFormData({ ...formData, quantity: parseInt(e.target.value) })
+            }
             className="w-full px-3 py-2 border rounded-md"
           />
         </div>
 
         {/* Publisher Revenue */}
         <div>
-          <label className="block text-sm font-medium mb-2">Publisher Revenue ($)</label>
+          <label className="block text-sm font-medium mb-2">
+            Publisher Revenue ($)
+          </label>
           <input
             type="number"
             step="0.01"
             value={formData.publisherRevenue}
-            onChange={(e) => setFormData({ ...formData, publisherRevenue: parseFloat(e.target.value) })}
+            onChange={(e) =>
+              setFormData({
+                ...formData,
+                publisherRevenue: parseFloat(e.target.value),
+              })
+            }
             className="w-full px-3 py-2 border rounded-md"
           />
         </div>
 
         {/* Author Royalty */}
         <div>
-          <label className="block text-sm font-medium mb-2">Author Royalty ($)</label>
+          <label className="block text-sm font-medium mb-2">
+            Author Royalty ($)
+          </label>
           <input
             type="number"
             step="0.01"
@@ -220,7 +259,12 @@ export default function EditForm({ sale }: EditFormProps) {
             <input
               type="checkbox"
               checked={formData.royaltyOverridden}
-              onChange={(e) => setFormData({ ...formData, royaltyOverridden: e.target.checked })}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  royaltyOverridden: e.target.checked,
+                })
+              }
               className="mr-2"
             />
             Mark as overridden
@@ -235,7 +279,7 @@ export default function EditForm({ sale }: EditFormProps) {
           disabled={loading}
           className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
         >
-          {loading ? 'Saving...' : 'Save Changes'}
+          {loading ? "Saving..." : "Save Changes"}
         </button>
         <button
           onClick={() => setIsEditing(false)}

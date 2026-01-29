@@ -1,14 +1,9 @@
 // src/hooks/useBookSelection.ts
+import { BookListItem } from "@/lib/data/books";
 import { useState } from "react";
 
-interface Book {
-  id: number;
-  title: string;
-  author: { name: string };
-}
-
 export function useBookSelection(
-  books: Book[],
+  books: BookListItem[],
   selectedBookId: string,
   onBookChange: (bookId: string) => void
 ) {
@@ -16,7 +11,7 @@ export function useBookSelection(
 
   const selectedBook = books.find((b) => b.id === parseInt(selectedBookId));
   const bookDisplayValue = selectedBook
-    ? `${selectedBook.title} - ${selectedBook.author.name}`
+    ? `${selectedBook.title} - ${selectedBook.authors}`
     : "Select Book";
 
   const handleBookSelect = (bookId: string) => {

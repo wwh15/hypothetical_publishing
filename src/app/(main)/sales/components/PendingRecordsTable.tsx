@@ -10,9 +10,9 @@ interface PendingRecordsTableProps {
   onRemove: (row: PendingSaleItem) => void;
 }
 
-export default function PendingRecordsTable({ 
-  pendingRecords, 
-  onRemove 
+export default function PendingRecordsTable({
+  pendingRecords,
+  onRemove,
 }: PendingRecordsTableProps) {
   // Define columns for pending sales table
   const pendingColumns: ColumnDef<PendingSaleItem>[] = [
@@ -33,6 +33,14 @@ export default function PendingRecordsTable({
       header: "Author",
       accessor: "author",
       sortable: true,
+      render: (row) => (
+        <span>
+          {row.author
+            .map((name) => name.trim())
+            .filter(Boolean)
+            .join(", ")}
+        </span>
+      ),
     },
     {
       key: "quantity",
@@ -57,7 +65,13 @@ export default function PendingRecordsTable({
       sortable: true,
       render: (row) => (
         <div className="flex items-center gap-2">
-          <span className={row.royaltyOverridden ? "font-bold text-orange-600" : "font-medium"}>
+          <span
+            className={
+              row.royaltyOverridden
+                ? "font-bold text-orange-600"
+                : "font-medium"
+            }
+          >
             ${row.authorRoyalty.toFixed(2)}
           </span>
           {row.royaltyOverridden && (
@@ -88,7 +102,7 @@ export default function PendingRecordsTable({
   ];
 
   return (
-    <div className="mb-6">
+    <div className="mb-6 mt-6">
       <h2 className="text-xl font-semibold mb-4">
         Pending Records ({pendingRecords.length})
       </h2>

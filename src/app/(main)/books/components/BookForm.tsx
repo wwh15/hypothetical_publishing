@@ -3,17 +3,32 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createBook, updateBook, fetchBookFromOpenLibrary } from "../action";
-import { BookDetail } from "@/lib/data/books";
+import { BookDetail, BookListItem } from "@/lib/data/books";
 import { cn } from "@/lib/utils";
 import { Search, Loader2 } from "lucide-react";
+import { title } from "process";
 
 interface BookFormProps {
   bookId?: number;
   initialData?: BookDetail;
-  mode?: 'create' | 'edit';
+  mode?: "create" | "edit";
+  initialIsbn?: string;
+  inModal?: boolean;
+  onModalSuccess?: () => void;
+  onModalCancel?: () => void;
+  onBookCreated?: (book: BookListItem) => void;
 }
 
-export default function BookForm({ bookId, initialData, mode = 'create' }: BookFormProps) {
+export default function BookForm({
+  bookId,
+  initialData,
+  mode = "create",
+  initialIsbn,
+  inModal,
+  onModalSuccess,
+  onModalCancel,
+  onBookCreated,
+}: BookFormProps) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLookingUp, setIsLookingUp] = useState(false);
@@ -32,7 +47,7 @@ export default function BookForm({ bookId, initialData, mode = 'create' }: BookF
 
   // Populate form with initial data if editing
   useEffect(() => {
-    if (initialData && mode === 'edit') {
+    if (initialData && mode === "edit") {
       setFormData({
         title: initialData.title,
         authors: initialData.authors,
@@ -44,6 +59,12 @@ export default function BookForm({ bookId, initialData, mode = 'create' }: BookF
       });
     }
   }, [initialData, mode]);
+
+  useEffect(() => {
+    if (initialIsbn && mode === "create") {
+      setIsbnLookup(initialIsbn);
+    }
+  }, [mode, initialIsbn]);
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({
@@ -135,7 +156,7 @@ export default function BookForm({ bookId, initialData, mode = 'create' }: BookF
     const royaltyRate = formData.defaultRoyaltyRate
       ? parseFloat(formData.defaultRoyaltyRate)
       : undefined;
-    
+
     if (royaltyRate !== undefined && (royaltyRate < 0 || royaltyRate > 100)) {
       setError("Royalty rate must be between 0 and 100");
       setIsSubmitting(false);
@@ -146,8 +167,11 @@ export default function BookForm({ bookId, initialData, mode = 'create' }: BookF
     const publicationYear = formData.publicationYear
       ? parseInt(formData.publicationYear)
       : undefined;
-    
-    if (publicationYear !== undefined && (publicationYear < 1000 || publicationYear > new Date().getFullYear() + 1)) {
+
+    if (
+      publicationYear !== undefined &&
+      (publicationYear < 1000 || publicationYear > new Date().getFullYear() + 1)
+    ) {
       setError("Please enter a valid publication year");
       setIsSubmitting(false);
       return;
@@ -155,7 +179,9 @@ export default function BookForm({ bookId, initialData, mode = 'create' }: BookF
 
     // Validate publication month if year is provided
     if (publicationYear && !formData.publicationMonth) {
-      setError("Publication month is required when publication year is provided");
+      setError(
+        "Publication month is required when publication year is provided",
+      );
       setIsSubmitting(false);
       return;
     }
@@ -172,7 +198,7 @@ export default function BookForm({ bookId, initialData, mode = 'create' }: BookF
       };
 
       let result;
-      if (mode === 'edit' && bookId) {
+      if (mode === "edit" && bookId) {
         result = await updateBook({
           id: bookId,
           ...bookData,
@@ -182,9 +208,36 @@ export default function BookForm({ bookId, initialData, mode = 'create' }: BookF
       }
 
       if (result.success) {
-        // Redirect to the book's detail page
-        const redirectId = mode === 'edit' ? bookId : result.bookId;
-        router.push(`/books/${redirectId}`);
+        let isbn13Val = isbn13 || null;
+        let isbn10Val = isbn10 || null;
+
+        if (initialIsbn) {
+          const n = initialIsbn.replace(/\D/g, "");
+          if (n.length === 13) isbn13Val = n;
+          else if (n.length === 10) isbn10Val = n;
+        }
+
+        if (inModal && onModalSuccess) {
+          const book: BookListItem = {
+            id: result.bookId!,
+            title: formData.title.trim(),
+            authors: formData.authors.trim(),
+            isbn13: isbn13Val,
+            isbn10: isbn10Val,
+            publicationMonth: formData.publicationMonth || null,
+            publicationYear: publicationYear ?? null,
+            defaultRoyaltyRate: royaltyRate ?? 25,
+            totalSales: 0,
+          };
+
+          onBookCreated?.(book);
+          setIsSubmitting(false);
+          onModalSuccess();
+        } else {
+          // Redirect to the book's detail page
+          const redirectId = mode === "edit" ? bookId : result.bookId;
+          router.push(`/books/${redirectId}`);
+        }
       } else {
         setError(result.error || `Failed to ${mode} book`);
         setIsSubmitting(false);
@@ -226,7 +279,7 @@ export default function BookForm({ bookId, initialData, mode = 'create' }: BookF
               "placeholder:text-muted-foreground",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
               "disabled:cursor-not-allowed disabled:opacity-50",
-              "dark:bg-gray-700"
+              "dark:bg-gray-700",
             )}
             disabled={isLookingUp}
             onKeyDown={(e) => {
@@ -245,7 +298,7 @@ export default function BookForm({ bookId, initialData, mode = 'create' }: BookF
               "h-10 px-4 py-2",
               "bg-blue-600 text-white hover:bg-blue-700",
               "disabled:opacity-50 disabled:cursor-not-allowed",
-              "transition-colors"
+              "transition-colors",
             )}
           >
             {isLookingUp ? (
@@ -262,11 +315,13 @@ export default function BookForm({ bookId, initialData, mode = 'create' }: BookF
           </button>
         </div>
         <p className="text-xs text-muted-foreground mt-2">
-          Enter an ISBN to automatically fetch book information from Open Library. You can modify any fields before saving.
+          Enter an ISBN to automatically fetch book information from Open
+          Library. You can modify any fields before saving.
         </p>
         {isImported && (
           <div className="mt-2 text-xs text-green-600 dark:text-green-400 font-medium">
-            ✓ Book data imported. Royalty rate set to 50% (default for imported books).
+            ✓ Book data imported. Royalty rate set to 50% (default for imported
+            books).
           </div>
         )}
       </div>
@@ -291,7 +346,7 @@ export default function BookForm({ bookId, initialData, mode = 'create' }: BookF
               "placeholder:text-muted-foreground",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
               "disabled:cursor-not-allowed disabled:opacity-50",
-              "dark:bg-gray-700"
+              "dark:bg-gray-700",
             )}
             placeholder="Enter book title"
             required
@@ -317,7 +372,7 @@ export default function BookForm({ bookId, initialData, mode = 'create' }: BookF
               "placeholder:text-muted-foreground",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
               "disabled:cursor-not-allowed disabled:opacity-50",
-              "dark:bg-gray-700"
+              "dark:bg-gray-700",
             )}
             placeholder="Enter author names (comma-separated for multiple)"
             required
@@ -346,7 +401,7 @@ export default function BookForm({ bookId, initialData, mode = 'create' }: BookF
               "placeholder:text-muted-foreground",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
               "disabled:cursor-not-allowed disabled:opacity-50",
-              "dark:bg-gray-700"
+              "dark:bg-gray-700",
             )}
             placeholder="9781234567890"
             maxLength={17} // Allow for dashes/spaces
@@ -372,7 +427,7 @@ export default function BookForm({ bookId, initialData, mode = 'create' }: BookF
               "placeholder:text-muted-foreground",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
               "disabled:cursor-not-allowed disabled:opacity-50",
-              "dark:bg-gray-700"
+              "dark:bg-gray-700",
             )}
             placeholder="1234567890"
             maxLength={13} // Allow for dashes/spaces
@@ -390,14 +445,16 @@ export default function BookForm({ bookId, initialData, mode = 'create' }: BookF
           <select
             id="publicationMonth"
             value={formData.publicationMonth}
-            onChange={(e) => handleInputChange("publicationMonth", e.target.value)}
+            onChange={(e) =>
+              handleInputChange("publicationMonth", e.target.value)
+            }
             className={cn(
               "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background",
               "file:border-0 file:bg-transparent file:text-sm file:font-medium",
               "placeholder:text-muted-foreground",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
               "disabled:cursor-not-allowed disabled:opacity-50",
-              "dark:bg-gray-700"
+              "dark:bg-gray-700",
             )}
           >
             <option value="">Select Month</option>
@@ -423,14 +480,16 @@ export default function BookForm({ bookId, initialData, mode = 'create' }: BookF
             id="publicationYear"
             type="number"
             value={formData.publicationYear}
-            onChange={(e) => handleInputChange("publicationYear", e.target.value)}
+            onChange={(e) =>
+              handleInputChange("publicationYear", e.target.value)
+            }
             className={cn(
               "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background",
               "file:border-0 file:bg-transparent file:text-sm file:font-medium",
               "placeholder:text-muted-foreground",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
               "disabled:cursor-not-allowed disabled:opacity-50",
-              "dark:bg-gray-700"
+              "dark:bg-gray-700",
             )}
             placeholder="2024"
             min="1000"
@@ -450,14 +509,16 @@ export default function BookForm({ bookId, initialData, mode = 'create' }: BookF
             id="defaultRoyaltyRate"
             type="number"
             value={formData.defaultRoyaltyRate}
-            onChange={(e) => handleInputChange("defaultRoyaltyRate", e.target.value)}
+            onChange={(e) =>
+              handleInputChange("defaultRoyaltyRate", e.target.value)
+            }
             className={cn(
               "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background",
               "file:border-0 file:bg-transparent file:text-sm file:font-medium",
               "placeholder:text-muted-foreground",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
               "disabled:cursor-not-allowed disabled:opacity-50",
-              "dark:bg-gray-700"
+              "dark:bg-gray-700",
             )}
             placeholder="50"
             min="0"
@@ -465,7 +526,8 @@ export default function BookForm({ bookId, initialData, mode = 'create' }: BookF
             step="0.1"
           />
           <p className="text-xs text-muted-foreground">
-            Default: 50%. This is the percentage of publisher revenue that goes to authors.
+            Default: 50%. This is the percentage of publisher revenue that goes
+            to authors.
           </p>
         </div>
       </div>
@@ -473,13 +535,13 @@ export default function BookForm({ bookId, initialData, mode = 'create' }: BookF
       <div className="mt-6 flex justify-end gap-4">
         <button
           type="button"
-          onClick={() => router.back()}
+          onClick={() => (inModal ? onModalCancel?.() : router.back())}
           className={cn(
             "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
             "disabled:pointer-events-none disabled:opacity-50",
             "h-10 px-4 py-2",
-            "border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
+            "border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800",
           )}
           disabled={isSubmitting}
         >
@@ -494,10 +556,16 @@ export default function BookForm({ bookId, initialData, mode = 'create' }: BookF
             "disabled:pointer-events-none disabled:opacity-50",
             "h-10 px-4 py-2",
             "bg-blue-600 text-white hover:bg-blue-700",
-            isSubmitting && "opacity-50 cursor-not-allowed"
+            isSubmitting && "opacity-50 cursor-not-allowed",
           )}
         >
-          {isSubmitting ? (mode === 'edit' ? "Updating..." : "Creating...") : (mode === 'edit' ? "Update Book" : "Create Book")}
+          {isSubmitting
+            ? mode === "edit"
+              ? "Updating..."
+              : "Creating..."
+            : mode === "edit"
+              ? "Update Book"
+              : "Create Book"}
         </button>
       </div>
     </form>
