@@ -37,7 +37,7 @@ export interface DataTableProps<T> {
     showDateFilter?: boolean;
 }
 
-export function DataTable<T extends Record<string, unknown>>({
+export function DataTable<T extends object>({
     columns,
     data,
     emptyMessage = 'No data available',
@@ -93,9 +93,9 @@ export function DataTable<T extends Record<string, unknown>>({
         resetToFirstPage();
     };
 
-    const getCellValue = (row: T, column: ColumnDef<T>) => {
+    const getCellValue = (row: T, column: ColumnDef<T>): React.ReactNode => {
         if (column.render) return column.render(row);
-        if (column.accessor) return row[column.accessor];
+        if (column.accessor) return row[column.accessor] as React.ReactNode;
         return null;
     };
 

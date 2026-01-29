@@ -7,7 +7,7 @@ export interface UseTableSortOptions<T> {
     defaultSortDirection?: 'asc' | 'desc';
 }
 
-export function useTableSort<T extends Record<string, unknown>>({
+export function useTableSort<T extends object>({
     data,
     columns,
     defaultSortField,
