@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "migrate:deploy": "prisma migrate deploy",
-    "db:seed": "tsx src/prisma/seed.ts"
+    "db:seed": "tsx src/prisma/seed.ts",
+    "prepare": "node -e \"if (process.env.CI === 'true' || process.env.HUSKY === '0') process.exit(0); require('child_process').execSync('husky', {stdio: 'inherit'})\""
   },
   "prisma": {
     "seed": "tsx src/prisma/seed.ts"

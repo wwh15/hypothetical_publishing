@@ -35,6 +35,7 @@ ENV NODE_ENV=production
 RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 
 COPY package*.json ./
+ENV HUSKY=0
 RUN npm ci --omit=dev
 
 COPY --from=builder /app/.next ./.next
