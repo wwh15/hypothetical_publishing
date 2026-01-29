@@ -6,7 +6,7 @@ import { NextResponse, type NextRequest } from "next/server";
  * 1. Refresh expired auth tokens (keeps users logged in)
  * 2. Optionally protect routes (redirect unauthenticated users)
  */
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
     request,
   });
