@@ -4,6 +4,7 @@ import { prisma } from "../prisma";
 
 export interface SaleListItem {
   id: number;
+  bookId: number;
   title: string;
   author: string;
   date: string;
@@ -47,6 +48,7 @@ export async function asyncGetSaleById(id: number) {
 // mapper used by list/payment screens
 export function toSaleListItem(sale: {
   id: number;
+  bookId: number;
   date: string;
   quantity: number;
   publisherRevenue: number;
@@ -56,6 +58,7 @@ export function toSaleListItem(sale: {
 }): SaleListItem {
   return {
     id: sale.id,
+    bookId: sale.bookId,
     title: sale.book.title,
     author: sale.book.authors.map((a) => a.name).join(", "),
     date: sale.date,
