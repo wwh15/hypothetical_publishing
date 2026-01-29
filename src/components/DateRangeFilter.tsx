@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 
 interface DateRangeFilterProps {
   startDate: string;
@@ -17,44 +17,37 @@ export function DateRangeFilter({
   onClear,
   hasActiveFilter,
 }: DateRangeFilterProps) {
-  const [error, setError] = useState<string>('');
+  const [formatError, setFormatError] = useState<string>('');
 
-  // Validate date range whenever BOTH dates are complete
-  useEffect(() => {
-    // Only validate if both dates are fully entered
-    if (isValidFormat(startDate) && isValidFormat(endDate)) {
-      const isValid = validateDateRange(startDate, endDate);
-      if (!isValid) {
-        setError('Start date must be before or equal to end date');
-      } else {
-        setError('');
-      }
-    } else {
-      // Clear error while typing
-      setError('');
+  // Derive range error from props (no effect)
+  const rangeError = useMemo(() => {
+    if (isValidFormat(startDate) && isValidFormat(endDate) && !validateDateRange(startDate, endDate)) {
+      return 'Start date must be before or equal to end date';
     }
+    return '';
   }, [startDate, endDate]);
 
+  const error = formatError || rangeError;
+
   const handleStartDateChange = (value: string) => {
-    // Allow typing without validation
     onStartDateChange(value);
+    if (isValidFormat(value)) setFormatError((prev) => (prev ? '' : prev));
   };
 
   const handleEndDateChange = (value: string) => {
-    // Allow typing without validation
     onEndDateChange(value);
+    if (isValidFormat(value)) setFormatError((prev) => (prev ? '' : prev));
   };
 
-  // Validate format only when user leaves the field (onBlur)
   const handleStartBlur = () => {
     if (startDate && !isValidFormat(startDate)) {
-      setError('Invalid format. Use MM-YYYY (e.g., 01-2026)');
+      setFormatError('Invalid format. Use MM-YYYY (e.g., 01-2026)');
     }
   };
 
   const handleEndBlur = () => {
     if (endDate && !isValidFormat(endDate)) {
-      setError('Invalid format. Use MM-YYYY (e.g., 12-2026)');
+      setFormatError('Invalid format. Use MM-YYYY (e.g., 12-2026)');
     }
   };
 
@@ -102,7 +95,7 @@ export function DateRangeFilter({
           <button
             onClick={() => {
               onClear();
-              setError(''); // Clear error when clearing filter
+              setFormatError('');
             }}
             className="px-3 py-1.5 text-sm font-medium text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors"
           >

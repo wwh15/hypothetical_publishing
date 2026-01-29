@@ -1,0 +1,44 @@
+name: ci
+
+on:
+  pull_request:
+    branches: [main, qa]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      # Placeholders so Supabase client can initialize during build (no real requests in CI)
+      NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL3BsYWNlaG9sZGVyLnN1cGFiYXNlLmNvIiwicm9sZSI6ImFub24ifQ.placeholder
+      SUPABASE_SECRET_KEY: placeholder-secret-key-for-ci-build
+      # Prisma/DB not used at build time but some code may reference it
+      DATABASE_URL: postgresql://user:pass@localhost:5432/db
+
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: install
+        run: npm ci
+
+      - name: lint
+        run: npm run lint
+
+      - name: build
+        run: npm run build
+
+      # optional: run tests if they exist
+      # this won't fail your PRs if you haven't created tests yet
+      - name: test
+        run: npm test --if-present

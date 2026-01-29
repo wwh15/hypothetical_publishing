@@ -39,6 +39,7 @@ export default async function BooksPage({ searchParams }: BooksPageProps) {
         </Link>
       </div>
       <BooksTable
+        key={search ?? "__empty__"}
         books={items}
         total={total}
         page={currentPage}

@@ -7,7 +7,7 @@ export interface UseTableSortOptions<T> {
     defaultSortDirection?: 'asc' | 'desc';
 }
 
-export function useTableSort<T extends Record<string, any>>({
+export function useTableSort<T extends object>({
     data,
     columns,
     defaultSortField,
@@ -61,7 +61,7 @@ export function useTableSort<T extends Record<string, any>>({
 }
 
 // Helper to detect if a value is a date in MM-YYYY format
-function isDateField(value: any): boolean {
+function isDateField(value: unknown): boolean {
     if (typeof value !== 'string') return false;
     return /^\d{2}-\d{4}$/.test(value);
 }
