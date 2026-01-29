@@ -1,6 +1,16 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { supabaseAdmin } from './lib/supabase/admin';
 
+
+// check if setup has been completed
+  async function isSetupComplete(): Promise<boolean> {
+
+    const { data: { users }, error } = await supabaseAdmin.auth.admin.listUsers();
+    
+    
+    return (users?.length ?? 0) > 0; // true if there is more than 0 users
+ }
 /**
  * Middleware runs on every request to:
  * 1. Refresh expired auth tokens (keeps users logged in)
@@ -33,27 +43,55 @@ export async function proxy(request: NextRequest) {
       },
     }
   );
+  
+  // refresh auth token
+  const { data: { user }, } = await supabase.auth.getUser();
 
-  // IMPORTANT: Do not remove this line
-  // Refreshes the auth token if expired
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const setup = await isSetupComplete();
+  const {pathname} = request.nextUrl;
 
-  // Protect routes - redirect unauthenticated users to login
-  const protectedPaths = ["/sales", "/books", "/books/[id]", "/sales/add-record", "sales/records"];
-  const isProtectedPath = protectedPaths.some((path) =>
-    request.nextUrl.pathname.startsWith(path)
-  );
-
-  if (isProtectedPath && !user) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    return NextResponse.redirect(url);
+  // Handle /setup route first
+  if (pathname === "/setup") {
+    if (setup) {
+      // Setup complete: redirect logged-in users to home, others to login
+      const redirectUrl = user ? "/" : "/login";
+      return NextResponse.redirect(new URL(redirectUrl, request.url));
+    }
+    return supabaseResponse;
   }
+
+  // handle /login route
+  if (pathname === "/login") {
+    if (!setup) {
+      // setup not complete, redirect to setup endpoint
+      return NextResponse.redirect(new URL("/setup", request.url))
+    }
+    // if user already logged in, just re route to home
+    if (user) {
+      return NextResponse.redirect(new URL("/", request.url ));
+    }
+    return supabaseResponse;
+  }
+
+  // if setup isn't complete, always redirect to setup from anywhere
+  if (!setup) {
+    return NextResponse.redirect(new URL("/setup", request.url))
+  }
+
+  // protect other routes
+  const protectedPaths = ["/sales", "/books"]
+  const isProtectedPath = protectedPaths.some( (path) => pathname.startsWith(path) );
+
+  // if path is protected and user isn't logged in reroute to login
+  if (isProtectedPath && !user) {
+    return NextResponse.redirect(new URL("/login", request.url));
+  }
+
+
 
   return supabaseResponse;
 }
+
 
 export const config = {
   matcher: [

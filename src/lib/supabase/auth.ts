@@ -3,27 +3,28 @@
 import { createClient } from "./server";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-
+import { supabaseAdmin } from '@/lib/supabase/admin';
 /**
  * Server Actions for authentication
  * Call these from Client Components or forms
  */
 
-export async function signUp(formData: FormData) {
-  const supabase = await createClient();
+export async function setupAdminUser(formData: FormData) {
 
-  const data = {
-    email: formData.get("email") as string,
-    password: formData.get("password") as string,
-  };
+ const { data: existingUsers} = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1});
 
-  const { error } = await supabase.auth.signUp(data);
+ if (existingUsers && existingUsers.users.length > 0){ 
+  return { error: "Setup has already been completed"};
+ }
 
-  if (error) {
-    return { error: error.message };
-  }
+ const { data, error } = await supabaseAdmin.auth.admin.createUser({
+  email: formData.get("email") as string,
+  password: formData.get("password") as string,
+  email_confirm: true ,
+  });
 
-  return { success: true };
+  return { success: true } ;
+
 }
 
 export async function signIn(formData: FormData) {
