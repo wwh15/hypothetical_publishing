@@ -112,7 +112,8 @@ export const salesColumns: ColumnDef<SaleListItem>[] = [
   {
     key: "paid",
     header: "Royalty Status",
-    sortable: false,
+    accessor: "paid",
+    sortable: true,
     render: (row) => salesCellRenderers.paidStatus(row.paid),
   },
 ];
