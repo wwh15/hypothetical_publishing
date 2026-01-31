@@ -36,14 +36,14 @@ A tabular view of sales records with:
 A tabular view of sales records, similar to 3.1, but:
 
 - **Grouped and sorted** by author(s), then within each author by record month/year descending (newest first).
-- **Per-author subtotal** of unpaid author royalty.
-- **Per-author action**: next to the unpaid total, a UI control that, after a **confirmation dialog**, marks all unpaid sales records for that author as paid (for issuing payments and updating the system).
+- **Per-author subtotal** of pending author royalty.
+- **Per-author action**: next to the pending total, a UI control that, after a **confirmation dialog**, marks all pending sales records for that author as paid (for issuing payments and updating the system).
 - **Navigation**: same as 3.1 — to record detail (3.3), book detail (2.2), and sales input tool (3.4).
 
 **Todo**
 
 - [x] Table grouped by author(s), then sorted by month/year descending.
-- [x] Per-author unpaid royalty subtotal.
+- [x] Per-author pending royalty subtotal.
 - [x] Per-author “Mark all as paid” (or equivalent) with confirmation dialog.
 - [x] Navigate to sales record detail (3.3).
 - [x] Navigate to book detail (2.2).
@@ -98,8 +98,8 @@ Optimized for **rapid, bulk input** (e.g. from distributor PDF/CSV/web).
 - [x] Month/year and book “drop down” to next record after add.
 - [x] No “add another” click — next row/fields appear automatically.
 - [x] Tab and standard keyboard shortcuts.
-- [ ] Validation per def 16.
-- [] Review step + single confirmation to commit all.
+- [x] Validation per def 16.
+- [x] Review step + single confirmation to commit all.
     - [x] confirmation dialog
     - [x] title
     - [x] date
@@ -107,7 +107,7 @@ Optimized for **rapid, bulk input** (e.g. from distributor PDF/CSV/web).
     - [x] publisher revenue
     - [x] author royalty
     - [x] delete action
-    - [ ] paid status (default to unpaid)
+    - [x] paid status (default to pending)
 
 **Extra**
 - [ ] edit rows in-line

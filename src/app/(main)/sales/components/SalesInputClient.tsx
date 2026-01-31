@@ -73,6 +73,19 @@ export default function SalesInputClient({ booksData }: SalesInputClientProps) {
     });
   };
 
+  const handleTogglePaid = (row: PendingSaleItem) => {
+    setPendingRecords((prev) =>
+      prev.map((r) =>
+        r.bookId === row.bookId &&
+        r.date === row.date &&
+        r.quantity === row.quantity &&
+        r.publisherRevenue === row.publisherRevenue
+          ? { ...r, paid: !r.paid }
+          : r,
+      ),
+    );
+  };
+
   return (
     <>
       <BulkPasteSalesPanel
@@ -83,6 +96,7 @@ export default function SalesInputClient({ booksData }: SalesInputClientProps) {
       <PendingRecordsTable
         pendingRecords={pendingRecords}
         onRemove={handleRemove}
+        onTogglePaid={handleTogglePaid}
       />
       {submitError && (
         <div className="rounded-md bg-destructive/10 text-destructive px-4 py-2 text-sm">
