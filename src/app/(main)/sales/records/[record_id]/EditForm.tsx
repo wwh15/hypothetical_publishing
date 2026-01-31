@@ -8,20 +8,25 @@ import {
 } from "@/app/(main)/sales/action";
 import type { SaleDetailPayload } from "@/lib/data/records";
 import Link from "next/link";
+import { BookSelectBox } from "@/components/BookSelectBox";
+import { BookListItem } from "@/lib/data/books";
 
 interface EditFormProps {
+  books: BookListItem[];
   sale: SaleDetailPayload;
 }
 
-export default function EditForm({ sale }: EditFormProps) {
+export default function EditForm({ sale, books }: EditFormProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
+    bookId: sale.bookId,
     date: sale.date,
     quantity: sale.quantity,
     publisherRevenue: sale.publisherRevenue,
     authorRoyalty: sale.authorRoyalty,
     royaltyOverridden: sale.royaltyOverridden,
   });
+
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -189,6 +194,22 @@ export default function EditForm({ sale }: EditFormProps) {
       <h2 className="text-xl font-bold mb-4">Edit Sale Record</h2>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+        {/* Book Reference */}
+        <div>
+        <label className="block text-sm font-medium mb-2">
+            Book Reference
+          </label>
+          <BookSelectBox
+          books={books}
+          selectedBookId={String(formData.bookId)}
+          onSelect={(bookId) =>
+            setFormData({ ...formData, bookId: Number(bookId) })
+          }
+        />
+        </div>
+        
+
         {/* Date */}
         <div>
           <label className="block text-sm font-medium mb-2">
