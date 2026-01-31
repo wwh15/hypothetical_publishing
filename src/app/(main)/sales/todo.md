@@ -91,9 +91,9 @@ Optimized for **rapid, bulk input** (e.g. from distributor PDF/CSV/web).
 **Todo**
 
 - [x] Month/year + book + quantity + publisher revenue inputs.
-- [ ] Book: search by title and ISBN-13/10 (normalize dashes); fast autocomplete.
-    - [ ] normalize dashes
-- [ ] Author royalty auto-calc; override shown distinctly; revert on clear.
+- [x] Book: search by title and ISBN-13/10 (normalize dashes); fast autocomplete.
+    - [x] normalize dashes
+- [x] Author royalty auto-calc; override shown distinctly; revert on clear.
 - [x] Author-paid default false.
 - [x] Month/year and book “drop down” to next record after add.
 - [x] No “add another” click — next row/fields appear automatically.
