@@ -15,7 +15,7 @@ A tabular view of sales records with:
 **Todo**
 
 - [x] Columns: title, author, month/year, quantity, publisher revenue, author royalty, paid indicator (color + shape).
-- [ ] Sortable by every column; default sort = month/year descending (newest first).
+- [x] Sortable by every column; default sort = month/year descending (newest first).
     - [x] id
     - [x] title
     - [x] author
@@ -23,7 +23,7 @@ A tabular view of sales records with:
     - [x] publisher revenue
     - [x] author royalty
     - [x] date
-    - [ ] royalty status
+    - [x] royalty status
 - [x] Date-range filter.
 - [x] Row → sales record detail (3.3).
 - [x] Row → book detail (2.2).
@@ -36,14 +36,14 @@ A tabular view of sales records with:
 A tabular view of sales records, similar to 3.1, but:
 
 - **Grouped and sorted** by author(s), then within each author by record month/year descending (newest first).
-- **Per-author subtotal** of unpaid author royalty.
-- **Per-author action**: next to the unpaid total, a UI control that, after a **confirmation dialog**, marks all unpaid sales records for that author as paid (for issuing payments and updating the system).
+- **Per-author subtotal** of pending author royalty.
+- **Per-author action**: next to the pending total, a UI control that, after a **confirmation dialog**, marks all pending sales records for that author as paid (for issuing payments and updating the system).
 - **Navigation**: same as 3.1 — to record detail (3.3), book detail (2.2), and sales input tool (3.4).
 
 **Todo**
 
 - [x] Table grouped by author(s), then sorted by month/year descending.
-- [x] Per-author unpaid royalty subtotal.
+- [x] Per-author pending royalty subtotal.
 - [x] Per-author “Mark all as paid” (or equivalent) with confirmation dialog.
 - [x] Navigate to sales record detail (3.3).
 - [x] Navigate to book detail (2.2).
@@ -59,17 +59,17 @@ A tabular view of sales records, similar to 3.1, but:
 
 **Todo**
 
-- [ ] Detail view shows all record fields.
-- [ ] Edit
-    - [ ] add validation
+- [x] Detail view shows all record fields.
+- [x] Edit
+    - [x] add validation
     - [x] month/year
-    - [ ] book reference
+    - [x] book reference
     - [x] quantity
     - [x] publisher revenue
-    - [ ] author royalty (with override)
-    - [ ] auto-populate author royalty from new publisher revenue
-    - [ ] author-paid.
-- [ ] Delete record with confirmation dialog.
+    - [x] author royalty (with override)
+    - [x] auto-populate author royalty from new publisher revenue
+    - [x] author-paid.
+- [x] Delete record with confirmation dialog.
 
 ---
 
@@ -91,15 +91,15 @@ Optimized for **rapid, bulk input** (e.g. from distributor PDF/CSV/web).
 **Todo**
 
 - [x] Month/year + book + quantity + publisher revenue inputs.
-- [ ] Book: search by title and ISBN-13/10 (normalize dashes); fast autocomplete.
-    - [ ] normalize dashes
-- [ ] Author royalty auto-calc; override shown distinctly; revert on clear.
+- [x] Book: search by title and ISBN-13/10 (normalize dashes); fast autocomplete.
+    - [x] normalize dashes
+- [x] Author royalty auto-calc; override shown distinctly; revert on clear.
 - [x] Author-paid default false.
 - [x] Month/year and book “drop down” to next record after add.
 - [x] No “add another” click — next row/fields appear automatically.
 - [x] Tab and standard keyboard shortcuts.
-- [ ] Validation per def 16.
-- [ ] Review step + single confirmation to commit all.
+- [x] Validation per def 16.
+- [x] Review step + single confirmation to commit all.
     - [x] confirmation dialog
     - [x] title
     - [x] date
@@ -107,8 +107,7 @@ Optimized for **rapid, bulk input** (e.g. from distributor PDF/CSV/web).
     - [x] publisher revenue
     - [x] author royalty
     - [x] delete action
-    - [ ] edit action
-    - [ ] paid status (default to unpaid)
+    - [x] paid status (default to pending)
 
 **Extra**
 - [ ] edit rows in-line

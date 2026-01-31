@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getSaleById } from "../../action";  // after you add it
 import EditForm from "./EditForm";
+import { getBooksData } from "@/app/(main)/books/action";
 
 export default async function SalesRecordDetailPage({
   params,
@@ -16,6 +17,9 @@ export default async function SalesRecordDetailPage({
   const sale = await getSaleById(id);
   if (!sale) notFound();
 
+  const books = (await getBooksData({})).items;
+  if (!books) notFound();
+
   return (
     <div className="container mx-auto py-10">
       <div className="mb-6">
@@ -24,7 +28,7 @@ export default async function SalesRecordDetailPage({
         </Link>
         <h1 className="text-3xl font-bold">Sales Record #{id}</h1>
       </div>
-      <EditForm sale={sale} />
+      <EditForm sale={sale} books={books}/>
     </div>
   );
 }

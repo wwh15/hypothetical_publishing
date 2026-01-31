@@ -3,16 +3,19 @@
 import { DataTable } from "@/components/DataTable";
 import { ColumnDef } from "@/components/DataTable";
 import { PendingSaleItem } from "@/lib/data/records";
+import { salesCellRenderers } from "@/lib/table-configs/sales-columns";
 import { X } from "lucide-react";
 
 interface PendingRecordsTableProps {
   pendingRecords: PendingSaleItem[];
   onRemove: (row: PendingSaleItem) => void;
+  onTogglePaid: (row: PendingSaleItem) => void;
 }
 
 export default function PendingRecordsTable({
   pendingRecords,
   onRemove,
+  onTogglePaid,
 }: PendingRecordsTableProps) {
   // Define columns for pending sales table
   const pendingColumns: ColumnDef<PendingSaleItem>[] = [
@@ -80,6 +83,25 @@ export default function PendingRecordsTable({
             </span>
           )}
         </div>
+      ),
+    },
+    {
+      key: "paid",
+      header: "Royalty Status",
+      accessor: "paid",
+      sortable: true,
+      render: (row) => (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onTogglePaid(row);
+          }}
+          className="cursor-pointer rounded-full focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1"
+          title="Click to toggle paid / pending"
+        >
+          {salesCellRenderers.paidStatus(row.paid ? "paid" : "pending")}
+        </button>
       ),
     },
     {
