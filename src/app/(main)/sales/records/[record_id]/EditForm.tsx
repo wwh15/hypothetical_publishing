@@ -239,10 +239,15 @@ export default function EditForm({ sale, books }: EditFormProps) {
           </label>
           <input
             type="number"
-            value={formData.quantity}
-            onChange={(e) =>
-              setFormData({ ...formData, quantity: parseInt(e.target.value) })
+            min={0}
+            value={
+              Number.isFinite(formData.quantity) ? formData.quantity : ""
             }
+            onChange={(e) => {
+              const raw = parseInt(e.target.value, 10);
+              const q = Number.isFinite(raw) ? Math.max(0, raw) : 0;
+              setFormData({ ...formData, quantity: q });
+            }}
             className="w-full px-3 py-2 border rounded-md"
           />
         </div>

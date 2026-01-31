@@ -59,17 +59,17 @@ A tabular view of sales records, similar to 3.1, but:
 
 **Todo**
 
-- [ ] Detail view shows all record fields.
-- [ ] Edit
-    - [ ] add validation
+- [x] Detail view shows all record fields.
+- [x] Edit
+    - [x] add validation
     - [x] month/year
-    - [ ] book reference
+    - [x] book reference
     - [x] quantity
     - [x] publisher revenue
-    - [ ] author royalty (with override)
-    - [ ] auto-populate author royalty from new publisher revenue
-    - [ ] author-paid.
-- [ ] Delete record with confirmation dialog.
+    - [x] author royalty (with override)
+    - [x] auto-populate author royalty from new publisher revenue
+    - [x] author-paid.
+- [x] Delete record with confirmation dialog.
 
 ---
 
