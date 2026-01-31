@@ -99,7 +99,7 @@ Optimized for **rapid, bulk input** (e.g. from distributor PDF/CSV/web).
 - [x] No “add another” click — next row/fields appear automatically.
 - [x] Tab and standard keyboard shortcuts.
 - [ ] Validation per def 16.
-- [ ] Review step + single confirmation to commit all.
+- [] Review step + single confirmation to commit all.
     - [x] confirmation dialog
     - [x] title
     - [x] date
@@ -107,7 +107,6 @@ Optimized for **rapid, bulk input** (e.g. from distributor PDF/CSV/web).
     - [x] publisher revenue
     - [x] author royalty
     - [x] delete action
-    - [ ] edit action
     - [ ] paid status (default to unpaid)
 
 **Extra**
