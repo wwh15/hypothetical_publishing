@@ -15,7 +15,7 @@ A tabular view of sales records with:
 **Todo**
 
 - [x] Columns: title, author, month/year, quantity, publisher revenue, author royalty, paid indicator (color + shape).
-- [ ] Sortable by every column; default sort = month/year descending (newest first).
+- [x] Sortable by every column; default sort = month/year descending (newest first).
     - [x] id
     - [x] title
     - [x] author
@@ -23,7 +23,7 @@ A tabular view of sales records with:
     - [x] publisher revenue
     - [x] author royalty
     - [x] date
-    - [ ] royalty status
+    - [x] royalty status
 - [x] Date-range filter.
 - [x] Row → sales record detail (3.3).
 - [x] Row → book detail (2.2).
@@ -59,17 +59,17 @@ A tabular view of sales records, similar to 3.1, but:
 
 **Todo**
 
-- [ ] Detail view shows all record fields.
-- [ ] Edit
-    - [ ] add validation
+- [x] Detail view shows all record fields.
+- [x] Edit
+    - [x] add validation
     - [x] month/year
-    - [ ] book reference
+    - [x] book reference
     - [x] quantity
     - [x] publisher revenue
-    - [ ] author royalty (with override)
-    - [ ] auto-populate author royalty from new publisher revenue
-    - [ ] author-paid.
-- [ ] Delete record with confirmation dialog.
+    - [x] author royalty (with override)
+    - [x] auto-populate author royalty from new publisher revenue
+    - [x] author-paid.
+- [x] Delete record with confirmation dialog.
 
 ---
 
