@@ -194,21 +194,29 @@ export default function EditForm({ sale, books }: EditFormProps) {
       <h2 className="text-xl font-bold mb-4">Edit Sale Record</h2>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-
         {/* Book Reference */}
         <div>
-        <label className="block text-sm font-medium mb-2">
+          <label className="block text-sm font-medium mb-2">
             Book Reference
           </label>
           <BookSelectBox
-          books={books}
-          selectedBookId={String(formData.bookId)}
-          onSelect={(bookId) =>
-            setFormData({ ...formData, bookId: Number(bookId) })
-          }
-        />
+            books={books}
+            selectedBookId={String(formData.bookId)}
+            onSelect={(bookId) => {
+              const book = books.find((b) => b.id === Number(bookId));
+              const rate = book?.defaultRoyaltyRate;
+              const newRoyalty =
+                rate != null
+                  ? formData.publisherRevenue * (rate / 100)
+                  : formData.authorRoyalty;
+              setFormData({
+                ...formData,
+                bookId: Number(bookId),
+                authorRoyalty: newRoyalty,
+              });
+            }}
+          />
         </div>
-        
 
         {/* Date */}
         <div>
@@ -247,13 +255,29 @@ export default function EditForm({ sale, books }: EditFormProps) {
           <input
             type="number"
             step="0.01"
-            value={formData.publisherRevenue}
-            onChange={(e) =>
+            min={0}
+            value={
+              Number.isFinite(formData.publisherRevenue)
+                ? formData.publisherRevenue
+                : ""
+            }
+            onChange={(e) => {
+              const raw = parseFloat(e.target.value);
+              const revenue = Number.isFinite(raw) ? Math.max(0, raw) : 0;
+              const book = books.find((b) => b.id === Number(formData.bookId));
+              const rate = book?.defaultRoyaltyRate;
+              const newRoyalty =
+                rate != null ? revenue * (rate / 100) : formData.authorRoyalty;
+              const authorRoyalty = Number.isFinite(newRoyalty)
+                ? Math.max(0, newRoyalty)
+                : formData.authorRoyalty;
               setFormData({
                 ...formData,
-                publisherRevenue: parseFloat(e.target.value),
-              })
-            }
+                publisherRevenue: revenue,
+                authorRoyalty,
+                royaltyOverridden: false,
+              });
+            }}
             className="w-full px-3 py-2 border rounded-md"
           />
         </div>
@@ -266,11 +290,18 @@ export default function EditForm({ sale, books }: EditFormProps) {
           <input
             type="number"
             step="0.01"
-            value={formData.authorRoyalty}
+            min={0}
+            value={
+              Number.isFinite(formData.authorRoyalty)
+                ? formData.authorRoyalty
+                : ""
+            }
             onChange={(e) => {
+              const raw = parseFloat(e.target.value);
+              const royalty = Number.isFinite(raw) ? Math.max(0, raw) : 0;
               setFormData({
                 ...formData,
-                authorRoyalty: parseFloat(e.target.value),
+                authorRoyalty: royalty,
                 royaltyOverridden: true,
               });
             }}
