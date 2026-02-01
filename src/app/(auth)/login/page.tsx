@@ -46,7 +46,7 @@ export default function LoginPage() {
             />
           </div>
 
-          <div className="mb-6">
+          <div className="mb-4">
             <label htmlFor="password" className="block text-sm font-medium mb-2">
               Password
             </label>
@@ -57,6 +57,12 @@ export default function LoginPage() {
               required
               className="w-full px-3 py-2 border rounded-md"
             />
+          </div>
+
+          <div className="mb-6 text-right">
+            <Link href="/forgot-password" className="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400">
+              Forgot Password?
+            </Link>
           </div>
 
           <button

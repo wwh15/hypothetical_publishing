@@ -73,6 +73,24 @@ export async function proxy(request: NextRequest) {
     return supabaseResponse;
   }
 
+  // Allow forgot-password without auth
+  if (pathname === "/forgot-password") {
+    if (!setup) return NextResponse.redirect(new URL("/setup", request.url));
+    return supabaseResponse;
+  }
+
+  // Reset-password requires session from callback
+  if (pathname === "/reset-password") {
+    if (!setup) return NextResponse.redirect(new URL("/setup", request.url));
+    if (!user) return NextResponse.redirect(new URL("/forgot-password", request.url));
+    return supabaseResponse;
+  }
+
+  // Always allow auth callback
+  if (pathname.startsWith("/api/auth/callback")) {
+    return supabaseResponse;
+  }
+
   // if setup isn't complete, always redirect to setup from anywhere
   if (!setup) {
     return NextResponse.redirect(new URL("/setup", request.url))
