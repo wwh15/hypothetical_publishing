@@ -8,20 +8,25 @@ import {
 } from "@/app/(main)/sales/action";
 import type { SaleDetailPayload } from "@/lib/data/records";
 import Link from "next/link";
+import { BookSelectBox } from "@/components/BookSelectBox";
+import { BookListItem } from "@/lib/data/books";
 
 interface EditFormProps {
+  books: BookListItem[];
   sale: SaleDetailPayload;
 }
 
-export default function EditForm({ sale }: EditFormProps) {
+export default function EditForm({ sale, books }: EditFormProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
+    bookId: sale.bookId,
     date: sale.date,
     quantity: sale.quantity,
     publisherRevenue: sale.publisherRevenue,
     authorRoyalty: sale.authorRoyalty,
     royaltyOverridden: sale.royaltyOverridden,
   });
+
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -189,6 +194,30 @@ export default function EditForm({ sale }: EditFormProps) {
       <h2 className="text-xl font-bold mb-4">Edit Sale Record</h2>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Book Reference */}
+        <div>
+          <label className="block text-sm font-medium mb-2">
+            Book Reference
+          </label>
+          <BookSelectBox
+            books={books}
+            selectedBookId={String(formData.bookId)}
+            onSelect={(bookId) => {
+              const book = books.find((b) => b.id === Number(bookId));
+              const rate = book?.defaultRoyaltyRate;
+              const newRoyalty =
+                rate != null
+                  ? formData.publisherRevenue * (rate / 100)
+                  : formData.authorRoyalty;
+              setFormData({
+                ...formData,
+                bookId: Number(bookId),
+                authorRoyalty: newRoyalty,
+              });
+            }}
+          />
+        </div>
+
         {/* Date */}
         <div>
           <label className="block text-sm font-medium mb-2">
@@ -210,10 +239,15 @@ export default function EditForm({ sale }: EditFormProps) {
           </label>
           <input
             type="number"
-            value={formData.quantity}
-            onChange={(e) =>
-              setFormData({ ...formData, quantity: parseInt(e.target.value) })
+            min={0}
+            value={
+              Number.isFinite(formData.quantity) ? formData.quantity : ""
             }
+            onChange={(e) => {
+              const raw = parseInt(e.target.value, 10);
+              const q = Number.isFinite(raw) ? Math.max(0, raw) : 0;
+              setFormData({ ...formData, quantity: q });
+            }}
             className="w-full px-3 py-2 border rounded-md"
           />
         </div>
@@ -226,13 +260,29 @@ export default function EditForm({ sale }: EditFormProps) {
           <input
             type="number"
             step="0.01"
-            value={formData.publisherRevenue}
-            onChange={(e) =>
+            min={0}
+            value={
+              Number.isFinite(formData.publisherRevenue)
+                ? formData.publisherRevenue
+                : ""
+            }
+            onChange={(e) => {
+              const raw = parseFloat(e.target.value);
+              const revenue = Number.isFinite(raw) ? Math.max(0, raw) : 0;
+              const book = books.find((b) => b.id === Number(formData.bookId));
+              const rate = book?.defaultRoyaltyRate;
+              const newRoyalty =
+                rate != null ? revenue * (rate / 100) : formData.authorRoyalty;
+              const authorRoyalty = Number.isFinite(newRoyalty)
+                ? Math.max(0, newRoyalty)
+                : formData.authorRoyalty;
               setFormData({
                 ...formData,
-                publisherRevenue: parseFloat(e.target.value),
-              })
-            }
+                publisherRevenue: revenue,
+                authorRoyalty,
+                royaltyOverridden: false,
+              });
+            }}
             className="w-full px-3 py-2 border rounded-md"
           />
         </div>
@@ -245,11 +295,18 @@ export default function EditForm({ sale }: EditFormProps) {
           <input
             type="number"
             step="0.01"
-            value={formData.authorRoyalty}
+            min={0}
+            value={
+              Number.isFinite(formData.authorRoyalty)
+                ? formData.authorRoyalty
+                : ""
+            }
             onChange={(e) => {
+              const raw = parseFloat(e.target.value);
+              const royalty = Number.isFinite(raw) ? Math.max(0, raw) : 0;
               setFormData({
                 ...formData,
-                authorRoyalty: parseFloat(e.target.value),
+                authorRoyalty: royalty,
                 royaltyOverridden: true,
               });
             }}
