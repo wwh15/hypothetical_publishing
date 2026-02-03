@@ -420,44 +420,22 @@ export async function updateBook(input: UpdateBookInput): Promise<{ success: tru
 
 export async function deleteBook(id: number): Promise<{ success: true } | { success: false; error: string }> {
   try {
-    // Check if book exists
     const book = await prisma.book.findUnique({
       where: { id },
-      include: {
-        sales: {
-          select: { id: true },
-          take: 1, // Just check if any sales exist
-        },
-      },
     });
 
     if (!book) {
-      return { success: false, error: 'Book not found' };
+      return { success: false, error: "Book not found" };
     }
 
-    // Check if book has sales records
-    if (book.sales.length > 0) {
-      return { 
-        success: false, 
-        error: 'Cannot delete book with existing sales records. Please delete or reassign sales records first.' 
-      };
-    }
-
-    // Delete the book (authors will remain due to many-to-many relationship)
+    // Delete the book. Sales records are deleted automatically (FK onDelete: Cascade).
+    // Authors are unchanged (many-to-many; other books may reference them).
     await prisma.book.delete({
       where: { id },
     });
 
     return { success: true };
   } catch (error: unknown) {
-    // Handle foreign key constraint violations
-    if (error && typeof error === "object" && "code" in error && (error as { code: string }).code === "P2003") {
-    return {
-      success: false,
-      error: "Cannot delete book: it has associated sales records",
-    };
-    }
-
     return {
       success: false,
       error: error instanceof Error ? error.message : "Failed to delete book",
