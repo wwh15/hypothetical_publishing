@@ -50,10 +50,11 @@ export interface BookDetail {
     sales?: import('./records').SaleListItem[]; // Sales records for this book
 }
 
-// Column keys from BooksTable that support server-side sort
+// Column keys from BooksTable that support server-side sort.
+// Note: "authors" sorts by number of authors (_count); Prisma relation orderBy does not support ordering by relation field (e.g. name).
 const SORT_FIELD_MAP: Record<string, Prisma.BookOrderByWithRelationInput | Prisma.BookOrderByWithRelationInput[]> = {
   title: { title: "asc" },
-  authors: { authors: { name: "asc" } },
+  authors: { authors: { _count: "asc" } },
   isbn13: { isbn13: "asc" },
   isbn10: { isbn10: "asc" },
   publication: [

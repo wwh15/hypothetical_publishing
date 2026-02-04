@@ -1,11 +1,29 @@
-import { getAllBooks } from "./action";
+import { getBooksData } from "./action";
 import BooksTable from "./components/BooksTable";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
-export default async function BooksPage() {
-  const books = await getAllBooks();
+interface BooksPageProps {
+  searchParams?: Promise<{
+    q?: string;
+    page?: string;
+    sortBy?: string;
+    sortDir?: string;
+  }>;
+}
+
+export default async function BooksPage({ searchParams }: BooksPageProps) {
+  const params = await searchParams;
+  const search = params?.q ?? "";
+  const pageParam = params?.page ?? "1";
+  const page = Number(pageParam) || 1;
+  const pageSize = 20;
+  const sortBy = params?.sortBy ?? "title";
+  const sortDir = (params?.sortDir === "desc" ? "desc" : "asc") as "asc" | "desc";
+
+  const { items, total, page: currentPage, pageSize: effectivePageSize } =
+    await getBooksData({ search, page, pageSize, sortBy, sortDir });
 
   return (
     <div className="container mx-auto py-10">
@@ -24,7 +42,16 @@ export default async function BooksPage() {
           Add Book
         </Link>
       </div>
-      <BooksTable books={books} />
+      <BooksTable
+        key={`${search}-${sortBy}-${sortDir}-${currentPage}`}
+        books={items}
+        total={total}
+        page={currentPage}
+        pageSize={effectivePageSize}
+        search={search}
+        sortBy={sortBy}
+        sortDir={sortDir}
+      />
     </div>
   );
 }
