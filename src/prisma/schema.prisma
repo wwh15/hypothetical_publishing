@@ -41,7 +41,7 @@ model Book {
   isbn13            String?  @unique // ISBN-13 format, stored without dashes
   isbn10            String?  @unique // ISBN-10 format, stored without dashes
   authorRoyaltyRate Float    @default(0.25) @map("author_royalty_rate") // Default 25%, stored as decimal (0.25)
-  publicationMonth  String?     @map("publication_month") // 1 to 12
+  publicationMonth  String?  @map("publication_month") // 1 to 12
   publicationYear   Int?     @map("publication_year") // e.g. 2024
   createdAt         DateTime @default(now()) @map("created_at")
   updatedAt         DateTime @updatedAt @map("updated_at")
@@ -79,4 +79,3 @@ model Sale {
   @@index([bookId, date]) // Composite for book sales over time
   @@map("sales")
 }
-
