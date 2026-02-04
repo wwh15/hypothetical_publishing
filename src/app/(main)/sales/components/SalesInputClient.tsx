@@ -10,9 +10,14 @@ import { addSale } from "../action";
 
 interface SalesInputClientProps {
   booksData: BookListItem[];
+  /** When set (e.g. from /sales/add-record?bookId=123), the single-record form opens with this book pre-selected. */
+  initialBookId?: number;
 }
 
-export default function SalesInputClient({ booksData }: SalesInputClientProps) {
+export default function SalesInputClient({
+  booksData,
+  initialBookId,
+}: SalesInputClientProps) {
   const [pendingRecords, setPendingRecords] = useState<PendingSaleItem[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -92,7 +97,11 @@ export default function SalesInputClient({ booksData }: SalesInputClientProps) {
         onAddRecord={handleAddRecord}
         booksData={booksData}
       />
-      <InputRecordForm onAddRecord={handleAddRecord} booksData={booksData} />
+      <InputRecordForm
+        onAddRecord={handleAddRecord}
+        booksData={booksData}
+        initialBookId={initialBookId}
+      />
       <PendingRecordsTable
         pendingRecords={pendingRecords}
         onRemove={handleRemove}

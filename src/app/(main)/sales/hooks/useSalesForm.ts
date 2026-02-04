@@ -21,12 +21,16 @@ interface FormData {
 
 export function useSalesForm(
   books: BookListItem[],
-  onAddRecord: (record: PendingSaleItem) => void
+  onAddRecord: (record: PendingSaleItem) => void,
+  initialBookId?: number
 ) {
   const [formData, setFormData] = useState<FormData>({
     month: "",
     year: new Date().getFullYear().toString(),
-    bookId: "",
+    bookId:
+      initialBookId != null && Number.isFinite(initialBookId)
+        ? String(initialBookId)
+        : "",
     quantity: "",
     publisherRevenue: "",
     authorRoyalty: "",

@@ -126,16 +126,28 @@ export default async function BookDetailPage({ params }: PageProps) {
         </section>
 
         {/* Sales Records Section */}
-        {book.sales && book.sales.length > 0 && (
-          <section>
-            <h2 className="text-xl font-semibold mb-4">Sales Records</h2>
-            <SalesRecordsTable 
-              rows={book.sales} 
+        <section>
+          <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+            <h2 className="text-xl font-semibold">Sales Records</h2>
+            <Link
+              href={`/sales/add-record?bookId=${bookId}`}
+              className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors inline-flex items-center gap-2"
+            >
+              Add sale for this book
+            </Link>
+          </div>
+          {book.sales && book.sales.length > 0 ? (
+            <SalesRecordsTable
+              rows={book.sales}
               preset="bookDetail"
-              navigationContext={{ from: 'book', bookId: book.id }}
+              navigationContext={{ from: "book", bookId: book.id }}
             />
-          </section>
-        )}
+          ) : (
+            <p className="text-muted-foreground text-sm">
+              No sales records yet. Add one using the button above or from Sales → Add Sales Records.
+            </p>
+          )}
+        </section>
 
         {/* Action Buttons */}
         <section className="pt-4 border-t border-gray-200 dark:border-gray-700">

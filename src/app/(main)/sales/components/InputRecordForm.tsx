@@ -21,6 +21,8 @@ interface Book {
 interface InputRecordFormProps {
   onAddRecord: (record: PendingSaleItem) => void;
   booksData: BookListItem[];
+  /** Pre-select this book in the form (e.g. when navigating from a book details page). */
+  initialBookId?: number;
 }
 
 // Simple FormField wrapper component
@@ -48,7 +50,11 @@ function FormField({
   );
 }
 
-export default function InputRecordForm({ onAddRecord, booksData }: InputRecordFormProps) {
+export default function InputRecordForm({
+  onAddRecord,
+  booksData,
+  initialBookId,
+}: InputRecordFormProps) {
   const [books] = useState<BookListItem[]>(booksData);
   const {
     formData,
@@ -56,7 +62,7 @@ export default function InputRecordForm({ onAddRecord, booksData }: InputRecordF
     handleRoyaltyChange,
     handleSubmit,
     revertRoyalty,
-  } = useSalesForm(books, onAddRecord);
+  } = useSalesForm(books, onAddRecord, initialBookId);
 
   return (
     <form
