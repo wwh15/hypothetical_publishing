@@ -264,49 +264,37 @@ export async function getBooksData({
 export async function getBookById(id: number): Promise<BookDetail | null> {
   const book = await prisma.book.findUnique({
     where: { id },
-    include: {
-      authors: true,
-      sales: {
-        orderBy: {
-          date: 'desc',
-        },
-      },
-    },
+    include: { authors: true },
   });
 
   if (!book) {
     return null;
   }
 
-  // Calculate aggregated fields from sales
-  const totalSales = book.sales.reduce((sum, sale) => sum + sale.quantity, 0);
-  const totalPublisherRevenue = book.sales.reduce((sum, sale) => sum + sale.publisherRevenue, 0);
-  const unpaidAuthorRoyalty = book.sales
-    .filter(sale => !sale.paid)
-    .reduce((sum, sale) => sum + sale.authorRoyalty, 0);
-  const paidAuthorRoyalty = book.sales
-    .filter(sale => sale.paid)
-    .reduce((sum, sale) => sum + sale.authorRoyalty, 0);
-  const totalAuthorRoyalty = book.sales.reduce((sum, sale) => sum + sale.authorRoyalty, 0);
-
-  // Join authors into a comma-separated string
-  const authors = book.authors.map(a => a.name).join(", ");
-
-  // Convert authorRoyaltyRate from decimal (0.25) to percentage (25)
+  const authors = book.authors.map((a) => a.name).join(", ");
   const defaultRoyaltyRate = Math.round(book.authorRoyaltyRate * 100);
 
-  // Map sales to SaleListItem format
-  const sales = book.sales.map(sale => ({
-    id: sale.id,
-    bookId: sale.bookId,
-    title: book.title,
-    author: authors,
-    date: sale.date,
-    quantity: sale.quantity,
-    publisherRevenue: sale.publisherRevenue,
-    authorRoyalty: sale.authorRoyalty,
-    paid: sale.paid ? "paid" as const : "pending" as const,
-  }));
+  // Use aggregates so we don't load all sales (sales list is paginated separately)
+  const [totals, unpaidAgg, paidAgg] = await Promise.all([
+    prisma.sale.aggregate({
+      where: { bookId: id },
+      _sum: { quantity: true, publisherRevenue: true, authorRoyalty: true },
+    }),
+    prisma.sale.aggregate({
+      where: { bookId: id, paid: false },
+      _sum: { authorRoyalty: true },
+    }),
+    prisma.sale.aggregate({
+      where: { bookId: id, paid: true },
+      _sum: { authorRoyalty: true },
+    }),
+  ]);
+
+  const totalSales = totals._sum.quantity ?? 0;
+  const totalPublisherRevenue = totals._sum.publisherRevenue ?? 0;
+  const unpaidAuthorRoyalty = unpaidAgg._sum.authorRoyalty ?? 0;
+  const paidAuthorRoyalty = paidAgg._sum.authorRoyalty ?? 0;
+  const totalAuthorRoyalty = totals._sum.authorRoyalty ?? 0;
 
   return {
     id: book.id,
@@ -324,7 +312,8 @@ export async function getBookById(id: number): Promise<BookDetail | null> {
     unpaidAuthorRoyalty,
     paidAuthorRoyalty,
     totalAuthorRoyalty,
-    sales,
+    // Sales list is loaded separately via getSalesByBookId (paginated)
+    sales: undefined,
   };
 }
 
