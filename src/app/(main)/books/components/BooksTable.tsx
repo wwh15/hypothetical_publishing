@@ -70,7 +70,8 @@ export default function BooksTable({
         {
             key: 'publication',
             header: 'Publication',
-            sortable: false,
+            accessor: 'publicationSortKey',
+            sortable: true,
             render: (row) => {
                 if (row.publicationMonth && row.publicationYear) {
                     const monthNames = [
