@@ -1,6 +1,7 @@
 'use server';
 
 import { 
+  getAllBooks as getAllBooksFromDb,
   getBooksData as getBooksDataFromDb, 
   getBookById as getBookByIdFromDb, 
   createBook as createBookInDb,
@@ -13,6 +14,11 @@ import {
 } from "@/lib/data/books";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+
+// Get all books (for client-side pagination/sorting)
+export async function getAllBooks(): Promise<BookListItem[]> {
+  return getAllBooksFromDb();
+}
 
 // Get books list data with server-side search, sort & pagination
 export async function getBooksData({

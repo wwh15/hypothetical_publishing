@@ -96,6 +96,39 @@ function buildOrderBy(
   return applyDir(base);
 }
 
+// Get all books (for client-side pagination/sorting)
+export async function getAllBooks(): Promise<BookListItem[]> {
+  const books = await prisma.book.findMany({
+    include: {
+      authors: true,
+      sales: true,
+    },
+    orderBy: { title: "asc" },
+  });
+
+  return books.map((book) => {
+    const totalSales = book.sales.reduce((sum, sale) => sum + sale.quantity, 0);
+    const authors = book.authors.map((a) => a.name).join(", ");
+    const defaultRoyaltyRate = Math.round(book.authorRoyaltyRate * 100);
+    const year = book.publicationYear ?? 9999;
+    const month = book.publicationMonth ?? "99";
+    const publicationSortKey = `${year}-${month}`;
+
+    return {
+      id: book.id,
+      title: book.title,
+      authors,
+      isbn13: book.isbn13,
+      isbn10: book.isbn10,
+      publicationMonth: book.publicationMonth,
+      publicationYear: book.publicationYear,
+      publicationSortKey,
+      defaultRoyaltyRate,
+      totalSales,
+    };
+  });
+}
+
 // Database functions
 export async function getBooksData({
   search,
