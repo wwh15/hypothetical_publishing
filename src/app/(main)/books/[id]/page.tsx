@@ -158,7 +158,12 @@ export default async function BookDetailPage({ params }: PageProps) {
             >
               Edit Book
             </Link>
-            <DeleteBookButton bookId={bookId} bookTitle={book.title} />
+            <DeleteBookButton
+              bookId={bookId}
+              bookTitle={book.title}
+              authors={book.authors}
+              salesRecordCount={book.sales?.length ?? 0}
+            />
           </div>
         </section>
       </div>

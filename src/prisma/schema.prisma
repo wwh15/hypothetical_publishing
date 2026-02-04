@@ -70,7 +70,7 @@ model Sale {
   updatedAt        DateTime @updatedAt @map("updated_at")
   
   // Relations
-  book             Book     @relation(fields: [bookId], references: [id], onDelete: Restrict)
+  book             Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
   
   // Indexes for common query patterns
   @@index([bookId]) // For filtering by book
