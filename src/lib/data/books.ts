@@ -10,6 +10,8 @@ export interface BookListItem {
     isbn10: string | null;
     publicationMonth: string | null; // "01" to "12"
     publicationYear: number | null;
+    /** YYYY-MM string for sorting; nulls become 9999-99 so they sort last */
+    publicationSortKey: string;
     defaultRoyaltyRate: number; // As percentage (e.g., 50 for 50%)
     totalSales: number; // Total sales to date
 }
@@ -145,6 +147,11 @@ export async function getBooksData({
     // Convert authorRoyaltyRate from decimal (0.25) to percentage (25)
     const defaultRoyaltyRate = Math.round(book.authorRoyaltyRate * 100);
 
+    // publicationSortKey: YYYY-MM for sorting; nulls use 9999-99 so they sort last
+    const year = book.publicationYear ?? 9999;
+    const month = book.publicationMonth ?? "99";
+    const publicationSortKey = `${year}-${month}`;
+
     return {
       id: book.id,
       title: book.title,
@@ -153,6 +160,7 @@ export async function getBooksData({
       isbn10: book.isbn10,
       publicationMonth: book.publicationMonth,
       publicationYear: book.publicationYear,
+      publicationSortKey,
       defaultRoyaltyRate,
       totalSales,
     };
