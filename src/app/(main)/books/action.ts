@@ -14,22 +14,26 @@ import {
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-// Get books list data with server-side search & pagination
+// Get books list data with server-side search, sort & pagination
 export async function getBooksData({
   search,
   page,
   pageSize,
+  sortBy,
+  sortDir,
 }: {
   search?: string;
   page?: number;
   pageSize?: number;
+  sortBy?: string;
+  sortDir?: "asc" | "desc";
 }): Promise<{
   items: BookListItem[];
   total: number;
   page: number;
   pageSize: number;
 }> {
-  return getBooksDataFromDb({ search, page, pageSize });
+  return getBooksDataFromDb({ search, page, pageSize, sortBy, sortDir });
 }
 
 // Get book by ID

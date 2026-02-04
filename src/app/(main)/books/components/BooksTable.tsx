@@ -14,6 +14,8 @@ interface BooksTableProps {
   page: number;
   pageSize: number;
   search: string;
+  sortBy: string;
+  sortDir: "asc" | "desc";
 }
 
 export default function BooksTable({
@@ -22,6 +24,8 @@ export default function BooksTable({
   page,
   pageSize,
   search,
+  sortBy,
+  sortDir,
 }: BooksTableProps) {
   const router = useRouter();
   // Key by search so when URL search changes (e.g. back/forward), input resets
@@ -107,38 +111,45 @@ export default function BooksTable({
         },
   ];
 
+  const buildQueryParams = (overrides: {
+    page?: number;
+    q?: string;
+    sortBy?: string;
+    sortDir?: "asc" | "desc";
+  } = {}) => {
+    const params = new URLSearchParams();
+    const q = overrides.q !== undefined ? overrides.q : search.trim();
+    const p = overrides.page ?? page;
+    const sb = overrides.sortBy ?? sortBy;
+    const sd = overrides.sortDir ?? sortDir;
+
+    if (q) params.set("q", q);
+    params.set("page", String(p));
+    params.set("sortBy", sb);
+    params.set("sortDir", sd);
+    return params;
+  };
+
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-
-    const params = new URLSearchParams();
-    const trimmed = searchQuery.trim();
-
-    if (trimmed) {
-      params.set("q", trimmed);
-    }
-    // Reset to first page on new search
-    params.set("page", "1");
-
-    const queryString = params.toString();
-    router.push(`/books${queryString ? `?${queryString}` : ""}`);
+    const params = buildQueryParams({ q: searchQuery.trim(), page: 1 });
+    router.push(`/books?${params.toString()}`);
   };
 
   const handleClearSearch = () => {
     setSearchQuery("");
-    router.push("/books");
+    const params = buildQueryParams({ q: "", page: 1 });
+    router.push(`/books?${params.toString()}`);
   };
 
   const handlePageChange = (newPage: number) => {
-    const params = new URLSearchParams();
-    const trimmed = search.trim();
+    const params = buildQueryParams({ page: newPage });
+    router.push(`/books?${params.toString()}`);
+  };
 
-    if (trimmed) {
-      params.set("q", trimmed);
-    }
-    params.set("page", String(newPage));
-
-    const queryString = params.toString();
-    router.push(`/books${queryString ? `?${queryString}` : ""}`);
+  const handleSortChange = (field: string, direction: "asc" | "desc") => {
+    const params = buildQueryParams({ sortBy: field, sortDir: direction, page: 1 });
+    router.push(`/books?${params.toString()}`);
   };
 
   const hasSearch = search.trim().length > 0;
@@ -191,14 +202,15 @@ export default function BooksTable({
         </span>
       </div>
 
-      {/* Data Table (server-paginated) */}
+      {/* Data Table (server-paginated and server-sorted) */}
       <DataTable<BookListItem>
         columns={columns}
         data={books}
         emptyMessage={hasSearch ? "No books match your search" : "No books found"}
         onRowClick={handleRowClick}
-        defaultSortField="title"
-        defaultSortDirection="asc"
+        sortField={sortBy}
+        sortDirection={sortDir}
+        onSortChange={handleSortChange}
         showPagination={false}
       />
 

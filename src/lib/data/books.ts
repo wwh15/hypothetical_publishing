@@ -50,15 +50,65 @@ export interface BookDetail {
     sales?: import('./records').SaleListItem[]; // Sales records for this book
 }
 
+// Column keys from BooksTable that support server-side sort
+const SORT_FIELD_MAP: Record<string, Prisma.BookOrderByWithRelationInput | Prisma.BookOrderByWithRelationInput[]> = {
+  title: { title: "asc" },
+  authors: { authors: { name: "asc" } },
+  isbn13: { isbn13: "asc" },
+  isbn10: { isbn10: "asc" },
+  publication: [
+    { publicationYear: "asc" },
+    { publicationMonth: "asc" },
+  ],
+  defaultRoyaltyRate: { authorRoyaltyRate: "asc" },
+  totalSales: { sales: { _count: "desc" } },
+};
+
+function flipOrderDir(
+  o: Prisma.BookOrderByWithRelationInput
+): Prisma.BookOrderByWithRelationInput {
+  const result: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(o)) {
+    if (v === "asc") result[k] = "desc";
+    else if (v === "desc") result[k] = "asc";
+    else if (typeof v === "object" && v !== null)
+      result[k] = flipOrderDir(v as Prisma.BookOrderByWithRelationInput);
+    else result[k] = v;
+  }
+  return result as Prisma.BookOrderByWithRelationInput;
+}
+
+function buildOrderBy(
+  sortBy: string,
+  sortDir: "asc" | "desc"
+): Prisma.BookOrderByWithRelationInput | Prisma.BookOrderByWithRelationInput[] {
+  const base = SORT_FIELD_MAP[sortBy];
+  if (!base) return { title: "asc" };
+
+  const applyDir = (
+    o: Prisma.BookOrderByWithRelationInput
+  ): Prisma.BookOrderByWithRelationInput =>
+    sortDir === "desc" ? flipOrderDir(o) : o;
+
+  if (Array.isArray(base)) {
+    return base.map(applyDir) as Prisma.BookOrderByWithRelationInput[];
+  }
+  return applyDir(base);
+}
+
 // Database functions
 export async function getBooksData({
   search,
   page = 1,
   pageSize = 20,
+  sortBy,
+  sortDir,
 }: {
   search?: string;
   page?: number;
   pageSize?: number;
+  sortBy?: string;
+  sortDir?: "asc" | "desc";
 }): Promise<{
   items: BookListItem[];
   total: number;
@@ -118,6 +168,11 @@ export async function getBooksData({
     where.OR = orConditions;
   }
 
+  const orderBy =
+    sortBy && sortDir
+      ? buildOrderBy(sortBy, sortDir)
+      : { title: "asc" as const };
+
   const [books, total] = await Promise.all([
     prisma.book.findMany({
       where,
@@ -125,9 +180,7 @@ export async function getBooksData({
         authors: true,
         sales: true, // Include sales to calculate totalSales
       },
-      orderBy: {
-        title: "asc",
-      },
+      orderBy,
       skip: (currentPage - 1) * limit,
       take: limit,
     }),
