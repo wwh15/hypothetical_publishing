@@ -1,24 +1,43 @@
-import { getBookById } from '../action';
-import Link from 'next/link';
-import { notFound } from 'next/navigation';
-import SalesRecordsTable from '@/app/(main)/sales/components/SalesRecordsTable';
-import DeleteBookButton from './components/DeleteBookButton';
+import { getBookById } from "../action";
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import SalesRowsTable from "@/app/(main)/sales/components/SalesRowsTable";
+import DeleteBookButton from "./components/DeleteBookButton";
+import { getSalesByBookId } from "@/lib/data/records";
 
 export const dynamic = "force-dynamic";
 
 interface PageProps {
   params: Promise<{ id: string }>;
+  searchParams?: Promise<{
+    salesPage?: string;
+    salesSortBy?: string;
+    salesSortDir?: string;
+    salesPageSize?: string;
+  }>;
 }
 
-export default async function BookDetailPage({ params }: PageProps) {
+export default async function BookDetailPage({ params, searchParams }: PageProps) {
   const { id } = await params;
   const bookId = parseInt(id);
 
   const book = await getBookById(bookId);
-
   if (!book) {
     notFound();
   }
+
+  const sp = await searchParams;
+  const salesPage = Math.max(1, Number(sp?.salesPage) || 1);
+  const salesPageSize = Math.min(100, Math.max(1, Number(sp?.salesPageSize) || 10));
+  const salesSortBy = sp?.salesSortBy ?? "date";
+  const salesSortDir = (sp?.salesSortDir === "asc" ? "asc" : "desc") as "asc" | "desc";
+
+  const salesResult = await getSalesByBookId(bookId, {
+    page: salesPage,
+    pageSize: salesPageSize,
+    sortBy: salesSortBy,
+    sortDir: salesSortDir,
+  });
 
   const formatDate = (date: Date) => {
     return new Intl.DateTimeFormat('en-US', {
@@ -136,11 +155,18 @@ export default async function BookDetailPage({ params }: PageProps) {
               Add sale for this book
             </Link>
           </div>
-          {book.sales && book.sales.length > 0 ? (
-            <SalesRecordsTable
-              rows={book.sales}
+          {salesResult.total > 0 ? (
+            <SalesRowsTable
+              rows={salesResult.items}
               preset="bookDetail"
               navigationContext={{ from: "book", bookId: book.id }}
+              total={salesResult.total}
+              page={salesResult.page}
+              pageSize={salesResult.pageSize}
+              sortBy={salesSortBy}
+              sortDir={salesSortDir}
+              basePath={`/books/${bookId}`}
+              paramPrefix="sales"
             />
           ) : (
             <p className="text-muted-foreground text-sm">

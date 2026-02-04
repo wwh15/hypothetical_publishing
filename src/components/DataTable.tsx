@@ -31,9 +31,13 @@ export interface DataTableProps<T> {
     onRowClick?: (row: T) => void;
     defaultSortField?: string;
     defaultSortDirection?: 'asc' | 'desc';
+    /** When set, sorting is server-controlled: data is pre-sorted, clicks call onSortChange */
+    sortField?: string | null;
+    sortDirection?: 'asc' | 'desc';
+    onSortChange?: (field: string, direction: 'asc' | 'desc') => void;
     itemsPerPage?: number;
     showPagination?: boolean;
-    dateFilterField?: keyof T; // ADD THIS - field to filter by date
+    dateFilterField?: keyof T;
     showDateFilter?: boolean;
 }
 
@@ -44,12 +48,18 @@ export function DataTable<T extends object>({
     onRowClick,
     defaultSortField,
     defaultSortDirection = 'desc',
+    sortField: externalSortField,
+    sortDirection: externalSortDirection,
+    onSortChange,
     itemsPerPage = 50,
     showPagination = true,
-    dateFilterField,        // ADD THIS
-    showDateFilter = false, // ADD THIS
+    dateFilterField,
+    showDateFilter = false,
 }: DataTableProps<T>) {
+    const serverSortMode = onSortChange != null;
 
+    // In server sort mode, skip client-side filtering/sorting/pagination
+    // The data is already processed on the server (sorted, filtered, paginated)
     const {
         filteredData,
         dateRange,
@@ -58,17 +68,19 @@ export function DataTable<T extends object>({
         clearDateRange,
         hasActiveFilter,
     } = useTableFilter({
-        data,
+        data: serverSortMode ? [] : data, // Pass empty array in server mode to avoid unnecessary processing
         dateField: dateFilterField,
     });
 
-    // Use custom hooks for sorting and pagination
     const { sortedData, sortField, sortDirection, handleSort } = useTableSort({
-        data: filteredData,
+        data: serverSortMode ? [] : filteredData, // Pass empty array in server mode to avoid unnecessary processing
         columns,
         defaultSortField,
         defaultSortDirection,
     });
+
+    // In server mode, use data directly; otherwise use processed data
+    const dataForPagination = serverSortMode ? data : sortedData;
 
     const {
         paginatedData,
@@ -82,15 +94,29 @@ export function DataTable<T extends object>({
         toggleShowAll,
         resetToFirstPage,
     } = useTablePagination({
-        data: sortedData,
+        data: dataForPagination,
         itemsPerPage,
-        enabled: showPagination,
+        enabled: showPagination && !serverSortMode, // Disable pagination in server mode
     });
 
-    // When sorting changes, reset to first page
-    const handleSortAndReset = (columnKey: string, direction: 'asc' | 'desc') => {
-        handleSort(columnKey, direction);
-        resetToFirstPage();
+    // In server mode, display data as-is (already paginated on server)
+    // In client mode, use paginated data
+    const displayData = serverSortMode ? data : paginatedData;
+
+    const displaySortField: string | null = serverSortMode
+      ? (externalSortField ?? null)
+      : (sortField ?? null);
+    const displaySortDirection = serverSortMode
+      ? (externalSortDirection ?? "asc")
+      : sortDirection;
+
+    const handleSortClick = (columnKey: string, direction: 'asc' | 'desc') => {
+        if (serverSortMode) {
+            onSortChange(columnKey, direction);
+        } else {
+            handleSort(columnKey, direction);
+            resetToFirstPage();
+        }
     };
 
     const getCellValue = (row: T, column: ColumnDef<T>): React.ReactNode => {
@@ -122,8 +148,8 @@ export function DataTable<T extends object>({
                 />
             )}
 
-            {/* Table Info */}
-            {showPagination && (
+            {/* Table Info - only show in client-side pagination mode */}
+            {showPagination && !serverSortMode && (
                 <TableInfo
                     startRecord={startRecord}
                     endRecord={endRecord}
@@ -142,9 +168,9 @@ export function DataTable<T extends object>({
                             <TableHeaderCell
                                 key={column.key}
                                 column={column}
-                                sortField={sortField}
-                                sortDirection={sortDirection}
-                                onSort={handleSortAndReset}
+                                sortField={displaySortField}
+                                sortDirection={displaySortDirection}
+                                onSort={handleSortClick}
                             />
                         ))}
                     </TableRow>
@@ -177,8 +203,8 @@ export function DataTable<T extends object>({
                 </TableBody>
             </Table>
 
-            {/* Pagination Controls */}
-            {showPagination && !showAll && (
+            {/* Pagination Controls - only show in client-side pagination mode */}
+            {showPagination && !serverSortMode && !showAll && (
                 <PaginationControls
                     currentPage={currentPage}
                     totalPages={totalPages}
