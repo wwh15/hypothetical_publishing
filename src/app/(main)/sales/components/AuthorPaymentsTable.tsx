@@ -121,7 +121,13 @@ export default function AuthorPaymentsTable({
               </TableRow>
 
               {/* Sales Data Rows */}
-              {group.sales.map((sale) => (
+              {[...group.sales]
+                .sort((a, b) => {
+                  const [aM, aY] = a.date.split("-").map(Number);
+                  const [bM, bY] = b.date.split("-").map(Number);
+                  return bY - aY || bM - aM;
+                })
+                .map((sale) => (
                 <TableRow
                   key={sale.id}
                   onClick={() => handleRowClick(sale)}
