@@ -201,6 +201,7 @@ export async function getBooksData({
   }
 
   // When sorting by totalSales we order by sum(sales.quantity); Prisma only supports _count. Fetch all, sort in memory, then paginate.
+  // TODO: This is a hack to get the total sales to work. We should find a better way to do this.
   const sortByTotalSales = sortBy === "totalSales" && sortDir;
 
   if (sortByTotalSales) {
