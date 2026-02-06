@@ -23,9 +23,45 @@ jobs:
             git reset --hard origin/qa
 
             cd /opt/hypothetical_publishing-qa/repo/docker/qa
-            docker compose --env-file /opt/hypothetical_publishing-qa/.env up -d --build
+            
+            # Load environment variables
+            set -a
+            source /opt/hypothetical_publishing-qa/.env
+            set +a
+            
+            docker compose up -d --build
 
-            docker compose --env-file /opt/hypothetical_publishing-qa/.env run --rm app \
-              npx prisma migrate deploy --schema=src/prisma/schema.prisma
+            # Wait for app container to be ready
+            sleep 5
 
-            docker compose --env-file /opt/hypothetical_publishing-qa/.env up -d
+            # Convert pooler URL (port 6543) to direct connection (port 5432) for migrations
+            # Supabase pooler doesn't work well with migrations
+            MIGRATION_DATABASE_URL="${DATABASE_URL}"
+            if [[ "${DATABASE_URL}" == *":6543"* ]]; then
+              echo "Converting pooler URL to direct connection for migrations..."
+              MIGRATION_DATABASE_URL="${DATABASE_URL//:6543/:5432}"
+              # Remove pooler-specific parameters
+              MIGRATION_DATABASE_URL="${MIGRATION_DATABASE_URL//pgbouncer=true/}"
+              MIGRATION_DATABASE_URL="${MIGRATION_DATABASE_URL//&&/&}"
+              MIGRATION_DATABASE_URL="${MIGRATION_DATABASE_URL//?&/?}"
+              MIGRATION_DATABASE_URL="${MIGRATION_DATABASE_URL//&?/?}"
+              # Add connection timeout
+              if [[ "${MIGRATION_DATABASE_URL}" == *"?"* ]]; then
+                MIGRATION_DATABASE_URL="${MIGRATION_DATABASE_URL}&connect_timeout=10"
+              else
+                MIGRATION_DATABASE_URL="${MIGRATION_DATABASE_URL}?connect_timeout=10"
+              fi
+            fi
+
+            # Run migrations with timeout and direct connection
+            echo "Running database migrations..."
+            timeout 120 docker compose run --rm \
+              -e DATABASE_URL="${MIGRATION_DATABASE_URL}" \
+              app npx prisma migrate deploy --schema=src/prisma/schema.prisma || {
+              echo "Migration failed or timed out"
+              docker compose logs app --tail=50
+              exit 1
+            }
+
+            echo "Migrations completed successfully"
+            docker compose up -d
