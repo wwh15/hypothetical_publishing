@@ -42,7 +42,7 @@ export default function BookForm({
     isbn10: "",
     publicationMonth: "",
     publicationYear: "",
-    defaultRoyaltyRate: "25", // Default 25%
+    defaultRoyaltyRate: "50", // Default 50%
   });
 
   // Populate form with initial data if editing
@@ -231,7 +231,7 @@ export default function BookForm({
             publicationMonth: pm,
             publicationYear: py,
             publicationSortKey: `${year}-${month}`,
-            defaultRoyaltyRate: royaltyRate ?? 25,
+            defaultRoyaltyRate: royaltyRate ?? 50,
             totalSales: 0,
           };
 

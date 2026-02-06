@@ -231,7 +231,7 @@ export async function getBooksData({
     // Join authors into a comma-separated string
     const authors = book.authors.map((a) => a.name).join(", ");
 
-    // Convert authorRoyaltyRate from decimal (0.25) to percentage (25)
+    // Convert authorRoyaltyRate from decimal (0.5) to percentage (50)
     const defaultRoyaltyRate = Math.round(book.authorRoyaltyRate * 100);
 
     // publicationSortKey: YYYY-MM for sorting; nulls use 9999-99 so they sort last
@@ -332,7 +332,7 @@ export async function createBook(input: CreateBookInput): Promise<{ success: tru
     // Convert royalty rate from percentage to decimal (e.g., 50 -> 0.50)
     const authorRoyaltyRate = input.defaultRoyaltyRate 
       ? input.defaultRoyaltyRate / 100 
-      : 0.25; // Default to 25%
+      : 0.5; // Default to 50%
 
     // Wrap author creation and book creation in a single transaction
     const book = await prisma.$transaction(async (tx) => {
