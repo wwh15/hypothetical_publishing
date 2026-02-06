@@ -51,7 +51,9 @@ export function useSalesForm(
         const book = books.find((b) => b.id === parseInt(next.bookId));
         const rev = parseFloat(next.publisherRevenue);
         next.authorRoyalty =
-          book && !isNaN(rev) ? (rev * book.defaultRoyaltyRate / 100).toFixed(2) : "";
+          book && !isNaN(rev)
+            ? ((rev * book.defaultRoyaltyRate) / 100).toFixed(2)
+            : "";
       }
       return next;
     });
@@ -62,9 +64,21 @@ export function useSalesForm(
       const book = books.find((b) => b.id === parseInt(prev.bookId));
       const calculatedValue =
         book && prev.publisherRevenue
-          ? (parseFloat(prev.publisherRevenue) * book.defaultRoyaltyRate / 100).toFixed(2)
+          ? (
+              (parseFloat(prev.publisherRevenue) * book.defaultRoyaltyRate) /
+              100
+            ).toFixed(2)
           : "";
 
+      const trimmed = value.trim();
+      if (trimmed === "" && calculatedValue !== "") {
+        return {
+          ...prev,
+          authorRoyalty: calculatedValue,
+          royaltyOverridden: false,
+        };
+      }
+      
       return {
         ...prev,
         authorRoyalty: value,
@@ -77,7 +91,7 @@ export function useSalesForm(
     const book = books.find((b) => b.id === parseInt(formData.bookId));
     if (book && formData.publisherRevenue) {
       const calculated =
-        parseFloat(formData.publisherRevenue) * book.defaultRoyaltyRate / 100;
+        (parseFloat(formData.publisherRevenue) * book.defaultRoyaltyRate) / 100;
       setFormData((prev) => ({
         ...prev,
         authorRoyalty: calculated.toFixed(2),
@@ -112,7 +126,7 @@ export function useSalesForm(
     const newRecord: PendingSaleItem = {
       bookId: parseInt(formData.bookId),
       title: selectedBook.title,
-      author: selectedBook.authors.split(",").map(a => a.trim()),
+      author: selectedBook.authors.split(",").map((a) => a.trim()),
       date,
       quantity: parseInt(formData.quantity),
       publisherRevenue: parseFloat(formData.publisherRevenue),
