@@ -23,6 +23,10 @@ export async function setupAdminUser(formData: FormData) {
   email_confirm: true ,
   });
 
+  if (error) {
+    return { error: error.message };
+  }
+
   return { success: true } ;
 
 }
