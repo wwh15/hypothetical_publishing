@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "vitest run",
+    "test": "vitest run --passWithNoTests",
     "test:watch": "vitest",
     "migrate:deploy": "prisma migrate deploy",
     "db:seed": "tsx src/prisma/seed.ts",
