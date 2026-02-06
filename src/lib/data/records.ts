@@ -2,7 +2,7 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "../prisma";
 
-export interface SaleListItem {
+export interface SaleListItem { 
   id: number;
   bookId: number;
   title: string;
