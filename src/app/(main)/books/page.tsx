@@ -20,7 +20,8 @@ export default async function BooksPage({ searchParams }: BooksPageProps) {
   const pageParam = params?.page ?? "1";
   const page = Number(pageParam) || 1;
   const showAll = params?.showAll === "true";
-  const pageSize = showAll ? 10000 : 20;
+  const normalPageSize = 20; // Normal pagination size
+  const pageSize = showAll ? 10000 : normalPageSize;
   const sortBy = params?.sortBy ?? "title";
   const sortDir = (params?.sortDir === "desc" ? "desc" : "asc") as "asc" | "desc";
 
@@ -54,6 +55,7 @@ export default async function BooksPage({ searchParams }: BooksPageProps) {
         sortBy={sortBy}
         sortDir={sortDir}
         showAll={showAll}
+        normalPageSize={normalPageSize}
       />
     </div>
   );

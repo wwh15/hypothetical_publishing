@@ -18,6 +18,7 @@ interface BooksTableProps {
   sortBy: string;
   sortDir: "asc" | "desc";
   showAll?: boolean;
+  normalPageSize?: number;
 }
 
 export default function BooksTable({
@@ -29,6 +30,7 @@ export default function BooksTable({
   sortBy,
   sortDir,
   showAll = false,
+  normalPageSize = 20,
 }: BooksTableProps) {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState(search ?? "");
@@ -167,7 +169,6 @@ export default function BooksTable({
   };
 
   const hasSearch = search.trim().length > 0;
-  const normalPageSize = 20;
   const startRecord = showAll ? 1 : (page - 1) * normalPageSize + 1;
   const endRecord = showAll ? total : Math.min(page * normalPageSize, total);
 
