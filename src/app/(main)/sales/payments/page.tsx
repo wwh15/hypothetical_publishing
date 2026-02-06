@@ -8,17 +8,22 @@ export const dynamic = "force-dynamic";
 export default async function AuthorPaymentsPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ page?: string }> | { page?: string };
+  searchParams?: Promise<{ page?: string; showAll?: string }> | { page?: string; showAll?: string };
 }) {
   const resolved =
     searchParams && typeof searchParams === "object" && "then" in searchParams
       ? await searchParams
       : searchParams;
 
+  const showAll = resolved?.showAll === "true";
   const page = Math.max(1, Number(resolved?.page ?? "1") || 1);
   const pageSize = 2;
 
-  const authorPaymentData = await getAuthorPaymentDataPage({ page, pageSize });
+  // When showing all, fetch all data by using a very large pageSize
+  const authorPaymentData = await getAuthorPaymentDataPage({ 
+    page: showAll ? 1 : page, 
+    pageSize: showAll ? 10000 : pageSize 
+  });
   const totalPages = Math.max(
     1,
     Math.ceil(authorPaymentData.totalGroups / pageSize)
@@ -53,6 +58,7 @@ export default async function AuthorPaymentsPage({
         currentPage={page}
         totalPages={totalPages}
         pageSize={pageSize}
+        showAll={showAll}
       />
     </div>
   );
