@@ -95,3 +95,10 @@ export async function getSaleById(id: number): Promise<SaleDetailPayload | null>
 export async function getAuthorPaymentData() {
   return await asyncGetAuthorPaymentData();
 }
+
+export async function getAuthorPaymentDataPage(params: {
+  page: number;
+  pageSize: number;
+}) {
+  return await asyncGetAuthorPaymentData(params.page, params.pageSize);
+}
