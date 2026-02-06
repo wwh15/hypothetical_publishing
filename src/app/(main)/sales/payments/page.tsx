@@ -1,13 +1,28 @@
 import { Button } from "@/components/ui/button";
-import { getAuthorPaymentData } from "../action";
+import { getAuthorPaymentDataPage } from "../action";
 import AuthorPaymentsTable from "../components/AuthorPaymentsTable";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
-export default async function AuthorPaymentsPage() {
-  // getAuthorPaymentData is a function, call it to get the sales data
-  const authorPaymentData = await getAuthorPaymentData();
+export default async function AuthorPaymentsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ page?: string }> | { page?: string };
+}) {
+  const resolved =
+    searchParams && typeof searchParams === "object" && "then" in searchParams
+      ? await searchParams
+      : searchParams;
+
+  const page = Math.max(1, Number(resolved?.page ?? "1") || 1);
+  const pageSize = 2;
+
+  const authorPaymentData = await getAuthorPaymentDataPage({ page, pageSize });
+  const totalPages = Math.max(
+    1,
+    Math.ceil(authorPaymentData.totalGroups / pageSize)
+  );
 
   return (
     <div className="container mx-auto py-10">
@@ -32,7 +47,13 @@ export default async function AuthorPaymentsPage() {
           </p>
         </div>
       </div>
-      <AuthorPaymentsTable authorPaymentData={authorPaymentData} />
+      <AuthorPaymentsTable
+        groups={authorPaymentData.groups}
+        totalGroups={authorPaymentData.totalGroups}
+        currentPage={page}
+        totalPages={totalPages}
+        pageSize={pageSize}
+      />
     </div>
   );
 }
