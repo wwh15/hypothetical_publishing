@@ -24,8 +24,3 @@ jobs:
 
             cd /opt/hypothetical_publishing-prod/repo/docker/prod
             docker compose --env-file /opt/hypothetical_publishing-prod/prod.env up -d --build
-
-            docker compose --env-file /opt/hypothetical_publishing-prod/prod.env run --rm app \
-              
-
-            docker compose --env-file /opt/hypothetical_publishing-prod/prod.env up -d
