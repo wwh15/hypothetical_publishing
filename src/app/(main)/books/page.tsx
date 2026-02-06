@@ -8,6 +8,9 @@ interface BooksPageProps {
   searchParams?: Promise<{
     q?: string;
     page?: string;
+    sortBy?: string;
+    sortDir?: string;
+    showAll?: string;
   }>;
 }
 
@@ -16,10 +19,14 @@ export default async function BooksPage({ searchParams }: BooksPageProps) {
   const search = params?.q ?? "";
   const pageParam = params?.page ?? "1";
   const page = Number(pageParam) || 1;
-  const pageSize = 20;
+  const showAll = params?.showAll === "true";
+  const normalPageSize = 20; // Normal pagination size
+  const pageSize = showAll ? 10000 : normalPageSize;
+  const sortBy = params?.sortBy ?? "title";
+  const sortDir = (params?.sortDir === "desc" ? "desc" : "asc") as "asc" | "desc";
 
   const { items, total, page: currentPage, pageSize: effectivePageSize } =
-    await getBooksData({ search, page, pageSize });
+    await getBooksData({ search, page, pageSize, sortBy, sortDir });
 
   return (
     <div className="container mx-auto py-10">
@@ -39,12 +46,16 @@ export default async function BooksPage({ searchParams }: BooksPageProps) {
         </Link>
       </div>
       <BooksTable
-        key={search ?? "__empty__"}
+        key={`${search}-${sortBy}-${sortDir}-${currentPage}-${showAll}`}
         books={items}
         total={total}
         page={currentPage}
         pageSize={effectivePageSize}
         search={search}
+        sortBy={sortBy}
+        sortDir={sortDir}
+        showAll={showAll}
+        normalPageSize={normalPageSize}
       />
     </div>
   );

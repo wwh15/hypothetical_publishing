@@ -2,6 +2,7 @@
 
 import asyncGetAuthorPaymentData from "@/lib/data/author-payment";
 import asyncGetSalesData, {
+  getSalesData,
   asyncDeleteSale,
   asyncTogglePaidStatus,
   asyncUpdateSale,
@@ -73,10 +74,31 @@ export async function getSalesRecordData(): Promise<SaleListItem[]> {
   return sales.map(toSaleListItem);
 }
 
+export type SalesRecordsPageResult = Awaited<ReturnType<typeof getSalesData>>;
+
+export async function getSalesRecordsPage(params: {
+  search?: string;
+  page?: number;
+  pageSize?: number;
+  sortBy?: string;
+  sortDir?: "asc" | "desc";
+  dateFrom?: string;
+  dateTo?: string;
+}): Promise<SalesRecordsPageResult> {
+  return getSalesData(params);
+}
+
 export async function getSaleById(id: number): Promise<SaleDetailPayload | null> {
   return await asyncGetSaleById(id);
 }
 
 export async function getAuthorPaymentData() {
   return await asyncGetAuthorPaymentData();
+}
+
+export async function getAuthorPaymentDataPage(params: {
+  page: number;
+  pageSize: number;
+}) {
+  return await asyncGetAuthorPaymentData(params.page, params.pageSize);
 }

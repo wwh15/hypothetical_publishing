@@ -1,24 +1,43 @@
-import { getBookById } from '../action';
-import Link from 'next/link';
-import { notFound } from 'next/navigation';
-import SalesRecordsTable from '@/app/(main)/sales/components/SalesRecordsTable';
-import DeleteBookButton from './components/DeleteBookButton';
+import { getBookById } from "../action";
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import SalesRowsTable from "@/app/(main)/sales/components/SalesRowsTable";
+import DeleteBookButton from "./components/DeleteBookButton";
+import { getSalesByBookId } from "@/lib/data/records";
 
 export const dynamic = "force-dynamic";
 
 interface PageProps {
   params: Promise<{ id: string }>;
+  searchParams?: Promise<{
+    salesPage?: string;
+    salesSortBy?: string;
+    salesSortDir?: string;
+    salesPageSize?: string;
+  }>;
 }
 
-export default async function BookDetailPage({ params }: PageProps) {
+export default async function BookDetailPage({ params, searchParams }: PageProps) {
   const { id } = await params;
   const bookId = parseInt(id);
 
   const book = await getBookById(bookId);
-
   if (!book) {
     notFound();
   }
+
+  const sp = await searchParams;
+  const salesPage = Math.max(1, Number(sp?.salesPage) || 1);
+  const salesPageSize = Math.min(100, Math.max(1, Number(sp?.salesPageSize) || 10));
+  const salesSortBy = sp?.salesSortBy ?? "date";
+  const salesSortDir = (sp?.salesSortDir === "asc" ? "asc" : "desc") as "asc" | "desc";
+
+  const salesResult = await getSalesByBookId(bookId, {
+    page: salesPage,
+    pageSize: salesPageSize,
+    sortBy: salesSortBy,
+    sortDir: salesSortDir,
+  });
 
   const formatDate = (date: Date) => {
     return new Intl.DateTimeFormat('en-US', {
@@ -126,16 +145,35 @@ export default async function BookDetailPage({ params }: PageProps) {
         </section>
 
         {/* Sales Records Section */}
-        {book.sales && book.sales.length > 0 && (
-          <section>
-            <h2 className="text-xl font-semibold mb-4">Sales Records</h2>
-            <SalesRecordsTable 
-              rows={book.sales} 
+        <section>
+          <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+            <h2 className="text-xl font-semibold">Sales Records</h2>
+            <Link
+              href={`/sales/add-record?bookId=${bookId}`}
+              className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors inline-flex items-center gap-2"
+            >
+              Add sale for this book
+            </Link>
+          </div>
+          {salesResult.total > 0 ? (
+            <SalesRowsTable
+              rows={salesResult.items}
               preset="bookDetail"
-              navigationContext={{ from: 'book', bookId: book.id }}
+              navigationContext={{ from: "book", bookId: book.id }}
+              total={salesResult.total}
+              page={salesResult.page}
+              pageSize={salesResult.pageSize}
+              sortBy={salesSortBy}
+              sortDir={salesSortDir}
+              basePath={`/books/${bookId}`}
+              paramPrefix="sales"
             />
-          </section>
-        )}
+          ) : (
+            <p className="text-muted-foreground text-sm">
+              No sales records yet. Add one using the button above or from Sales → Add Sales Records.
+            </p>
+          )}
+        </section>
 
         {/* Action Buttons */}
         <section className="pt-4 border-t border-gray-200 dark:border-gray-700">
@@ -146,7 +184,12 @@ export default async function BookDetailPage({ params }: PageProps) {
             >
               Edit Book
             </Link>
-            <DeleteBookButton bookId={bookId} bookTitle={book.title} />
+            <DeleteBookButton
+              bookId={bookId}
+              bookTitle={book.title}
+              authors={book.authors}
+              salesRecordCount={book.sales?.length ?? 0}
+            />
           </div>
         </section>
       </div>

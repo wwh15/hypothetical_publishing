@@ -158,7 +158,7 @@ async function main() {
             connect: bookAuthors.map((author) => ({ id: author.id })),
           },
           isbn13: book.isbn13,
-          authorRoyaltyRate: +(Math.random() * 0.3 + 0.1).toFixed(2), // 25% default
+          authorRoyaltyRate: +(Math.random() * 0.2 + 0.4).toFixed(2), // 40–60% around 50% default
           publicationMonth: book.publicationMonth,
           publicationYear: book.publicationYear,
         },

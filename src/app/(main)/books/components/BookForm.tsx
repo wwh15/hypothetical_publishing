@@ -42,7 +42,7 @@ export default function BookForm({
     isbn10: "",
     publicationMonth: "",
     publicationYear: "",
-    defaultRoyaltyRate: "25", // Default 25%
+    defaultRoyaltyRate: "50", // Default 50%
   });
 
   // Populate form with initial data if editing
@@ -218,15 +218,20 @@ export default function BookForm({
         }
 
         if (inModal && onModalSuccess) {
+          const pm = formData.publicationMonth || null;
+          const py = publicationYear ?? null;
+          const year = py ?? 9999;
+          const month = pm ?? "99";
           const book: BookListItem = {
             id: result.bookId!,
             title: formData.title.trim(),
             authors: formData.authors.trim(),
             isbn13: isbn13Val,
             isbn10: isbn10Val,
-            publicationMonth: formData.publicationMonth || null,
-            publicationYear: publicationYear ?? null,
-            defaultRoyaltyRate: royaltyRate ?? 25,
+            publicationMonth: pm,
+            publicationYear: py,
+            publicationSortKey: `${year}-${month}`,
+            defaultRoyaltyRate: royaltyRate ?? 50,
             totalSales: 0,
           };
 

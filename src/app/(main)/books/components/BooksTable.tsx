@@ -7,6 +7,7 @@ import { BookListItem } from "@/lib/data/books";
 import { cn } from "@/lib/utils";
 import { Search, X } from "lucide-react";
 import { PaginationControls } from "@/components/PaginationControls";
+import { TableInfo } from "@/components/TableInfo";
 
 interface BooksTableProps {
   books: BookListItem[];
@@ -14,6 +15,10 @@ interface BooksTableProps {
   page: number;
   pageSize: number;
   search: string;
+  sortBy: string;
+  sortDir: "asc" | "desc";
+  showAll?: boolean;
+  normalPageSize?: number;
 }
 
 export default function BooksTable({
@@ -22,9 +27,12 @@ export default function BooksTable({
   page,
   pageSize,
   search,
+  sortBy,
+  sortDir,
+  showAll = false,
+  normalPageSize = 20,
 }: BooksTableProps) {
   const router = useRouter();
-  // Key by search so when URL search changes (e.g. back/forward), input resets
   const [searchQuery, setSearchQuery] = useState(search ?? "");
 
   const totalPages = useMemo(
@@ -37,114 +45,135 @@ export default function BooksTable({
   };
 
   const columns: ColumnDef<BookListItem>[] = [
-        {
-            key: 'title',
-            header: 'Title',
-            accessor: 'title',
-            sortable: true,
-        },
-        {
-            key: 'authors',
-            header: 'Author(s)',
-            accessor: 'authors',
-            sortable: true,
-        },
-        {
-            key: 'isbn13',
-            header: 'ISBN-13',
-            accessor: 'isbn13',
-            sortable: true,
-            render: (row) => (
-                <span>{row.isbn13 || '-'}</span>
-            ),
-        },
-        {
-            key: 'isbn10',
-            header: 'ISBN-10',
-            accessor: 'isbn10',
-            sortable: true,
-            render: (row) => (
-                <span>{row.isbn10 || '-'}</span>
-            ),
-        },
-        {
-            key: 'publication',
-            header: 'Publication',
-            sortable: false,
-            render: (row) => {
-                if (row.publicationMonth && row.publicationYear) {
-                    const monthNames = [
-                        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-                    ];
-                    const monthIndex = parseInt(row.publicationMonth) - 1;
-                    const monthName = monthIndex >= 0 && monthIndex < 12 
-                        ? monthNames[monthIndex] 
-                        : row.publicationMonth;
-                    return <span>{monthName} {row.publicationYear}</span>;
-                }
-                return <span>-</span>;
-            },
-        },
-        {
-            key: 'defaultRoyaltyRate',
-            header: 'Royalty Rate',
-            accessor: 'defaultRoyaltyRate',
-            sortable: true,
-            render: (row) => (
-                <span className="font-medium">{row.defaultRoyaltyRate}%</span>
-            ),
-        },
-        {
-            key: 'totalSales',
-            header: 'Total Sales',
-            accessor: 'totalSales',
-            sortable: true,
-            render: (row) => (
-                <span className="font-medium">{row.totalSales.toLocaleString()}</span>
-            ),
-        },
+    {
+      key: "title",
+      header: "Title",
+      accessor: "title",
+      sortable: true,
+    },
+    {
+      key: "authors",
+      header: "Author(s)",
+      accessor: "authors",
+      sortable: true,
+    },
+    {
+      key: "isbn13",
+      header: "ISBN-13",
+      accessor: "isbn13",
+      sortable: true,
+      render: (row) => <span>{row.isbn13 || "-"}</span>,
+    },
+    {
+      key: "isbn10",
+      header: "ISBN-10",
+      accessor: "isbn10",
+      sortable: true,
+      render: (row) => <span>{row.isbn10 || "-"}</span>,
+    },
+    {
+      key: "publication",
+      header: "Publication",
+      accessor: "publicationSortKey",
+      sortable: true,
+      render: (row) => {
+        if (row.publicationMonth && row.publicationYear) {
+          const monthNames = [
+            "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+            "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+          ];
+          const monthIndex = parseInt(row.publicationMonth) - 1;
+          const monthName =
+            monthIndex >= 0 && monthIndex < 12
+              ? monthNames[monthIndex]
+              : row.publicationMonth;
+          return <span>{monthName} {row.publicationYear}</span>;
+        }
+        return <span>-</span>;
+      },
+    },
+    {
+      key: "defaultRoyaltyRate",
+      header: "Royalty Rate",
+      accessor: "defaultRoyaltyRate",
+      sortable: true,
+      render: (row) => (
+        <span className="font-medium">{row.defaultRoyaltyRate}%</span>
+      ),
+    },
+    {
+      key: "totalSales",
+      header: "Total Sales",
+      accessor: "totalSales",
+      sortable: true,
+      render: (row) => (
+        <span className="font-medium">{row.totalSales.toLocaleString()}</span>
+      ),
+    },
   ];
+
+  const buildQueryParams = (overrides: {
+    page?: number;
+    q?: string;
+    sortBy?: string;
+    sortDir?: "asc" | "desc";
+    showAll?: boolean;
+  } = {}) => {
+    const params = new URLSearchParams();
+    const q = overrides.q !== undefined ? overrides.q : search.trim();
+    const p = overrides.page ?? page;
+    const sb = overrides.sortBy ?? sortBy;
+    const sd = overrides.sortDir ?? sortDir;
+    const sa = overrides.showAll !== undefined ? overrides.showAll : showAll;
+
+    if (q) params.set("q", q);
+    params.set("page", String(p));
+    params.set("sortBy", sb);
+    params.set("sortDir", sd);
+    if (sa) params.set("showAll", "true");
+    return params;
+  };
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-
-    const params = new URLSearchParams();
-    const trimmed = searchQuery.trim();
-
-    if (trimmed) {
-      params.set("q", trimmed);
-    }
-    // Reset to first page on new search
-    params.set("page", "1");
-
-    const queryString = params.toString();
-    router.push(`/books${queryString ? `?${queryString}` : ""}`);
+    const params = buildQueryParams({ q: searchQuery.trim(), page: 1 });
+    router.push(`/books?${params.toString()}`);
   };
 
   const handleClearSearch = () => {
     setSearchQuery("");
-    router.push("/books");
+    const params = buildQueryParams({ q: "", page: 1 });
+    router.push(`/books?${params.toString()}`);
   };
 
   const handlePageChange = (newPage: number) => {
-    const params = new URLSearchParams();
-    const trimmed = search.trim();
+    const params = buildQueryParams({ page: newPage });
+    router.push(`/books?${params.toString()}`);
+  };
 
-    if (trimmed) {
-      params.set("q", trimmed);
-    }
-    params.set("page", String(newPage));
+  const handleSortChange = (field: string, direction: "asc" | "desc") => {
+    const params = buildQueryParams({
+      sortBy: field,
+      sortDir: direction,
+      page: 1,
+    });
+    router.push(`/books?${params.toString()}`);
+  };
 
-    const queryString = params.toString();
-    router.push(`/books${queryString ? `?${queryString}` : ""}`);
+  const handleToggleShowAll = () => {
+    const params = buildQueryParams({
+      showAll: !showAll,
+      page: 1,
+    });
+    router.push(`/books?${params.toString()}`);
   };
 
   const hasSearch = search.trim().length > 0;
+  const startRecord = showAll ? 1 : (page - 1) * normalPageSize + 1;
+  const endRecord = showAll ? total : Math.min(page * normalPageSize, total);
 
   return (
     <div className="space-y-4">
-      {/* Search Bar */}
       <form onSubmit={handleSearchSubmit} className="relative">
         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
           <Search className="h-5 w-5 text-gray-400" />
@@ -174,35 +203,31 @@ export default function BooksTable({
         )}
       </form>
 
-      {/* Results summary */}
-      <div className="text-sm text-muted-foreground flex justify-between items-center">
-        <span>
-          {total > 0 ? (
-            <>
-              Showing page {page} of {totalPages} ({total}{" "}
-              {hasSearch ? "matching books" : "books"})
-            </>
-          ) : hasSearch ? (
-            "No books match your search"
-          ) : (
-            "No books found"
-          )}
-        </span>
-      </div>
+      {total > 0 && (
+        <TableInfo
+          startRecord={startRecord}
+          endRecord={endRecord}
+          totalRecords={total}
+          showAll={showAll}
+          itemsPerPage={normalPageSize}
+          onToggleShowAll={handleToggleShowAll}
+        />
+      )}
 
-      {/* Data Table (server-paginated) */}
       <DataTable<BookListItem>
         columns={columns}
         data={books}
-        emptyMessage={hasSearch ? "No books match your search" : "No books found"}
+        emptyMessage={
+          hasSearch ? "No books match your search" : "No books found"
+        }
         onRowClick={handleRowClick}
-        defaultSortField="title"
-        defaultSortDirection="asc"
+        sortField={sortBy}
+        sortDirection={sortDir}
+        onSortChange={handleSortChange}
         showPagination={false}
       />
 
-      {/* Pagination controls */}
-      {totalPages > 1 && (
+      {totalPages > 1 && !showAll && (
         <div className="flex justify-end">
           <PaginationControls
             currentPage={page}
