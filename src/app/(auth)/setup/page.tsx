@@ -29,11 +29,12 @@ export default function SetupPage() {
 
     if (result?.error) {
       setError(result.error);
+      setLoading(false);
+      return;
     } else if (result?.success) {
       setSuccess(true);
+      setTimeout(() => router.push('/login'), 3000);
     }
-
-    setTimeout(() => router.push('/login'), 3000);
 
     setLoading(false);
   }
