@@ -7,6 +7,7 @@ import { BookListItem } from "@/lib/data/books";
 import { cn } from "@/lib/utils";
 import { Search, X } from "lucide-react";
 import { PaginationControls } from "@/components/PaginationControls";
+import { TableInfo } from "@/components/TableInfo";
 
 interface BooksTableProps {
   books: BookListItem[];
@@ -16,6 +17,7 @@ interface BooksTableProps {
   search: string;
   sortBy: string;
   sortDir: "asc" | "desc";
+  showAll?: boolean;
 }
 
 export default function BooksTable({
@@ -26,6 +28,7 @@ export default function BooksTable({
   search,
   sortBy,
   sortDir,
+  showAll = false,
 }: BooksTableProps) {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState(search ?? "");
@@ -112,17 +115,20 @@ export default function BooksTable({
     q?: string;
     sortBy?: string;
     sortDir?: "asc" | "desc";
+    showAll?: boolean;
   } = {}) => {
     const params = new URLSearchParams();
     const q = overrides.q !== undefined ? overrides.q : search.trim();
     const p = overrides.page ?? page;
     const sb = overrides.sortBy ?? sortBy;
     const sd = overrides.sortDir ?? sortDir;
+    const sa = overrides.showAll !== undefined ? overrides.showAll : showAll;
 
     if (q) params.set("q", q);
     params.set("page", String(p));
     params.set("sortBy", sb);
     params.set("sortDir", sd);
+    if (sa) params.set("showAll", "true");
     return params;
   };
 
@@ -152,7 +158,18 @@ export default function BooksTable({
     router.push(`/books?${params.toString()}`);
   };
 
+  const handleToggleShowAll = () => {
+    const params = buildQueryParams({
+      showAll: !showAll,
+      page: 1,
+    });
+    router.push(`/books?${params.toString()}`);
+  };
+
   const hasSearch = search.trim().length > 0;
+  const normalPageSize = 20;
+  const startRecord = showAll ? 1 : (page - 1) * normalPageSize + 1;
+  const endRecord = showAll ? total : Math.min(page * normalPageSize, total);
 
   return (
     <div className="space-y-4">
@@ -185,20 +202,16 @@ export default function BooksTable({
         )}
       </form>
 
-      <div className="text-sm text-muted-foreground flex justify-between items-center">
-        <span>
-          {total > 0 ? (
-            <>
-              Showing page {page} of {totalPages} ({total}{" "}
-              {hasSearch ? "matching books" : "books"})
-            </>
-          ) : hasSearch ? (
-            "No books match your search"
-          ) : (
-            "No books found"
-          )}
-        </span>
-      </div>
+      {total > 0 && (
+        <TableInfo
+          startRecord={startRecord}
+          endRecord={endRecord}
+          totalRecords={total}
+          showAll={showAll}
+          itemsPerPage={normalPageSize}
+          onToggleShowAll={handleToggleShowAll}
+        />
+      )}
 
       <DataTable<BookListItem>
         columns={columns}
@@ -213,7 +226,7 @@ export default function BooksTable({
         showPagination={false}
       />
 
-      {totalPages > 1 && (
+      {totalPages > 1 && !showAll && (
         <div className="flex justify-end">
           <PaginationControls
             currentPage={page}

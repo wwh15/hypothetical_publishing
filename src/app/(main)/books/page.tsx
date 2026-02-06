@@ -10,6 +10,7 @@ interface BooksPageProps {
     page?: string;
     sortBy?: string;
     sortDir?: string;
+    showAll?: string;
   }>;
 }
 
@@ -18,7 +19,8 @@ export default async function BooksPage({ searchParams }: BooksPageProps) {
   const search = params?.q ?? "";
   const pageParam = params?.page ?? "1";
   const page = Number(pageParam) || 1;
-  const pageSize = 20;
+  const showAll = params?.showAll === "true";
+  const pageSize = showAll ? 10000 : 20;
   const sortBy = params?.sortBy ?? "title";
   const sortDir = (params?.sortDir === "desc" ? "desc" : "asc") as "asc" | "desc";
 
@@ -43,7 +45,7 @@ export default async function BooksPage({ searchParams }: BooksPageProps) {
         </Link>
       </div>
       <BooksTable
-        key={`${search}-${sortBy}-${sortDir}-${currentPage}`}
+        key={`${search}-${sortBy}-${sortDir}-${currentPage}-${showAll}`}
         books={items}
         total={total}
         page={currentPage}
@@ -51,6 +53,7 @@ export default async function BooksPage({ searchParams }: BooksPageProps) {
         search={search}
         sortBy={sortBy}
         sortDir={sortDir}
+        showAll={showAll}
       />
     </div>
   );

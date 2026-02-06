@@ -15,6 +15,7 @@ import { PaginationControls } from "@/components/PaginationControls";
 import { DateRangeFilter } from "@/components/DateRangeFilter";
 import { Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { TableInfo } from "@/components/TableInfo";
 
 export type SalesTablePreset = keyof typeof salesTablePresets;
 
@@ -38,6 +39,8 @@ export interface SalesRecordsTableProps {
   dateFrom?: string;
   /** Date filter to (MM-YYYY, from server / URL) */
   dateTo?: string;
+  /** Show all records (no pagination) */
+  showAll?: boolean;
 
   /** Preset for column selection; default "full" */
   preset?: SalesTablePreset;
@@ -64,6 +67,7 @@ export default function SalesRecordsTable({
   sortDir,
   dateFrom = "",
   dateTo = "",
+  showAll = false,
   preset = "full",
   visibleColumns,
   onRowClick,
@@ -85,6 +89,7 @@ export default function SalesRecordsTable({
     sortDir?: "asc" | "desc";
     dateFrom?: string;
     dateTo?: string;
+    showAll?: boolean;
   } = {}) => {
     const params = new URLSearchParams();
     const q = overrides.q !== undefined ? overrides.q : search.trim();
@@ -93,6 +98,7 @@ export default function SalesRecordsTable({
     const sd = overrides.sortDir ?? sortDir;
     const df = overrides.dateFrom !== undefined ? overrides.dateFrom : dateFrom;
     const dt = overrides.dateTo !== undefined ? overrides.dateTo : dateTo;
+    const sa = overrides.showAll !== undefined ? overrides.showAll : showAll;
 
     if (q) params.set("q", q);
     params.set("page", String(p));
@@ -100,6 +106,7 @@ export default function SalesRecordsTable({
     params.set("sortDir", sd);
     if (df) params.set("dateFrom", df);
     if (dt) params.set("dateTo", dt);
+    if (sa) params.set("showAll", "true");
     return params;
   };
 
@@ -144,8 +151,19 @@ export default function SalesRecordsTable({
     router.push(`/sales/records?${params.toString()}`);
   };
 
+  const handleToggleShowAll = () => {
+    const params = buildQueryParams({
+      showAll: !showAll,
+      page: 1,
+    });
+    router.push(`/sales/records?${params.toString()}`);
+  };
+
   const hasSearch = search.trim().length > 0;
   const hasDateFilter = !!(dateFrom || dateTo);
+  const normalPageSize = 20;
+  const startRecord = showAll ? 1 : (page - 1) * normalPageSize + 1;
+  const endRecord = showAll ? total : Math.min(page * normalPageSize, total);
 
   const columns = visibleColumns
     ? getColumnsByVisibleIds(visibleColumns)
@@ -206,20 +224,16 @@ export default function SalesRecordsTable({
         />
       )}
 
-      <div className="text-sm text-muted-foreground flex justify-between items-center">
-        <span>
-          {total > 0 ? (
-            <>
-              Showing page {page} of {totalPages} ({total}{" "}
-              {hasSearch || hasDateFilter ? "matching records" : "records"})
-            </>
-          ) : hasSearch || hasDateFilter ? (
-            "No records match your filters"
-          ) : (
-            "No sales records"
-          )}
-        </span>
-      </div>
+      {total > 0 && (
+        <TableInfo
+          startRecord={startRecord}
+          endRecord={endRecord}
+          totalRecords={total}
+          showAll={showAll}
+          itemsPerPage={normalPageSize}
+          onToggleShowAll={handleToggleShowAll}
+        />
+      )}
 
       <DataTable<SaleListItem>
         columns={columns}
@@ -236,7 +250,7 @@ export default function SalesRecordsTable({
         showPagination={false}
       />
 
-      {totalPages > 1 && (
+      {totalPages > 1 && !showAll && (
         <div className="flex justify-end">
           <PaginationControls
             currentPage={page}
