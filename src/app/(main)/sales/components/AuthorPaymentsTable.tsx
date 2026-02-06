@@ -22,6 +22,7 @@ interface AuthorPaymentsTableProps {
   currentPage: number;
   totalPages: number;
   pageSize: number;
+  showAll: boolean;
 }
 
 export default function AuthorPaymentsTable({
@@ -30,6 +31,7 @@ export default function AuthorPaymentsTable({
   currentPage,
   totalPages,
   pageSize,
+  showAll,
 }: AuthorPaymentsTableProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false); // Add loading state
@@ -41,6 +43,7 @@ export default function AuthorPaymentsTable({
   const handlePageChange = (page: number) => {
     const params = new URLSearchParams(window.location.search);
     params.set("page", String(page));
+    params.delete("showAll"); // Clear showAll when paginating
     router.push(`/sales/payments?${params.toString()}`);
   };
 
@@ -77,10 +80,18 @@ export default function AuthorPaymentsTable({
         startRecord={startRecord}
         endRecord={endRecord}
         totalRecords={totalGroups}
-        showAll={false}
+        showAll={showAll}
         itemsPerPage={pageSize}
         onToggleShowAll={() => {
-          // No "show all" in server-side pagination mode
+          const params = new URLSearchParams(window.location.search);
+          if (showAll) {
+            params.delete("showAll");
+            params.set("page", "1");
+          } else {
+            params.set("showAll", "true");
+            params.delete("page");
+          }
+          router.push(`/sales/payments?${params.toString()}`);
         }}
       />
 
@@ -199,7 +210,7 @@ export default function AuthorPaymentsTable({
       </Table>
 
       {/* Pagination Controls - Using reusable component */}
-      {totalPages > 1 && (
+      {!showAll && totalPages > 1 && (
         <PaginationControls
           currentPage={currentPage}
           totalPages={totalPages}
