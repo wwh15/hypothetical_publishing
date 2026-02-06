@@ -54,6 +54,10 @@ export default function EditForm({ sale, books }: EditFormProps) {
     setLoading(false);
   };
 
+  function normalizeAuthorRoyalty(value: number): number {
+    return (Math.round(value * 100) / 100);
+  }
+
   if (!isEditing) {
     // View Mode
     return (
@@ -277,7 +281,7 @@ export default function EditForm({ sale, books }: EditFormProps) {
               setFormData({
                 ...formData,
                 publisherRevenue: revenue,
-                authorRoyalty,
+                authorRoyalty: normalizeAuthorRoyalty(authorRoyalty),
                 royaltyOverridden: false,
               });
             }}
@@ -319,7 +323,7 @@ export default function EditForm({ sale, books }: EditFormProps) {
                     : formData.authorRoyalty;
                 setFormData({
                   ...formData,
-                  authorRoyalty: Number.isFinite(computed) ? computed : 0,
+                  authorRoyalty: Number.isFinite(computed) ? normalizeAuthorRoyalty(computed) : 0,
                   royaltyOverridden: false,
                 });
               }
