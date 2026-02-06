@@ -62,6 +62,7 @@ const SORT_FIELD_MAP: Record<string, Prisma.BookOrderByWithRelationInput | Prism
     { publicationMonth: "asc" },
   ],
   defaultRoyaltyRate: { authorRoyaltyRate: "asc" },
+  // Prisma can only order by relation _count, not sum(quantity). When sortBy is totalSales we use in-memory sort in getBooksData.
   totalSales: { sales: { _count: "desc" } },
 };
 
@@ -100,10 +101,7 @@ function buildOrderBy(
 // Get all books (for client-side pagination/sorting)
 export async function getAllBooks(): Promise<BookListItem[]> {
   const books = await prisma.book.findMany({
-    include: {
-      authors: true,
-      sales: true,
-    },
+    include: { authors: true, sales: true },
     orderBy: { title: "asc" },
   });
 
@@ -202,6 +200,51 @@ export async function getBooksData({
     where.OR = orConditions;
   }
 
+  // When sorting by totalSales we order by sum(sales.quantity); Prisma only supports _count. Fetch all, sort in memory, then paginate.
+  const sortByTotalSales = sortBy === "totalSales" && sortDir;
+
+  if (sortByTotalSales) {
+    const books = await prisma.book.findMany({
+      where,
+      include: { authors: true, sales: true },
+    });
+
+    const allItems: BookListItem[] = books.map((book) => {
+      const totalSales = book.sales.reduce((sum, sale) => sum + sale.quantity, 0);
+      const authors = book.authors.map((a) => a.name).join(", ");
+      const defaultRoyaltyRate = Math.round(book.authorRoyaltyRate * 100);
+      const year = book.publicationYear ?? 9999;
+      const month = book.publicationMonth ?? "99";
+      const publicationSortKey = `${year}-${month}`;
+      return {
+        id: book.id,
+        title: book.title,
+        authors,
+        isbn13: book.isbn13,
+        isbn10: book.isbn10,
+        publicationMonth: book.publicationMonth,
+        publicationYear: book.publicationYear,
+        publicationSortKey,
+        defaultRoyaltyRate,
+        totalSales,
+      };
+    });
+
+    allItems.sort((a, b) =>
+      sortDir === "desc"
+        ? b.totalSales - a.totalSales
+        : a.totalSales - b.totalSales
+    );
+
+    const total = allItems.length;
+    const items = allItems.slice(
+      (currentPage - 1) * limit,
+      currentPage * limit
+    );
+
+    return { items, total, page: currentPage, pageSize: limit };
+  }
+
   const orderBy =
     sortBy && sortDir
       ? buildOrderBy(sortBy, sortDir)
@@ -210,10 +253,7 @@ export async function getBooksData({
   const [books, total] = await Promise.all([
     prisma.book.findMany({
       where,
-      include: {
-        authors: true,
-        sales: true, // Include sales to calculate totalSales
-      },
+      include: { authors: true, sales: true },
       orderBy,
       skip: (currentPage - 1) * limit,
       take: limit,
@@ -222,23 +262,15 @@ export async function getBooksData({
   ]);
 
   const items: BookListItem[] = books.map((book) => {
-    // Calculate total sales (sum of quantity from all sales)
     const totalSales = book.sales.reduce(
       (sum, sale) => sum + sale.quantity,
       0,
     );
-
-    // Join authors into a comma-separated string
     const authors = book.authors.map((a) => a.name).join(", ");
-
-    // Convert authorRoyaltyRate from decimal (0.5) to percentage (50)
     const defaultRoyaltyRate = Math.round(book.authorRoyaltyRate * 100);
-
-    // publicationSortKey: YYYY-MM for sorting; nulls use 9999-99 so they sort last
     const year = book.publicationYear ?? 9999;
     const month = book.publicationMonth ?? "99";
     const publicationSortKey = `${year}-${month}`;
-
     return {
       id: book.id,
       title: book.title,
