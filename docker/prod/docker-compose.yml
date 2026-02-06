@@ -26,8 +26,8 @@ services:
       - /var/www/letsencrypt/hp.colab.duke.edu:/var/www/letsencrypt/hp.colab.duke.edu
       - /etc/letsencrypt:/etc/letsencrypt:ro
     ports:
-      -"80:80"
-      -"443:443" 
+      - "80:80"
+      - "443:443" 
     depends_on:
       - app
     restart: unless-stopped
