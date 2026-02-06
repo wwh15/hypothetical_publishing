@@ -10,6 +10,16 @@ RUN npm ci
 COPY prisma.config.ts ./
 COPY src/prisma ./src/prisma
 
+ARG DATABASE_URL
+ARG NEXT_PUBLIC_SUPABASE_URL
+ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
+ARG SUPABASE_SECRET_KEY
+
+ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
+ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
+ENV SUPABASE_SECRET_KEY=$SUPABASE_SECRET_KEY
+ENV DATABASE_URL=$DATABASE_URL
+
 # generate prisma client
 RUN npx prisma generate --schema=src/prisma/schema.prisma
 
@@ -25,6 +35,7 @@ ENV NODE_ENV=production
 RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 
 COPY package*.json ./
+ENV HUSKY=0
 RUN npm ci --omit=dev
 
 COPY --from=builder /app/.next ./.next
