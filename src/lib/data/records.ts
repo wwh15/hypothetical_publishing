@@ -2,7 +2,7 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "../prisma";
 
-export interface SaleListItem {
+export interface SaleListItem { 
   id: number;
   bookId: number;
   title: string;
@@ -60,6 +60,19 @@ function buildOrderBy(
 ): Prisma.SaleOrderByWithRelationInput {
   const map = sortDir === "desc" ? SORT_DESC : SORT_ASC;
   return map[sortBy] ?? (sortDir === "desc" ? { date: "desc" } : { date: "asc" });
+}
+
+/** Compare MM-YYYY dates chronologically (year then month). */
+function compareDateStrings(
+  a: string,
+  b: string,
+  direction: "asc" | "desc"
+): number {
+  const [aM, aY] = a.split("-").map(Number);
+  const [bM, bY] = b.split("-").map(Number);
+  const yearCmp = direction === "desc" ? bY - aY : aY - bY;
+  if (yearCmp !== 0) return yearCmp;
+  return direction === "desc" ? bM - aM : aM - bM;
 }
 
 export interface GetSalesDataParams {
@@ -124,6 +137,31 @@ export async function getSalesData({
     where.date = { lte: to };
   }
 
+  // Date is stored as "MM-YYYY"; Prisma string sort is wrong (e.g. "01-2025" before "12-2024").
+  // When sorting by date, fetch all matching rows and sort chronologically in JS, then paginate.
+  if (sortBy === "date") {
+    const [allSales, total] = await Promise.all([
+      prisma.sale.findMany({
+        where,
+        include: { book: { include: { authors: true } } },
+      }),
+      prisma.sale.count({ where }),
+    ]);
+    const sorted = [...allSales].sort((a, b) =>
+      compareDateStrings(a.date, b.date, sortDir)
+    );
+    const paginated = sorted.slice(
+      (currentPage - 1) * limit,
+      (currentPage - 1) * limit + limit
+    );
+    return {
+      items: paginated.map(toSaleListItem),
+      total,
+      page: currentPage,
+      pageSize: limit,
+    };
+  }
+
   const [sales, total] = await Promise.all([
     prisma.sale.findMany({
       where,
@@ -164,6 +202,29 @@ export async function getSalesByBookId(
   const limit = Math.max(1, Math.min(pageSize, 100));
   const where: Prisma.SaleWhereInput = { bookId };
 
+  if (sortBy === "date") {
+    const [allSales, total] = await Promise.all([
+      prisma.sale.findMany({
+        where,
+        include: { book: { include: { authors: true } } },
+      }),
+      prisma.sale.count({ where }),
+    ]);
+    const sorted = [...allSales].sort((a, b) =>
+      compareDateStrings(a.date, b.date, sortDir)
+    );
+    const paginated = sorted.slice(
+      (currentPage - 1) * limit,
+      (currentPage - 1) * limit + limit
+    );
+    return {
+      items: paginated.map(toSaleListItem),
+      total,
+      page: currentPage,
+      pageSize: limit,
+    };
+  }
+
   const [sales, total] = await Promise.all([
     prisma.sale.findMany({
       where,
@@ -184,10 +245,11 @@ export async function getSalesByBookId(
 }
 
 export default async function asyncGetSalesData() {
-  return await prisma.sale.findMany({
+  const sales = await prisma.sale.findMany({
     include: { book: { include: { authors: true } } },
-    orderBy: { date: "desc" },
   });
+  sales.sort((a, b) => compareDateStrings(a.date, b.date, "desc"));
+  return sales;
 }
 
 export async function asyncGetSaleById(id: number) {
