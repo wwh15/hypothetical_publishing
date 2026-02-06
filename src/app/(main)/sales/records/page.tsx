@@ -13,6 +13,7 @@ interface SalesRecordsPageProps {
     sortDir?: string;
     dateFrom?: string;
     dateTo?: string;
+    showAll?: string;
   }>;
 }
 
@@ -23,7 +24,8 @@ export default async function SalesRecordsPage({
   const search = params?.q ?? "";
   const pageParam = params?.page ?? "1";
   const page = Number(pageParam) || 1;
-  const pageSize = 20;
+  const showAll = params?.showAll === "true";
+  const pageSize = showAll ? 10000 : 20;
   const sortBy = params?.sortBy ?? "date";
   const sortDir =
     (params?.sortDir === "asc" ? "asc" : "desc") as "asc" | "desc";
@@ -65,7 +67,7 @@ export default async function SalesRecordsPage({
         </div>
       </div>
       <SalesRecordsTable
-        key={`${search}-${sortBy}-${sortDir}-${currentPage}-${dateFrom}-${dateTo}`}
+        key={`${search}-${sortBy}-${sortDir}-${currentPage}-${dateFrom}-${dateTo}-${showAll}`}
         rows={items}
         total={total}
         page={currentPage}
@@ -75,6 +77,7 @@ export default async function SalesRecordsPage({
         sortDir={sortDir}
         dateFrom={dateFrom}
         dateTo={dateTo}
+        showAll={showAll}
       />
     </div>
   );
