@@ -188,7 +188,7 @@ export default async function BookDetailPage({ params, searchParams }: PageProps
               bookId={bookId}
               bookTitle={book.title}
               authors={book.authors}
-              salesRecordCount={book.sales?.length ?? 0}
+              salesRecordCount={salesResult.total}
             />
           </div>
         </section>
