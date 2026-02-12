@@ -41,11 +41,21 @@ This will start a PostgreSQL 16 database with the following default credentials:
 
 ### 4. Configure Environment Variables
 
-Create a `.env` file in the root directory with your database connection string:
+Create a `.env.local` file in the project root. This file is gitignored and never committed, so you can safely use it for local development.
+
+**Required variables:**
 
 ```bash
+# Local database (use the Docker Postgres from step 3)
 DATABASE_URL="postgresql://app:app@localhost:5432/app_dev"
+
+# Supabase auth (required for login/sessions—get these from a teammate or your team's env doc)
+NEXT_PUBLIC_SUPABASE_URL=<your-supabase-project-url>
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<your-supabase-anon-key>
+SUPABASE_SECRET_KEY=<your-supabase-service-role-key>
 ```
+
+Next.js loads `.env.local` and it takes precedence over `.env`. Prisma (e.g. `migrate deploy`) also reads `.env.local` via the project's Prisma config, so both the app and migrations will use your local database.
 
 ### 5. Run Database Migrations
 
