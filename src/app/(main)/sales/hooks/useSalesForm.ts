@@ -100,6 +100,9 @@ export function useSalesForm(
     }
   };
 
+  const SALES_YEAR_MIN = 2000;
+  const SALES_YEAR_MAX = 2100;
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -113,6 +116,12 @@ export function useSalesForm(
       !formData.authorRoyalty
     ) {
       alert("Please fill in all required fields");
+      return;
+    }
+
+    const year = parseInt(formData.year, 10);
+    if (!Number.isInteger(year) || year < SALES_YEAR_MIN || year > SALES_YEAR_MAX) {
+      alert(`Year must be between ${SALES_YEAR_MIN} and ${SALES_YEAR_MAX}`);
       return;
     }
 

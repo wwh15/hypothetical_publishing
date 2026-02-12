@@ -6,10 +6,9 @@ const prisma = new PrismaClient();
 interface SeedBook {
   title: string;
   authors: string[];
-  isbn13?: string
-  isbn10?: string
-  publicationMonth?: string // "01" to "12"
-  publicationYear?: number
+  isbn13?: string;
+  isbn10?: string;
+  publicationDate?: Date; // First day of publication month
 }
 
 // TEST DATA - This is sample/test data for development purposes only
@@ -28,78 +27,71 @@ const bookData: SeedBook[] = [
     title: "The Test Novel",
     authors: ["Alice Johnson"],
     isbn13: "9781234567890",
-    publicationMonth: "01",
-    publicationYear: 2024,
+    publicationDate: new Date(2024, 0, 1),
   },
   {
     title: "Sample Story",
     authors: ["Bob Smith"],
     isbn13: "9780987654321",
-    publicationMonth: "02",
-    publicationYear: 2023,
+    publicationDate: new Date(2023, 1, 1),
   },
   {
     title: "Example Book",
     authors: ["Carol Williams"],
     isbn13: "9781122334455",
-    publicationMonth: "03",
-    publicationYear: 2022,
+    publicationDate: new Date(2022, 2, 1),
   },
   {
     title: "Demo Fiction",
     authors: ["David Brown"],
     isbn13: "9785566778899",
-    publicationMonth: "04",
-    publicationYear: 2021,
+    publicationDate: new Date(2021, 3, 1),
   },
   {
     title: "Collaborative Work",
     authors: ["Alice Johnson", "Bob Smith"],
     isbn13: "9782233445566",
-    publicationMonth: "05",
-    publicationYear: 2020,
+    publicationDate: new Date(2020, 4, 1),
   },
   {
     title: "Joint Publication",
     authors: ["David Brown", "Carol Williams"],
     isbn13: "9783344556677",
-    publicationMonth: "06",
-    publicationYear: 2024,
+    publicationDate: new Date(2024, 5, 1),
   },
   {
     title: "Multi-Author Project",
     authors: ["Bob Smith", "Alice Johnson", "Carol Williams"],
     isbn13: "9784455667788",
-    publicationMonth: "07",
-    publicationYear: 2023,
+    publicationDate: new Date(2023, 6, 1),
   },
 ];
 
-const months = [
-  "01-2025",
-  "02-2025",
-  "03-2025",
-  "04-2025",
-  "05-2025",
-  "06-2025",
-  "07-2025",
-  "08-2025",
-  "09-2025",
-  "10-2025",
-  "11-2025",
-  "12-2025",
-  "01-2026",
-  "02-2026",
-  "03-2026",
-  "04-2026",
-  "05-2026",
-  "06-2026",
-  "07-2026",
-  "08-2026",
-  "09-2026",
-  "10-2026",
-  "11-2026",
-  "12-2026",
+const saleMonths: Date[] = [
+  new Date(2025, 0, 1),
+  new Date(2025, 1, 1),
+  new Date(2025, 2, 1),
+  new Date(2025, 3, 1),
+  new Date(2025, 4, 1),
+  new Date(2025, 5, 1),
+  new Date(2025, 6, 1),
+  new Date(2025, 7, 1),
+  new Date(2025, 8, 1),
+  new Date(2025, 9, 1),
+  new Date(2025, 10, 1),
+  new Date(2025, 11, 1),
+  new Date(2026, 0, 1),
+  new Date(2026, 1, 1),
+  new Date(2026, 2, 1),
+  new Date(2026, 3, 1),
+  new Date(2026, 4, 1),
+  new Date(2026, 5, 1),
+  new Date(2026, 6, 1),
+  new Date(2026, 7, 1),
+  new Date(2026, 8, 1),
+  new Date(2026, 9, 1),
+  new Date(2026, 10, 1),
+  new Date(2026, 11, 1),
 ];
 
 function randomInt(min: number, max: number): number {
@@ -159,8 +151,7 @@ async function main() {
           },
           isbn13: book.isbn13,
           authorRoyaltyRate: +(Math.random() * 0.2 + 0.4).toFixed(2), // 40–60% around 50% default
-          publicationMonth: book.publicationMonth,
-          publicationYear: book.publicationYear,
+          publicationDate: book.publicationDate ?? null,
         },
       });
     }),
@@ -191,7 +182,7 @@ async function main() {
 
     salesData.push({
       bookId: book.id,
-      date: randomArrayElement(months),
+      date: randomArrayElement(saleMonths),
       quantity,
       publisherRevenue,
       authorRoyalty,

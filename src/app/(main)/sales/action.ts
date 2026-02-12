@@ -31,7 +31,7 @@ export async function updateSale(
   id: number,
   data: {
     bookId?: number;
-    date?: string;
+    date?: Date;
     quantity?: number;
     publisherRevenue?: number;
     authorRoyalty?: number;

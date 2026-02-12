@@ -14,7 +14,9 @@ export function useTableSort<T extends object>({
     defaultSortDirection = 'desc',
 }: UseTableSortOptions<T>) {
     const [sortField, setSortField] = useState<string | null>(defaultSortField || null);
-    const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>(defaultSortDirection);
+    const [sortDirection, setSortDirection] = useState<'asc' | 'desc' | null>(
+        defaultSortField ? defaultSortDirection : null
+    );
 
     const sortedData = useMemo(() => {
         if (!sortField) return data;
@@ -30,7 +32,16 @@ export function useTableSort<T extends object>({
             if (aValue == null) return 1;
             if (bValue == null) return -1;
 
-            // Special handling for date fields in MM-YYYY format
+            // Special handling for Date objects
+            if (aValue instanceof Date && bValue instanceof Date) {
+                const aT = aValue.getTime();
+                const bT = bValue.getTime();
+                if (aT < bT) return sortDirection === 'asc' ? -1 : 1;
+                if (aT > bT) return sortDirection === 'asc' ? 1 : -1;
+                return 0;
+            }
+
+            // Special handling for date fields in MM-YYYY format (string)
             if (isDateField(aValue) && isDateField(bValue)) {
                 const aComparable = convertDateToComparable(aValue as string);
                 const bComparable = convertDateToComparable(bValue as string);
@@ -47,8 +58,8 @@ export function useTableSort<T extends object>({
         });
     }, [data, sortField, sortDirection, columns]);
 
-    const handleSort = (columnKey: string, direction: 'asc' | 'desc') => {
-        setSortField(columnKey);
+    const handleSort = (columnKey: string, direction: 'asc' | 'desc' | null) => {
+        setSortField(direction === null ? null : columnKey);
         setSortDirection(direction);
     };
 

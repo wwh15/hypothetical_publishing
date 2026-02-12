@@ -23,16 +23,16 @@ export default async function Navbar() {
                   Books
                 </Link>
                 <Link
-                  href="/sales"
+                  href="/sales/records"
                   className="text-sm text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
                 >
                   Sales
                 </Link>
                 <Link
-                  href="/sales/add-record"
+                  href="/sales/payments"
                   className="text-sm text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
                 >
-                  Add Record
+                  Author Payments
                 </Link>
               </nav>
               <div className="group relative pb-1">
