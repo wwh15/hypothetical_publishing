@@ -118,12 +118,22 @@ function extractFields(parts: string[], line: string, lineNumber: number) {
     authorRoyalty = parsedRoyalty;
   }
 
-  const [month, year] = monthYear.split("-");
+  const [month, yearStr] = monthYear.split("-");
+  const year = parseInt(yearStr, 10);
+  if (!Number.isInteger(year) || year < 2000 || year > 2100) {
+    return {
+      invalid: {
+        line: lineNumber,
+        raw: line,
+        reason: "Year must be between 2000 and 2100",
+      } satisfies InvalidSaleRow,
+    };
+  }
 
   const result: ParsedSaleRow = {
     line: lineNumber,
     month,
-    year,
+    year: yearStr,
     isbn: isbnDigits,
     quantity,
     revenue,

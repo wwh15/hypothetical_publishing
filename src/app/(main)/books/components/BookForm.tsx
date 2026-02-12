@@ -173,16 +173,21 @@ export default function BookForm({
       return;
     }
 
-    // Validate publication year if provided
+    // Validate publication year if provided (books: 1000 to current year + 1)
+    const BOOK_PUBLICATION_YEAR_MIN = 1000;
+    const BOOK_PUBLICATION_YEAR_MAX = new Date().getFullYear() + 1;
     const publicationYear = formData.publicationYear
       ? parseInt(formData.publicationYear)
       : undefined;
 
     if (
       publicationYear !== undefined &&
-      (publicationYear < 1000 || publicationYear > new Date().getFullYear() + 1)
+      (publicationYear < BOOK_PUBLICATION_YEAR_MIN ||
+        publicationYear > BOOK_PUBLICATION_YEAR_MAX)
     ) {
-      setError("Please enter a valid publication year");
+      setError(
+        `Publication year must be between ${BOOK_PUBLICATION_YEAR_MIN} and ${BOOK_PUBLICATION_YEAR_MAX}`
+      );
       setIsSubmitting(false);
       return;
     }
