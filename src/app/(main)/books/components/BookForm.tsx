@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createBook, updateBook, fetchBookFromOpenLibrary, getAllSeries } from "../action";
 import { BookDetail, BookListItem, SeriesListItem } from "@/lib/data/books";
@@ -50,9 +50,17 @@ export default function BookForm({
     defaultRoyaltyRate: "50", // Default 50%
   });
 
-  // Populate form with initial data if editing
+  // Track if form has been initialized to prevent resetting user changes
+  const formInitializedRef = useRef(false);
+
+  // Reset initialization flag when bookId or mode changes
   useEffect(() => {
-    if (initialData && mode === "edit") {
+    formInitializedRef.current = false;
+  }, [bookId, mode]);
+
+  // Populate form with initial data if editing (only once per book/mode)
+  useEffect(() => {
+    if (initialData && mode === "edit" && !formInitializedRef.current) {
       setFormData({
         title: initialData.title,
         authors: initialData.authors,
@@ -63,7 +71,7 @@ export default function BookForm({
         defaultRoyaltyRate: initialData.defaultRoyaltyRate.toString(),
       });
       
-      // Set series information
+      // Set series information only on initial load
       if (initialData.seriesId !== null && initialData.seriesId !== undefined) {
         setSelectedSeriesId(initialData.seriesId);
         setSeriesOrder(initialData.seriesOrder?.toString() || "");
@@ -71,8 +79,10 @@ export default function BookForm({
         setSelectedSeriesId(null);
         setSeriesOrder("");
       }
+      
+      formInitializedRef.current = true;
     }
-  }, [initialData, mode]);
+  }, [initialData, mode, bookId]);
 
   useEffect(() => {
     if (initialIsbn && mode === "create") {
@@ -602,9 +612,11 @@ export default function BookForm({
                 }
               }}
               onSeriesCreated={(newSeries) => {
-                // Refresh series list when a new series is created
-                setSeries((prev) => [...prev, newSeries].sort((a, b) => a.name.localeCompare(b.name)));
-                setSelectedSeriesId(newSeries.id);
+                // Refresh series list so the new series appears in the dropdown
+                setSeries((prev) => {
+                  const updated = [...prev, newSeries].sort((a, b) => a.name.localeCompare(b.name));
+                  return updated;
+                });
               }}
               placeholder="Select series or add new..."
             />
