@@ -33,8 +33,8 @@ export interface DataTableProps<T> {
     defaultSortDirection?: 'asc' | 'desc';
     /** When set, sorting is server-controlled: data is pre-sorted, clicks call onSortChange */
     sortField?: string | null;
-    sortDirection?: 'asc' | 'desc';
-    onSortChange?: (field: string, direction: 'asc' | 'desc') => void;
+    sortDirection?: 'asc' | 'desc' | null;
+    onSortChange?: (field: string, direction: 'asc' | 'desc' | null) => void;
     itemsPerPage?: number;
     showPagination?: boolean;
     dateFilterField?: keyof T;
@@ -107,10 +107,10 @@ export function DataTable<T extends object>({
       ? (externalSortField ?? null)
       : (sortField ?? null);
     const displaySortDirection = serverSortMode
-      ? (externalSortDirection ?? "asc")
+      ? (externalSortDirection ?? null)
       : sortDirection;
 
-    const handleSortClick = (columnKey: string, direction: 'asc' | 'desc') => {
+    const handleSortClick = (columnKey: string, direction: 'asc' | 'desc' | null) => {
         if (serverSortMode) {
             onSortChange(columnKey, direction);
         } else {

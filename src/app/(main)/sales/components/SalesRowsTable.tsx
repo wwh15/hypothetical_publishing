@@ -68,18 +68,18 @@ export default function SalesRowsTable({
 
   const buildParams = (overrides: {
     page?: number;
-    sortBy?: string;
-    sortDir?: "asc" | "desc";
+    sortBy?: string | null;
+    sortDir?: "asc" | "desc" | null;
     pageSize?: number;
   } = {}) => {
     const p = overrides.page ?? page ?? 1;
-    const sb = overrides.sortBy ?? sortBy ?? "date";
-    const sd = overrides.sortDir ?? sortDir ?? "desc";
+    const sb = "sortBy" in overrides ? overrides.sortBy : (sortBy ?? "date");
+    const sd = "sortDir" in overrides ? overrides.sortDir : (sortDir ?? "desc");
     const ps = overrides.pageSize ?? pageSize ?? 10;
     const params = new URLSearchParams();
     params.set(`${paramPrefix}Page`, String(p));
-    params.set(`${paramPrefix}SortBy`, sb);
-    params.set(`${paramPrefix}SortDir`, sd);
+    if (sb != null) params.set(`${paramPrefix}SortBy`, sb);
+    if (sd != null) params.set(`${paramPrefix}SortDir`, sd);
     params.set(`${paramPrefix}PageSize`, String(ps));
     return params.toString();
   };
@@ -89,9 +89,9 @@ export default function SalesRowsTable({
     router.push(`${basePath}?${buildParams({ page: newPage })}`);
   };
 
-  const handleSortChange = (field: string, direction: "asc" | "desc") => {
+  const handleSortChange = (field: string, direction: "asc" | "desc" | null) => {
     if (!basePath) return;
-    router.push(`${basePath}?${buildParams({ sortBy: field, sortDir: direction, page: 1 })}`);
+    router.push(`${basePath}?${buildParams({ sortBy: direction === null ? null : field, sortDir: direction, page: 1 })}`);
   };
 
   const handleRowClick = (row: SaleListItem) => {

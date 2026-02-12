@@ -115,21 +115,21 @@ export default function BooksTable({
   const buildQueryParams = (overrides: {
     page?: number;
     q?: string;
-    sortBy?: string;
-    sortDir?: "asc" | "desc";
+    sortBy?: string | null;
+    sortDir?: "asc" | "desc" | null;
     showAll?: boolean;
   } = {}) => {
     const params = new URLSearchParams();
     const q = overrides.q !== undefined ? overrides.q : search.trim();
     const p = overrides.page ?? page;
-    const sb = overrides.sortBy ?? sortBy;
-    const sd = overrides.sortDir ?? sortDir;
+    const sb = "sortBy" in overrides ? overrides.sortBy : sortBy;
+    const sd = "sortDir" in overrides ? overrides.sortDir : sortDir;
     const sa = overrides.showAll !== undefined ? overrides.showAll : showAll;
 
     if (q) params.set("q", q);
     params.set("page", String(p));
-    params.set("sortBy", sb);
-    params.set("sortDir", sd);
+    if (sb != null) params.set("sortBy", sb);
+    if (sd != null) params.set("sortDir", sd);
     if (sa) params.set("showAll", "true");
     return params;
   };
@@ -151,9 +151,9 @@ export default function BooksTable({
     router.push(`/books?${params.toString()}`);
   };
 
-  const handleSortChange = (field: string, direction: "asc" | "desc") => {
+  const handleSortChange = (field: string, direction: "asc" | "desc" | null) => {
     const params = buildQueryParams({
-      sortBy: field,
+      sortBy: direction === null ? null : field,
       sortDir: direction,
       page: 1,
     });
