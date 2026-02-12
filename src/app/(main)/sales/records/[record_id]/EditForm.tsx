@@ -16,11 +16,25 @@ interface EditFormProps {
   sale: SaleDetailPayload;
 }
 
+const SALES_YEAR_MIN = 2000;
+const SALES_YEAR_MAX = 2100;
+
+function initialDateMonth(date: Date): string {
+  if (!date || !Number.isFinite(date.getTime())) return "";
+  return String(date.getMonth() + 1).padStart(2, "0");
+}
+
+function initialDateYear(date: Date): string {
+  if (!date || !Number.isFinite(date.getTime())) return "";
+  return String(date.getFullYear());
+}
+
 export default function EditForm({ sale, books }: EditFormProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
     bookId: sale.bookId,
-    date: sale.date,
+    dateMonth: initialDateMonth(sale.date),
+    dateYear: initialDateYear(sale.date),
     quantity: sale.quantity,
     publisherRevenue: sale.publisherRevenue,
     authorRoyalty: sale.authorRoyalty,
@@ -29,10 +43,38 @@ export default function EditForm({ sale, books }: EditFormProps) {
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [dateError, setDateError] = useState<string | null>(null);
 
   const handleSave = async () => {
+    setDateError(null);
+    const year = formData.dateYear ? parseInt(formData.dateYear, 10) : NaN;
+    if (
+      !Number.isInteger(year) ||
+      year < SALES_YEAR_MIN ||
+      year > SALES_YEAR_MAX
+    ) {
+      setDateError(`Year must be between ${SALES_YEAR_MIN} and ${SALES_YEAR_MAX}`);
+      return;
+    }
+    if (!formData.dateMonth) {
+      setDateError("Please select a month");
+      return;
+    }
+    const month = parseInt(formData.dateMonth, 10);
+    if (month < 1 || month > 12) {
+      setDateError("Please select a valid month");
+      return;
+    }
+    const date = new Date(year, month - 1, 1);
     setLoading(true);
-    const result = await updateSale(sale.id, formData);
+    const result = await updateSale(sale.id, {
+      bookId: formData.bookId,
+      date,
+      quantity: formData.quantity,
+      publisherRevenue: formData.publisherRevenue,
+      authorRoyalty: formData.authorRoyalty,
+      royaltyOverridden: formData.royaltyOverridden,
+    });
     setLoading(false);
 
     if (result.success) {
@@ -90,7 +132,12 @@ export default function EditForm({ sale, books }: EditFormProps) {
 
           <div>
             <label className="text-sm font-medium text-gray-500">Period</label>
-            <p className="text-lg font-semibold mt-1">{sale.date}</p>
+            <p className="text-lg font-semibold mt-1">
+              {new Intl.DateTimeFormat("en-US", {
+                month: "short",
+                year: "numeric",
+              }).format(sale.date)}
+            </p>
           </div>
 
           <div>
@@ -222,18 +269,51 @@ export default function EditForm({ sale, books }: EditFormProps) {
           />
         </div>
 
-        {/* Date */}
-        <div>
+        {/* Date: month/year picker (same pattern as book edit form) */}
+        <div className="space-y-2">
           <label className="block text-sm font-medium mb-2">
-            Period (MM-YYYY)
+            Period (month / year)
           </label>
-          <input
-            type="text"
-            value={formData.date}
-            onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-            placeholder="01-2025"
-            className="w-full px-3 py-2 border rounded-md"
-          />
+          <div className="flex gap-3 items-center flex-wrap">
+            <select
+              value={formData.dateMonth}
+              onChange={(e) => {
+                setFormData({
+                  ...formData,
+                  dateMonth: e.target.value,
+                });
+                setDateError(null);
+              }}
+              className="flex-1 min-w-[140px] h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 dark:bg-gray-700"
+            >
+              <option value="">Select Month</option>
+              {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                <option key={m} value={m.toString().padStart(2, "0")}>
+                  {new Date(2000, m - 1).toLocaleString("default", {
+                    month: "long",
+                  })}
+                </option>
+              ))}
+            </select>
+            <input
+              type="number"
+              min={SALES_YEAR_MIN}
+              max={SALES_YEAR_MAX}
+              value={formData.dateYear}
+              onChange={(e) => {
+                setFormData({
+                  ...formData,
+                  dateYear: e.target.value,
+                });
+                setDateError(null);
+              }}
+              placeholder="Year"
+              className="w-24 h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 dark:bg-gray-700"
+            />
+          </div>
+          {dateError && (
+            <p className="text-sm text-red-600 dark:text-red-400">{dateError}</p>
+          )}
         </div>
 
         {/* Quantity */}

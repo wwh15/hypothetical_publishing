@@ -28,7 +28,7 @@ export default async function asyncGetAuthorPaymentData(
     author_royalty: number;
     quantity: number;
     paid: boolean;
-    date: string;
+    date: Date;
   }>>`
     WITH book_author_ids AS (
       SELECT
@@ -58,7 +58,7 @@ export default async function asyncGetAuthorPaymentData(
     INNER JOIN books b ON b.id = bai.book_id
     ORDER BY
       bai.author_names ASC,
-      to_date(s.date, 'MM-YYYY') DESC;
+      s.date DESC;
   `;
 
   // Step 2: Group rows by author combination (same logic as before)

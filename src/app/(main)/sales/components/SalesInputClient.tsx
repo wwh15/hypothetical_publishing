@@ -34,11 +34,17 @@ export default function SalesInputClient({
     setIsSubmitting(true);
     setSubmitError(null);
 
+    const parseMonthYear = (s: string): Date => {
+      const match = /^(0[1-9]|1[0-2])-(\d{4})$/.exec(s);
+      if (!match) return new Date(1970, 0, 1);
+      return new Date(parseInt(match[2], 10), parseInt(match[1], 10) - 1, 1);
+    };
+
     let failed = 0;
     for (const record of pendingRecords) {
       const result = await addSale({
         bookId: record.bookId,
-        date: record.date,
+        date: parseMonthYear(record.date),
         quantity: record.quantity,
         publisherRevenue: record.publisherRevenue,
         authorRoyalty: record.authorRoyalty,

@@ -48,18 +48,13 @@ export default async function BookDetailPage({ params, searchParams }: PageProps
   };
 
   const formatPublicationDate = () => {
-    if (book.publicationMonth && book.publicationYear) {
-      const monthNames = [
-        'January', 'February', 'March', 'April', 'May', 'June',
-        'July', 'August', 'September', 'October', 'November', 'December'
-      ];
-      const monthIndex = parseInt(book.publicationMonth) - 1;
-      const monthName = monthIndex >= 0 && monthIndex < 12 
-        ? monthNames[monthIndex] 
-        : book.publicationMonth;
-      return `${monthName} ${book.publicationYear}`;
+    if (book.publicationDate) {
+      return new Intl.DateTimeFormat("en-US", {
+        month: "long",
+        year: "numeric",
+      }).format(book.publicationDate);
     }
-    return 'Not specified';
+    return "Not specified";
   };
 
   return (

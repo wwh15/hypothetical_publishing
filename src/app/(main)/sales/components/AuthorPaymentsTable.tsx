@@ -183,7 +183,12 @@ export default function AuthorPaymentsTable({
                         ${sale.authorRoyalty.toFixed(2)}
                       </span>
                     </TableCell>
-                    <TableCell className="text-center">{sale.date}</TableCell>
+                    <TableCell className="text-center">
+                      {new Intl.DateTimeFormat("en-US", {
+                        month: "short",
+                        year: "numeric",
+                      }).format(sale.date)}
+                    </TableCell>
                     <TableCell className="text-center">
                       <span
                         className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${

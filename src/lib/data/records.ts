@@ -2,12 +2,12 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "../prisma";
 
-export interface SaleListItem { 
+export interface SaleListItem {
   id: number;
   bookId: number;
   title: string;
   author: string;
-  date: string;
+  date: Date; // First day of sale month
   quantity: number;
   publisherRevenue: number;
   authorRoyalty: number;
@@ -62,17 +62,25 @@ function buildOrderBy(
   return map[sortBy] ?? (sortDir === "desc" ? { date: "desc" } : { date: "asc" });
 }
 
-/** Compare MM-YYYY dates chronologically (year then month). */
-function compareDateStrings(
-  a: string,
-  b: string,
+/** Compare dates chronologically. */
+function compareDates(
+  a: Date,
+  b: Date,
   direction: "asc" | "desc"
 ): number {
-  const [aM, aY] = a.split("-").map(Number);
-  const [bM, bY] = b.split("-").map(Number);
-  const yearCmp = direction === "desc" ? bY - aY : aY - bY;
-  if (yearCmp !== 0) return yearCmp;
-  return direction === "desc" ? bM - aM : aM - bM;
+  const tA = a.getTime();
+  const tB = b.getTime();
+  return direction === "desc" ? tB - tA : tA - tB;
+}
+
+/** Parse MM-YYYY to first day of month (UTC). Returns undefined if invalid. */
+function parseMonthYear(s: string): Date | undefined {
+  const match = /^(0[1-9]|1[0-2])-(\d{4})$/.exec(s.trim());
+  if (!match) return undefined;
+  const month = parseInt(match[1], 10) - 1;
+  const year = parseInt(match[2], 10);
+  const d = new Date(Date.UTC(year, month, 1));
+  return isNaN(d.getTime()) ? undefined : d;
 }
 
 export interface GetSalesDataParams {
@@ -127,17 +135,16 @@ export async function getSalesData({
     ];
   }
 
-  const from = dateFrom?.trim();
-  const to = dateTo?.trim();
-  if (from && to) {
-    where.date = { gte: from, lte: to };
-  } else if (from) {
-    where.date = { gte: from };
-  } else if (to) {
-    where.date = { lte: to };
+  const fromDate = dateFrom?.trim() ? parseMonthYear(dateFrom) : undefined;
+  const toDate = dateTo?.trim() ? parseMonthYear(dateTo) : undefined;
+  if (fromDate && toDate) {
+    where.date = { gte: fromDate, lte: toDate };
+  } else if (fromDate) {
+    where.date = { gte: fromDate };
+  } else if (toDate) {
+    where.date = { lte: toDate };
   }
 
-  // Date is stored as "MM-YYYY"; Prisma string sort is wrong (e.g. "01-2025" before "12-2024").
   // When sorting by date, fetch all matching rows and sort chronologically in JS, then paginate.
   if (sortBy === "date") {
     const [allSales, total] = await Promise.all([
@@ -148,7 +155,7 @@ export async function getSalesData({
       prisma.sale.count({ where }),
     ]);
     const sorted = [...allSales].sort((a, b) =>
-      compareDateStrings(a.date, b.date, sortDir)
+      compareDates(a.date, b.date, sortDir)
     );
     const paginated = sorted.slice(
       (currentPage - 1) * limit,
@@ -211,7 +218,7 @@ export async function getSalesByBookId(
       prisma.sale.count({ where }),
     ]);
     const sorted = [...allSales].sort((a, b) =>
-      compareDateStrings(a.date, b.date, sortDir)
+      compareDates(a.date, b.date, sortDir)
     );
     const paginated = sorted.slice(
       (currentPage - 1) * limit,
@@ -248,7 +255,7 @@ export default async function asyncGetSalesData() {
   const sales = await prisma.sale.findMany({
     include: { book: { include: { authors: true } } },
   });
-  sales.sort((a, b) => compareDateStrings(a.date, b.date, "desc"));
+  sales.sort((a, b) => compareDates(a.date, b.date, "desc"));
   return sales;
 }
 
@@ -263,7 +270,7 @@ export async function asyncGetSaleById(id: number) {
 export function toSaleListItem(sale: {
   id: number;
   bookId: number;
-  date: string;
+  date: Date;
   quantity: number;
   publisherRevenue: number;
   authorRoyalty: number;
@@ -292,7 +299,7 @@ export async function asyncUpdateSale(
   id: number,
   data: {
     bookId?: number;
-    date?: string;
+    date?: Date;
     quantity?: number;
     publisherRevenue?: number;
     authorRoyalty?: number;
