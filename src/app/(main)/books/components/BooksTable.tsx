@@ -77,17 +77,15 @@ export default function BooksTable({
       accessor: "publicationSortKey",
       sortable: true,
       render: (row) => {
-        if (row.publicationMonth && row.publicationYear) {
-          const monthNames = [
-            "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-            "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
-          ];
-          const monthIndex = parseInt(row.publicationMonth) - 1;
-          const monthName =
-            monthIndex >= 0 && monthIndex < 12
-              ? monthNames[monthIndex]
-              : row.publicationMonth;
-          return <span>{monthName} {row.publicationYear}</span>;
+        if (row.publicationDate) {
+          return (
+            <span>
+              {new Intl.DateTimeFormat("en-US", {
+                month: "short",
+                year: "numeric",
+              }).format(row.publicationDate)}
+            </span>
+          );
         }
         return <span>-</span>;
       },

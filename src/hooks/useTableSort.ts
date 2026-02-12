@@ -30,7 +30,16 @@ export function useTableSort<T extends object>({
             if (aValue == null) return 1;
             if (bValue == null) return -1;
 
-            // Special handling for date fields in MM-YYYY format
+            // Special handling for Date objects
+            if (aValue instanceof Date && bValue instanceof Date) {
+                const aT = aValue.getTime();
+                const bT = bValue.getTime();
+                if (aT < bT) return sortDirection === 'asc' ? -1 : 1;
+                if (aT > bT) return sortDirection === 'asc' ? 1 : -1;
+                return 0;
+            }
+
+            // Special handling for date fields in MM-YYYY format (string)
             if (isDateField(aValue) && isDateField(bValue)) {
                 const aComparable = convertDateToComparable(aValue as string);
                 const bComparable = convertDateToComparable(bValue as string);

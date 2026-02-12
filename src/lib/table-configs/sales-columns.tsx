@@ -108,6 +108,11 @@ export const salesColumns: ColumnDef<SaleListItem>[] = [
     header: "Date",
     accessor: "date",
     sortable: true,
+    render: (row) =>
+      new Intl.DateTimeFormat("en-US", {
+        month: "short",
+        year: "numeric",
+      }).format(row.date),
   },
   {
     key: "paid",

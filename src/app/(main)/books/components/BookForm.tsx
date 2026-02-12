@@ -48,13 +48,19 @@ export default function BookForm({
   // Populate form with initial data if editing
   useEffect(() => {
     if (initialData && mode === "edit") {
+      const month = initialData.publicationDate
+        ? String(initialData.publicationDate.getMonth() + 1).padStart(2, "0")
+        : "";
+      const year = initialData.publicationDate
+        ? initialData.publicationDate.getFullYear().toString()
+        : "";
       setFormData({
         title: initialData.title,
         authors: initialData.authors,
         isbn13: initialData.isbn13 || "",
         isbn10: initialData.isbn10 || "",
-        publicationMonth: initialData.publicationMonth || "",
-        publicationYear: initialData.publicationYear?.toString() || "",
+        publicationMonth: month,
+        publicationYear: year,
         defaultRoyaltyRate: initialData.defaultRoyaltyRate.toString(),
       });
     }
@@ -90,14 +96,18 @@ export default function BookForm({
       const result = await fetchBookFromOpenLibrary(isbnLookup.trim());
 
       if (result.success) {
-        // Pre-populate form with fetched data
+        // Pre-populate form with fetched data (Open Library returns month/year)
+        const data = result.data as {
+          publicationMonth?: string;
+          publicationYear?: number;
+        };
         setFormData({
           title: result.data.title || "",
           authors: result.data.authors || "",
           isbn13: result.data.isbn13 || "",
           isbn10: result.data.isbn10 || "",
-          publicationMonth: result.data.publicationMonth || "",
-          publicationYear: result.data.publicationYear?.toString() || "",
+          publicationMonth: data.publicationMonth || "",
+          publicationYear: data.publicationYear?.toString() || "",
           defaultRoyaltyRate: "50", // Default to 50% for imported books
         });
         setIsImported(true);
@@ -186,14 +196,18 @@ export default function BookForm({
       return;
     }
 
+    const publicationDate =
+      publicationYear && formData.publicationMonth
+        ? new Date(publicationYear, parseInt(formData.publicationMonth, 10) - 1, 1)
+        : null;
+
     try {
       const bookData = {
         title: formData.title.trim(),
         authors: formData.authors.trim(),
         isbn13: isbn13 || undefined,
         isbn10: isbn10 || undefined,
-        publicationMonth: formData.publicationMonth || undefined,
-        publicationYear: publicationYear,
+        publicationDate,
         defaultRoyaltyRate: royaltyRate,
       };
 
@@ -218,19 +232,17 @@ export default function BookForm({
         }
 
         if (inModal && onModalSuccess) {
-          const pm = formData.publicationMonth || null;
-          const py = publicationYear ?? null;
-          const year = py ?? 9999;
-          const month = pm ?? "99";
+          const sortKey = publicationDate
+            ? `${publicationDate.getFullYear()}-${String(publicationDate.getMonth() + 1).padStart(2, "0")}`
+            : "9999-99";
           const book: BookListItem = {
             id: result.bookId!,
             title: formData.title.trim(),
             authors: formData.authors.trim(),
             isbn13: isbn13Val,
             isbn10: isbn10Val,
-            publicationMonth: pm,
-            publicationYear: py,
-            publicationSortKey: `${year}-${month}`,
+            publicationDate,
+            publicationSortKey: sortKey,
             defaultRoyaltyRate: royaltyRate ?? 50,
             totalSales: 0,
           };

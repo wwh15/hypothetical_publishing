@@ -90,7 +90,12 @@ export default function EditForm({ sale, books }: EditFormProps) {
 
           <div>
             <label className="text-sm font-medium text-gray-500">Period</label>
-            <p className="text-lg font-semibold mt-1">{sale.date}</p>
+            <p className="text-lg font-semibold mt-1">
+              {new Intl.DateTimeFormat("en-US", {
+                month: "short",
+                year: "numeric",
+              }).format(sale.date)}
+            </p>
           </div>
 
           <div>
@@ -229,8 +234,23 @@ export default function EditForm({ sale, books }: EditFormProps) {
           </label>
           <input
             type="text"
-            value={formData.date}
-            onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+            value={
+              formData.date
+                ? `${String(formData.date.getMonth() + 1).padStart(2, "0")}-${formData.date.getFullYear()}`
+                : ""
+            }
+            onChange={(e) => {
+              const s = e.target.value.trim();
+              const match = /^(0[1-9]|1[0-2])-(\d{4})$/.exec(s);
+              if (match) {
+                const month = parseInt(match[1], 10) - 1;
+                const year = parseInt(match[2], 10);
+                setFormData({
+                  ...formData,
+                  date: new Date(year, month, 1),
+                });
+              }
+            }}
             placeholder="01-2025"
             className="w-full px-3 py-2 border rounded-md"
           />

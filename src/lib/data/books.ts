@@ -1,6 +1,14 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "../prisma";
 
+/** Build YYYY-MM sort key from publication date; nulls become 9999-99 so they sort last */
+function publicationSortKeyFromDate(d: Date | null): string {
+  if (!d) return "9999-99";
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  return `${y}-${m}`;
+}
+
 // Flat Book type for table display (similar to Sale type)
 export interface BookListItem {
     id: number;
@@ -8,8 +16,8 @@ export interface BookListItem {
     authors: string;
     isbn13: string | null;
     isbn10: string | null;
-    publicationMonth: string | null; // "01" to "12"
-    publicationYear: number | null;
+    /** First day of publication month (e.g. 2024-01-01); null if unknown */
+    publicationDate: Date | null;
     /** YYYY-MM string for sorting; nulls become 9999-99 so they sort last */
     publicationSortKey: string;
     defaultRoyaltyRate: number; // As percentage (e.g., 50 for 50%)
@@ -22,8 +30,8 @@ export interface CreateBookInput {
     authors: string; // later: could be string[] when authors becomes a relation
     isbn13?: string;
     isbn10?: string;
-    publicationMonth?: string; // "01" to "12"
-    publicationYear?: number;
+    /** First day of publication month (e.g. new Date(2024, 0, 1) for Jan 2024) */
+    publicationDate?: Date | null;
     defaultRoyaltyRate?: number; // percentage (e.g., 50), default handled by server
 }
 
@@ -37,8 +45,8 @@ export interface BookDetail {
     authors: string;
     isbn13: string | null;
     isbn10: string | null;
-    publicationMonth: string | null; // "01" to "12"
-    publicationYear: number | null;
+    /** First day of publication month; null if unknown */
+    publicationDate: Date | null;
     defaultRoyaltyRate: number;
     createdAt: Date;
     updatedAt: Date;
@@ -57,10 +65,7 @@ const SORT_FIELD_MAP: Record<string, Prisma.BookOrderByWithRelationInput | Prism
   authors: { authors: { _count: "asc" } },
   isbn13: { isbn13: "asc" },
   isbn10: { isbn10: "asc" },
-  publication: [
-    { publicationYear: "asc" },
-    { publicationMonth: "asc" },
-  ],
+  publication: { publicationDate: "asc" },
   defaultRoyaltyRate: { authorRoyaltyRate: "asc" },
   // Prisma can only order by relation _count, not sum(quantity). When sortBy is totalSales we use in-memory sort in getBooksData.
   totalSales: { sales: { _count: "desc" } },
@@ -109,18 +114,14 @@ export async function getAllBooks(): Promise<BookListItem[]> {
     const totalSales = book.sales.reduce((sum, sale) => sum + sale.quantity, 0);
     const authors = book.authors.map((a) => a.name).join(", ");
     const defaultRoyaltyRate = Math.round(book.authorRoyaltyRate * 100);
-    const year = book.publicationYear ?? 9999;
-    const month = book.publicationMonth ?? "99";
-    const publicationSortKey = `${year}-${month}`;
-
+    const publicationSortKey = publicationSortKeyFromDate(book.publicationDate);
     return {
       id: book.id,
       title: book.title,
       authors,
       isbn13: book.isbn13,
       isbn10: book.isbn10,
-      publicationMonth: book.publicationMonth,
-      publicationYear: book.publicationYear,
+      publicationDate: book.publicationDate,
       publicationSortKey,
       defaultRoyaltyRate,
       totalSales,
@@ -214,17 +215,14 @@ export async function getBooksData({
       const totalSales = book.sales.reduce((sum, sale) => sum + sale.quantity, 0);
       const authors = book.authors.map((a) => a.name).join(", ");
       const defaultRoyaltyRate = Math.round(book.authorRoyaltyRate * 100);
-      const year = book.publicationYear ?? 9999;
-      const month = book.publicationMonth ?? "99";
-      const publicationSortKey = `${year}-${month}`;
+      const publicationSortKey = publicationSortKeyFromDate(book.publicationDate);
       return {
         id: book.id,
         title: book.title,
         authors,
         isbn13: book.isbn13,
         isbn10: book.isbn10,
-        publicationMonth: book.publicationMonth,
-        publicationYear: book.publicationYear,
+        publicationDate: book.publicationDate,
         publicationSortKey,
         defaultRoyaltyRate,
         totalSales,
@@ -269,17 +267,14 @@ export async function getBooksData({
     );
     const authors = book.authors.map((a) => a.name).join(", ");
     const defaultRoyaltyRate = Math.round(book.authorRoyaltyRate * 100);
-    const year = book.publicationYear ?? 9999;
-    const month = book.publicationMonth ?? "99";
-    const publicationSortKey = `${year}-${month}`;
+    const publicationSortKey = publicationSortKeyFromDate(book.publicationDate);
     return {
       id: book.id,
       title: book.title,
       authors,
       isbn13: book.isbn13,
       isbn10: book.isbn10,
-      publicationMonth: book.publicationMonth,
-      publicationYear: book.publicationYear,
+      publicationDate: book.publicationDate,
       publicationSortKey,
       defaultRoyaltyRate,
       totalSales,
@@ -335,8 +330,7 @@ export async function getBookById(id: number): Promise<BookDetail | null> {
     authors,
     isbn13: book.isbn13,
     isbn10: book.isbn10,
-    publicationMonth: book.publicationMonth,
-    publicationYear: book.publicationYear,
+    publicationDate: book.publicationDate,
     defaultRoyaltyRate,
     createdAt: book.createdAt,
     updatedAt: book.updatedAt,
@@ -395,8 +389,7 @@ export async function createBook(input: CreateBookInput): Promise<{ success: tru
           isbn13: input.isbn13 || null,
           isbn10: input.isbn10 || null,
           authorRoyaltyRate,
-          publicationMonth: input.publicationMonth ?? null,
-          publicationYear: input.publicationYear ?? null,
+          publicationDate: input.publicationDate ?? null,
           authors: {
             connect: authorConnections,
           },
@@ -477,8 +470,7 @@ export async function updateBook(input: UpdateBookInput): Promise<{ success: tru
         if (input.defaultRoyaltyRate !== undefined) {
           updateData.authorRoyaltyRate = input.defaultRoyaltyRate / 100;
         }
-        if (input.publicationMonth !== undefined) updateData.publicationMonth = input.publicationMonth ?? null;
-        if (input.publicationYear !== undefined) updateData.publicationYear = input.publicationYear ?? null;
+        if (input.publicationDate !== undefined) updateData.publicationDate = input.publicationDate ?? null;
 
         // Update authors if provided
         if (authorConnections) {
@@ -507,8 +499,7 @@ export async function updateBook(input: UpdateBookInput): Promise<{ success: tru
       if (input.defaultRoyaltyRate !== undefined) {
         updateData.authorRoyaltyRate = input.defaultRoyaltyRate / 100;
       }
-      if (input.publicationMonth !== undefined) updateData.publicationMonth = input.publicationMonth ?? null;
-      if (input.publicationYear !== undefined) updateData.publicationYear = input.publicationYear ?? null;
+      if (input.publicationDate !== undefined) updateData.publicationDate = input.publicationDate ?? null;
 
       const updatedBook = await prisma.book.update({
         where: { id: input.id },
