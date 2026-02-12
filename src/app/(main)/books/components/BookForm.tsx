@@ -2,11 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { createBook, updateBook, fetchBookFromOpenLibrary } from "../action";
-import { BookDetail, BookListItem } from "@/lib/data/books";
+import { createBook, updateBook, fetchBookFromOpenLibrary, getAllSeries } from "../action";
+import { BookDetail, BookListItem, SeriesListItem } from "@/lib/data/books";
 import { cn } from "@/lib/utils";
 import { Search, Loader2 } from "lucide-react";
 import { title } from "process";
+import { SeriesSelectBox } from "@/components/SeriesSelectBox";
 
 interface BookFormProps {
   bookId?: number;
@@ -35,6 +36,10 @@ export default function BookForm({
   const [error, setError] = useState<string | null>(null);
   const [isbnLookup, setIsbnLookup] = useState("");
   const [isImported, setIsImported] = useState(false);
+  const [series, setSeries] = useState<SeriesListItem[]>([]);
+  const [isLoadingSeries, setIsLoadingSeries] = useState(true);
+  const [selectedSeriesId, setSelectedSeriesId] = useState<number | null>(null);
+  const [seriesOrder, setSeriesOrder] = useState("");
   const [formData, setFormData] = useState({
     title: "",
     authors: "",
@@ -57,6 +62,15 @@ export default function BookForm({
         publicationYear: initialData.publicationYear?.toString() || "",
         defaultRoyaltyRate: initialData.defaultRoyaltyRate.toString(),
       });
+      
+      // Set series information
+      if (initialData.seriesId !== null && initialData.seriesId !== undefined) {
+        setSelectedSeriesId(initialData.seriesId);
+        setSeriesOrder(initialData.seriesOrder?.toString() || "");
+      } else {
+        setSelectedSeriesId(null);
+        setSeriesOrder("");
+      }
     }
   }, [initialData, mode]);
 
@@ -65,6 +79,22 @@ export default function BookForm({
       setIsbnLookup(initialIsbn);
     }
   }, [mode, initialIsbn]);
+
+  // Fetch series on mount
+  useEffect(() => {
+    async function loadSeries() {
+      try {
+        setIsLoadingSeries(true);
+        const seriesList = await getAllSeries();
+        setSeries(seriesList);
+      } catch (err) {
+        console.error("Failed to load series:", err);
+      } finally {
+        setIsLoadingSeries(false);
+      }
+    }
+    loadSeries();
+  }, []);
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({
@@ -186,6 +216,17 @@ export default function BookForm({
       return;
     }
 
+    // Validate series order if series is selected
+    if (selectedSeriesId !== null && seriesOrder && (isNaN(parseInt(seriesOrder)) || parseInt(seriesOrder) < 1)) {
+      setError("Series order must be a positive number");
+      setIsSubmitting(false);
+      return;
+    }
+
+    // Handle series data
+    const seriesId = selectedSeriesId;
+    const seriesOrderNum = seriesOrder ? parseInt(seriesOrder) : null;
+
     try {
       const bookData = {
         title: formData.title.trim(),
@@ -195,6 +236,8 @@ export default function BookForm({
         publicationMonth: formData.publicationMonth || undefined,
         publicationYear: publicationYear,
         defaultRoyaltyRate: royaltyRate,
+        seriesId: seriesId ?? null,
+        seriesOrder: seriesOrderNum,
       };
 
       let result;
@@ -534,6 +577,70 @@ export default function BookForm({
             Default: 50%. This is the percentage of publisher revenue that goes
             to authors.
           </p>
+        </div>
+
+        {/* Series Selection */}
+        <div className="md:col-span-2 space-y-2">
+          <label
+            htmlFor="series"
+            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+          >
+            Series
+          </label>
+          {isLoadingSeries ? (
+            <div className="flex h-10 items-center justify-center rounded-md border border-input bg-background px-3 py-2 text-sm text-muted-foreground">
+              Loading series...
+            </div>
+          ) : (
+            <SeriesSelectBox
+              series={series}
+              selectedSeriesId={selectedSeriesId}
+              onSelect={(seriesId) => {
+                setSelectedSeriesId(seriesId);
+                if (!seriesId) {
+                  setSeriesOrder("");
+                }
+              }}
+              onSeriesCreated={(newSeries) => {
+                // Refresh series list when a new series is created
+                setSeries((prev) => [...prev, newSeries].sort((a, b) => a.name.localeCompare(b.name)));
+                setSelectedSeriesId(newSeries.id);
+              }}
+              placeholder="Select series or add new..."
+            />
+          )}
+
+          {/* Series Order Input (shown when a series is selected) */}
+          {selectedSeriesId !== null && (
+            <div className="space-y-2">
+              <label
+                htmlFor="seriesOrder"
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              >
+                Series Order (optional)
+              </label>
+              <input
+                id="seriesOrder"
+                type="number"
+                value={seriesOrder}
+                onChange={(e) => setSeriesOrder(e.target.value)}
+                placeholder="e.g., 1, 2, 3..."
+                className={cn(
+                  "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background",
+                  "file:border-0 file:bg-transparent file:text-sm file:font-medium",
+                  "placeholder:text-muted-foreground",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                  "disabled:cursor-not-allowed disabled:opacity-50",
+                  "dark:bg-gray-700",
+                )}
+                min="1"
+              />
+              <p className="text-xs text-muted-foreground">
+                The position of this book in the series (e.g., 1 for first book,
+                2 for second book, etc.)
+              </p>
+            </div>
+          )}
         </div>
       </div>
 

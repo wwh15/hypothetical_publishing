@@ -7,10 +7,13 @@ import {
   createBook as createBookInDb,
   updateBook as updateBookInDb,
   deleteBook as deleteBookInDb,
+  getAllSeries as getAllSeriesFromDb,
+  createSeries as createSeriesInDb,
   BookListItem, 
   BookDetail, 
   CreateBookInput,
-  UpdateBookInput
+  UpdateBookInput,
+  SeriesListItem
 } from "@/lib/data/books";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -18,6 +21,24 @@ import { redirect } from "next/navigation";
 // Get all books (for client-side pagination/sorting)
 export async function getAllBooks(): Promise<BookListItem[]> {
   return getAllBooksFromDb();
+}
+
+// Get all series
+export async function getAllSeries(): Promise<SeriesListItem[]> {
+  return getAllSeriesFromDb();
+}
+
+// Create a new series
+export async function createSeries(name: string, description?: string) {
+  const result = await createSeriesInDb(name, description);
+  
+  // Revalidate series list after successful creation
+  if (result.success) {
+    revalidatePath("/books");
+    revalidatePath("/books/add");
+  }
+  
+  return result;
 }
 
 // Get books list data with server-side search, sort & pagination
