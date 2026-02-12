@@ -35,6 +35,20 @@ model Author {
   @@map("authors")
 }
 
+model Series {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?  // Optional blurb about the series
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  books       Book[]
+
+  @@index([name])
+  @@map("series")
+}
+
 model Book {
   id                Int      @id @default(autoincrement())
   title             String
@@ -42,17 +56,21 @@ model Book {
   isbn10            String?  @unique // ISBN-10 format, stored without dashes
   authorRoyaltyRate Float    @default(0.5) @map("author_royalty_rate") // Default 50%, stored as decimal (0.5)
   publicationDate   DateTime? @map("publication_date") // First day of publication month (e.g. 2024-01-01)
+  seriesId          Int?     @map("series_id") // Optional: book can belong to at most one series
+  seriesOrder       Int?     @map("series_order") // Position in series (1, 2, 3, ...) when part of a series
   createdAt         DateTime @default(now()) @map("created_at")
   updatedAt         DateTime @updatedAt @map("updated_at")
   
   // Relations
   authors           Author[]
   sales             Sale[]
+  series            Series?  @relation(fields: [seriesId], references: [id], onDelete: SetNull)
   
   // Indexes for efficient search and autocomplete
   @@index([title]) // For title search
   @@index([isbn13]) // For ISBN search
   @@index([isbn10]) // For ISBN search
+  @@index([seriesId]) // For filtering/sorting by series
   @@map("books")
 }
 
