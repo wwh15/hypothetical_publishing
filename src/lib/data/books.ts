@@ -24,6 +24,13 @@ export interface BookListItem {
     totalSales: number; // Total sales to date
 }
 
+// Series type for UI
+export interface SeriesListItem {
+    id: number;
+    name: string;
+    description: string | null;
+}
+
 // Form input DTOs (use these for create/update forms)
 export interface CreateBookInput {
     title: string;
@@ -33,6 +40,9 @@ export interface CreateBookInput {
     /** First day of publication month (e.g. new Date(2024, 0, 1) for Jan 2024) */
     publicationDate?: Date | null;
     defaultRoyaltyRate?: number; // percentage (e.g., 50), default handled by server
+    seriesId?: number | null; // Existing series ID, or null for no series
+    seriesOrder?: number | null; // Position in series (1, 2, 3, ...)
+    newSeriesName?: string; // Name for new series (if creating new series)
 }
 
 export interface UpdateBookInput extends Partial<CreateBookInput> {
@@ -58,6 +68,8 @@ export interface BookDetail {
     unpaidAuthorRoyalty: number;
     paidAuthorRoyalty: number;
     totalAuthorRoyalty: number;
+    seriesId: number | null;
+    seriesOrder: number | null;
     sales?: import('./records').SaleListItem[]; // Sales records for this book
 }
 
@@ -104,6 +116,50 @@ function buildOrderBy(
     return base.map(applyDir) as Prisma.BookOrderByWithRelationInput[];
   }
   return applyDir(base);
+}
+
+// Get all series
+export async function getAllSeries(): Promise<SeriesListItem[]> {
+  const series = await prisma.series.findMany({
+    orderBy: { name: "asc" },
+  });
+
+  return series.map((s) => ({
+    id: s.id,
+    name: s.name,
+    description: s.description,
+  }));
+}
+
+// Create a new series
+export async function createSeries(name: string, description?: string): Promise<{ success: true; seriesId: number } | { success: false; error: string }> {
+  try {
+    if (!name.trim()) {
+      return { success: false, error: 'Series name is required' };
+    }
+
+    const series = await prisma.series.create({
+      data: {
+        name: name.trim(),
+        description: description?.trim() || null,
+      },
+    });
+
+    return { success: true, seriesId: series.id };
+  } catch (error: unknown) {
+    // Handle unique constraint violations (duplicate series names)
+    if (error && typeof error === "object" && "code" in error && (error as { code: string }).code === "P2002") {
+      return {
+        success: false,
+        error: "A series with this name already exists",
+      };
+    }
+
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to create series",
+    };
+  }
 }
 
 // Get all books (for client-side pagination/sorting)
@@ -342,6 +398,8 @@ export async function getBookById(id: number): Promise<BookDetail | null> {
     unpaidAuthorRoyalty,
     paidAuthorRoyalty,
     totalAuthorRoyalty,
+    seriesId: book.seriesId,
+    seriesOrder: book.seriesOrder,
     // Sales list is loaded separately via getSalesByBookId (paginated)
     sales: undefined,
   };
@@ -364,6 +422,19 @@ export async function createBook(input: CreateBookInput): Promise<{ success: tru
       ? input.defaultRoyaltyRate / 100 
       : 0.5; // Default to 50%
 
+    // Determine series handling
+    let seriesId: number | null = null;
+    if (input.newSeriesName && input.newSeriesName.trim()) {
+      // Create new series
+      const newSeries = await prisma.series.create({
+        data: { name: input.newSeriesName.trim() },
+      });
+      seriesId = newSeries.id;
+    } else if (input.seriesId !== undefined && input.seriesId !== null) {
+      // Use existing series
+      seriesId = input.seriesId;
+    }
+
     // Wrap author creation and book creation in a single transaction
     const book = await prisma.$transaction(async (tx) => {
       // Find or create authors within the transaction
@@ -385,7 +456,7 @@ export async function createBook(input: CreateBookInput): Promise<{ success: tru
         })
       );
 
-      // Create the book, connected to all authors
+      // Create the book, connected to all authors and optionally to series
       return tx.book.create({
         data: {
           title: input.title,
@@ -393,6 +464,8 @@ export async function createBook(input: CreateBookInput): Promise<{ success: tru
           isbn10: input.isbn10 || null,
           authorRoyaltyRate,
           publicationDate: input.publicationDate ?? null,
+          seriesId: seriesId,
+          seriesOrder: input.seriesOrder ?? null,
           authors: {
             connect: authorConnections,
           },

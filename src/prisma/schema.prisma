@@ -37,7 +37,7 @@ model Author {
 
 model Series {
   id          Int      @id @default(autoincrement())
-  name        String
+  name        String   @unique
   description String?  // Optional blurb about the series
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
