@@ -14,7 +14,9 @@ export function useTableSort<T extends object>({
     defaultSortDirection = 'desc',
 }: UseTableSortOptions<T>) {
     const [sortField, setSortField] = useState<string | null>(defaultSortField || null);
-    const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>(defaultSortDirection);
+    const [sortDirection, setSortDirection] = useState<'asc' | 'desc' | null>(
+        defaultSortField ? defaultSortDirection : null
+    );
 
     const sortedData = useMemo(() => {
         if (!sortField) return data;
@@ -47,8 +49,8 @@ export function useTableSort<T extends object>({
         });
     }, [data, sortField, sortDirection, columns]);
 
-    const handleSort = (columnKey: string, direction: 'asc' | 'desc') => {
-        setSortField(columnKey);
+    const handleSort = (columnKey: string, direction: 'asc' | 'desc' | null) => {
+        setSortField(direction === null ? null : columnKey);
         setSortDirection(direction);
     };
 
