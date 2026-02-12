@@ -29,6 +29,9 @@ export interface CreateBookInput {
 
 export interface UpdateBookInput extends Partial<CreateBookInput> {
     id: number;
+    /** Set to null to remove book from series. */
+    seriesId?: number | null;
+    seriesOrder?: number | null;
 }
 
 export interface BookDetail {
@@ -479,6 +482,8 @@ export async function updateBook(input: UpdateBookInput): Promise<{ success: tru
         }
         if (input.publicationMonth !== undefined) updateData.publicationMonth = input.publicationMonth ?? null;
         if (input.publicationYear !== undefined) updateData.publicationYear = input.publicationYear ?? null;
+        if (input.seriesId !== undefined) updateData.series = input.seriesId == null ? { disconnect: true } : { connect: { id: input.seriesId } };
+        if (input.seriesOrder !== undefined) updateData.seriesOrder = input.seriesOrder ?? null;
 
         // Update authors if provided
         if (authorConnections) {
@@ -496,6 +501,13 @@ export async function updateBook(input: UpdateBookInput): Promise<{ success: tru
         });
       });
 
+      // Delete the old series if it now has no books (series are auto-deleted when empty).
+      const oldSeriesIdTx = existingBook.seriesId ?? null;
+      const newSeriesIdTx = updatedBook.seriesId ?? null;
+      if (oldSeriesIdTx !== null && oldSeriesIdTx !== newSeriesIdTx) {
+        await deleteSeriesIfEmpty(oldSeriesIdTx);
+      }
+
       return { success: true, bookId: updatedBook.id };
     } else {
       // No author changes, just update other fields
@@ -509,12 +521,21 @@ export async function updateBook(input: UpdateBookInput): Promise<{ success: tru
       }
       if (input.publicationMonth !== undefined) updateData.publicationMonth = input.publicationMonth ?? null;
       if (input.publicationYear !== undefined) updateData.publicationYear = input.publicationYear ?? null;
+      if (input.seriesId !== undefined) updateData.series = input.seriesId == null ? { disconnect: true } : { connect: { id: input.seriesId } };
+      if (input.seriesOrder !== undefined) updateData.seriesOrder = input.seriesOrder ?? null;
 
       const updatedBook = await prisma.book.update({
         where: { id: input.id },
         data: updateData,
         include: { authors: true },
       });
+
+      // Delete the old series if it now has no books (series are auto-deleted when empty).
+      const oldSeriesId = existingBook.seriesId ?? null;
+      const newSeriesId = updatedBook.seriesId ?? null;
+      if (oldSeriesId !== null && oldSeriesId !== newSeriesId) {
+        await deleteSeriesIfEmpty(oldSeriesId);
+      }
 
       return { success: true, bookId: updatedBook.id };
     }
@@ -535,6 +556,14 @@ export async function updateBook(input: UpdateBookInput): Promise<{ success: tru
   }
 }
 
+/** Deletes a series if it has no books left. Call after removing a book from a series (delete or update). */
+async function deleteSeriesIfEmpty(seriesId: number): Promise<void> {
+  const count = await prisma.book.count({ where: { seriesId } });
+  if (count === 0) {
+    await prisma.series.delete({ where: { id: seriesId } });
+  }
+}
+
 export async function deleteBook(id: number): Promise<{ success: true } | { success: false; error: string }> {
   try {
     const book = await prisma.book.findUnique({
@@ -545,11 +574,18 @@ export async function deleteBook(id: number): Promise<{ success: true } | { succ
       return { success: false, error: "Book not found" };
     }
 
+    const seriesIdBeforeDelete = book.seriesId ?? null;
+
     // Delete the book. Sales records are deleted automatically (FK onDelete: Cascade).
     // Authors are unchanged (many-to-many; other books may reference them).
     await prisma.book.delete({
       where: { id },
     });
+
+    // Series are not user-editable; delete the series when it has no books left.
+    if (seriesIdBeforeDelete !== null) {
+      await deleteSeriesIfEmpty(seriesIdBeforeDelete);
+    }
 
     return { success: true };
   } catch (error: unknown) {
