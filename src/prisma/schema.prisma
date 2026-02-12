@@ -41,8 +41,7 @@ model Book {
   isbn13            String?  @unique // ISBN-13 format, stored without dashes
   isbn10            String?  @unique // ISBN-10 format, stored without dashes
   authorRoyaltyRate Float    @default(0.5) @map("author_royalty_rate") // Default 50%, stored as decimal (0.5)
-  publicationMonth  String?  @map("publication_month") // 1 to 12
-  publicationYear   Int?     @map("publication_year") // e.g. 2024
+  publicationDate   DateTime? @map("publication_date") // First day of publication month (e.g. 2024-01-01)
   createdAt         DateTime @default(now()) @map("created_at")
   updatedAt         DateTime @updatedAt @map("updated_at")
   
@@ -60,7 +59,7 @@ model Book {
 model Sale {
   id               Int      @id @default(autoincrement())
   bookId           Int      @map("book_id")
-  date             String   // MM-YYYY format (e.g., "01-2025")
+  date             DateTime @map("date") // First day of sale month (e.g. 2025-01-01)
   quantity         Int
   publisherRevenue Float    @map("publisher_revenue")
   authorRoyalty    Float    @map("author_royalty")
