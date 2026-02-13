@@ -11,13 +11,13 @@ import {
 } from "@/lib/table-configs/sales-columns";
 import { createSalesRecordPath } from "@/lib/table-configs/navigation";
 import { PaginationControls } from "@/components/PaginationControls";
-import { DateRangeFilter } from "@/components/DateRangeFilter";
 import { ArrowDown, ArrowUp, ArrowUpDown, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TableInfo } from "@/components/TableInfo";
 import { BaseDataTable } from "@/components/BaseDataTable";
 // Change this line:
 import { ColumnDef } from "@/components/BaseDataTable";
+import { MonthYearFilter } from "@/components/MonthYearFilter";
 
 export type SalesTablePreset = keyof typeof salesTablePresets;
 
@@ -74,7 +74,6 @@ export default function SalesRecordsTable({
   visibleColumns,
   onRowClick,
   navigationContext,
-  showDateFilter = true,
 }: SalesRecordsTableProps) {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState(search);
@@ -84,33 +83,39 @@ export default function SalesRecordsTable({
     [total, pageSize]
   );
 
-  const buildQueryParams = useCallback((overrides: {
-    page?: number;
-    q?: string;
-    sortBy?: string | null;
-    sortDir?: "asc" | "desc" | null;
-    dateFrom?: string;
-    dateTo?: string;
-    showAll?: boolean;
-  } = {}) => {
-    const params = new URLSearchParams();
-    const q = overrides.q !== undefined ? overrides.q : search.trim();
-    const p = overrides.page ?? page;
-    const sb = "sortBy" in overrides ? overrides.sortBy : sortBy;
-    const sd = "sortDir" in overrides ? overrides.sortDir : sortDir;
-    const df = overrides.dateFrom !== undefined ? overrides.dateFrom : dateFrom;
-    const dt = overrides.dateTo !== undefined ? overrides.dateTo : dateTo;
-    const sa = overrides.showAll !== undefined ? overrides.showAll : showAll;
+  const buildQueryParams = useCallback(
+    (
+      overrides: {
+        page?: number;
+        q?: string;
+        sortBy?: string | null;
+        sortDir?: "asc" | "desc" | null;
+        dateFrom?: string;
+        dateTo?: string;
+        showAll?: boolean;
+      } = {}
+    ) => {
+      const params = new URLSearchParams();
+      const q = overrides.q !== undefined ? overrides.q : search.trim();
+      const p = overrides.page ?? page;
+      const sb = "sortBy" in overrides ? overrides.sortBy : sortBy;
+      const sd = "sortDir" in overrides ? overrides.sortDir : sortDir;
+      const df =
+        overrides.dateFrom !== undefined ? overrides.dateFrom : dateFrom;
+      const dt = overrides.dateTo !== undefined ? overrides.dateTo : dateTo;
+      const sa = overrides.showAll !== undefined ? overrides.showAll : showAll;
 
-    if (q) params.set("q", q);
-    params.set("page", String(p));
-    if (sb != null) params.set("sortBy", sb);
-    if (sd != null) params.set("sortDir", sd);
-    if (df) params.set("dateFrom", df);
-    if (dt) params.set("dateTo", dt);
-    if (sa) params.set("showAll", "true");
-    return params;
-  }, [search, page, sortBy, sortDir, dateFrom, dateTo, showAll]);
+      if (q) params.set("q", q);
+      params.set("page", String(p));
+      if (sb != null) params.set("sortBy", sb);
+      if (sd != null) params.set("sortDir", sd);
+      if (df) params.set("dateFrom", df);
+      if (dt) params.set("dateTo", dt);
+      if (sa) params.set("showAll", "true");
+      return params;
+    },
+    [search, page, sortBy, sortDir, dateFrom, dateTo, showAll]
+  );
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -124,19 +129,25 @@ export default function SalesRecordsTable({
     router.push(`/sales/records?${params.toString()}`);
   };
 
-  const handlePageChange = useCallback((newPage: number) => {
-    const params = buildQueryParams({ page: newPage });
-    router.push(`/sales/records?${params.toString()}`);
-  }, [router, buildQueryParams]);
+  const handlePageChange = useCallback(
+    (newPage: number) => {
+      const params = buildQueryParams({ page: newPage });
+      router.push(`/sales/records?${params.toString()}`);
+    },
+    [router, buildQueryParams]
+  );
 
-  const handleSortChange = useCallback((field: string, direction: "asc" | "desc" | null) => {
-    const params = buildQueryParams({
-      sortBy: direction ? field : "date", // fallback to date if sort is cleared
-      sortDir: direction ? direction : "desc",
-      page: 1,
-    });
-    router.push(`/sales/records?${params.toString()}`);
-  }, [router, buildQueryParams]);
+  const handleSortChange = useCallback(
+    (field: string, direction: "asc" | "desc") => {
+      const params = buildQueryParams({
+        sortBy: field,
+        sortDir: direction,
+        page: 1, // Always reset to page 1 on sort
+      });
+      router.push(`/sales/records?${params.toString()}`);
+    },
+    [buildQueryParams, router]
+  );
 
   const handleDateFromChange = (value: string) => {
     const params = buildQueryParams({ dateFrom: value, page: 1 });
@@ -174,7 +185,7 @@ export default function SalesRecordsTable({
 
     return baseCols.map((col) => {
       const isSorted = sortBy === col.key;
-      
+
       return {
         ...col,
         header: (
@@ -184,17 +195,13 @@ export default function SalesRecordsTable({
               <button
                 type="button"
                 onClick={() => {
-                  // Cycle logic: none -> asc -> desc -> reset
-                  const nextDirection = !isSorted 
-                    ? "asc" 
-                    : sortDir === "asc" 
-                      ? "desc" 
-                      : null;
+                  const nextDirection =
+                    isSorted && sortDir === "desc" ? "asc" : "desc";
                   handleSortChange(col.key, nextDirection);
                 }}
                 className={cn(
-                  'ml-1 p-0.5 rounded hover:bg-muted transition-colors',
-                  isSorted && 'text-blue-600 bg-blue-50 dark:bg-blue-900/20'
+                  "ml-1 p-0.5 rounded hover:bg-muted transition-colors",
+                  isSorted && "text-blue-600 bg-blue-50 dark:bg-blue-900/20"
                 )}
                 aria-label={`Sort by ${col.header}`}
               >
@@ -257,16 +264,14 @@ export default function SalesRecordsTable({
         )}
       </form>
 
-      {showDateFilter && (
-        <DateRangeFilter
-          startDate={dateFrom}
-          endDate={dateTo}
-          onStartDateChange={handleDateFromChange}
-          onEndDateChange={handleDateToChange}
-          onClear={handleDateClear}
-          hasActiveFilter={hasDateFilter}
-        />
-      )}
+      <MonthYearFilter
+        startDate={dateFrom} // Ensure the initial prop from server is YYYY-MM
+        endDate={dateTo}
+        onStartDateChange={handleDateFromChange}
+        onEndDateChange={handleDateToChange}
+        onClear={handleDateClear}
+        hasActiveFilter={hasDateFilter}
+      />
 
       {total > 0 && (
         <TableInfo

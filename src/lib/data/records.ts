@@ -64,27 +64,21 @@ function buildOrderBy(
   );
 }
 
-/** * Parse MM-YYYY to a Date object.
- * @param s The date string (MM-YYYY)
+/** * Parse YYYY-MM to a Date object.
+ * @param s The date string (YYYY-MM)
  * @param endOfMonth If true, returns the last millisecond of the month.
  */
-function parseMonthYear(s: string, endOfMonth: boolean = false): Date | undefined {
-  const match = /^(0[1-9]|1[0-2])-(\d{4})$/.exec(s.trim());
-  if (!match) return undefined;
+function parseDate(dateStr: string, endOfMonth: boolean = false): Date | undefined {
+  if (!dateStr) return undefined;
 
-  const month = parseInt(match[1], 10); // 1-indexed
-  const year = parseInt(match[2], 10);
+  const [year, month] = dateStr.split("-").map(Number);
 
   if (endOfMonth) {
-    // Setting day to 0 of the NEXT month gives the last day of the CURRENT month
-    // We use UTC to avoid timezone shifts during the calculation
-    const d = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
-    return isNaN(d.getTime()) ? undefined : d;
+    // Get the last day of that specific month
+    return new Date(year, month, 0, 23, 59, 59, 999);
   }
-
-  // Standard: 1st day of the month
-  const d = new Date(Date.UTC(year, month - 1, 1));
-  return isNaN(d.getTime()) ? undefined : d;
+  // Get the first day of that specific month
+  return new Date(year, month - 1, 1, 0, 0, 0, 0);
 }
 
 export interface GetSalesDataParams {
@@ -129,8 +123,8 @@ export async function getSalesData({
   }
 
   // 2. Handle Date Range Filtering
-  const fromDate = dateFrom?.trim() ? parseMonthYear(dateFrom) : undefined;
-  const toDate = dateTo?.trim() ? parseMonthYear(dateTo) : undefined;
+  const fromDate = dateFrom?.trim() ? parseDate(dateFrom) : undefined;
+  const toDate = dateTo?.trim() ? parseDate(dateTo) : undefined;
   if (fromDate || toDate) {
     where.date = {};
     if (fromDate) where.date.gte = fromDate;
