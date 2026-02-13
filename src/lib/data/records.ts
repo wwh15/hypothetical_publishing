@@ -35,7 +35,7 @@ export type SaleDetailPayload = Prisma.SaleGetPayload<{
 const SORT_ASC: Record<string, Prisma.SaleOrderByWithRelationInput> = {
   id: { id: "asc" },
   title: { book: { title: "asc" } },
-  author: { book: { title: "asc" } },
+  author: { book: { author: { name: "asc"}}},
   date: { date: "asc" },
   quantity: { quantity: "asc" },
   publisherRevenue: { publisherRevenue: "asc" },
@@ -46,7 +46,7 @@ const SORT_ASC: Record<string, Prisma.SaleOrderByWithRelationInput> = {
 const SORT_DESC: Record<string, Prisma.SaleOrderByWithRelationInput> = {
   id: { id: "desc" },
   title: { book: { title: "desc" } },
-  author: { book: { title: "desc" } },
+  author: { book: { author: { name: "desc"}}},
   date: { date: "desc" },
   quantity: { quantity: "desc" },
   publisherRevenue: { publisherRevenue: "desc" },
@@ -64,20 +64,26 @@ function buildOrderBy(
   );
 }
 
-/** Compare dates chronologically. */
-function compareDates(a: Date, b: Date, direction: "asc" | "desc"): number {
-  const tA = a.getTime();
-  const tB = b.getTime();
-  return direction === "desc" ? tB - tA : tA - tB;
-}
-
-/** Parse MM-YYYY to first day of month (UTC). Returns undefined if invalid. */
-function parseMonthYear(s: string): Date | undefined {
+/** * Parse MM-YYYY to a Date object.
+ * @param s The date string (MM-YYYY)
+ * @param endOfMonth If true, returns the last millisecond of the month.
+ */
+function parseMonthYear(s: string, endOfMonth: boolean = false): Date | undefined {
   const match = /^(0[1-9]|1[0-2])-(\d{4})$/.exec(s.trim());
   if (!match) return undefined;
-  const month = parseInt(match[1], 10) - 1;
+
+  const month = parseInt(match[1], 10); // 1-indexed
   const year = parseInt(match[2], 10);
-  const d = new Date(Date.UTC(year, month, 1));
+
+  if (endOfMonth) {
+    // Setting day to 0 of the NEXT month gives the last day of the CURRENT month
+    // We use UTC to avoid timezone shifts during the calculation
+    const d = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
+    return isNaN(d.getTime()) ? undefined : d;
+  }
+
+  // Standard: 1st day of the month
+  const d = new Date(Date.UTC(year, month - 1, 1));
   return isNaN(d.getTime()) ? undefined : d;
 }
 
@@ -98,7 +104,7 @@ export interface GetSalesDataResult {
   pageSize: number;
 }
 
-/** Server-side paginated/filtered/sorted sales list */
+/** Database paginated/filtered/sorted sales list */
 export async function getSalesData({
   search,
   page = 1,
@@ -113,66 +119,37 @@ export async function getSalesData({
 
   const where: Prisma.SaleWhereInput = {};
 
+  // 1. Build Filter Logic
   const trimmedSearch = search?.trim();
   if (trimmedSearch) {
     where.OR = [
-      {
-        book: {
-          title: { contains: trimmedSearch, mode: "insensitive" },
-        },
-      },
-      {
-        book: {
-          author: {
-            name: { 
-              contains: trimmedSearch, 
-              mode: "insensitive" 
-            },
-          },
-        },
-      },
+      { book: { title: { contains: trimmedSearch, mode: "insensitive" } } },
+      { book: { author: { name: { contains: trimmedSearch, mode: "insensitive" } } } },
     ];
   }
 
+  // 2. Handle Date Range Filtering
   const fromDate = dateFrom?.trim() ? parseMonthYear(dateFrom) : undefined;
   const toDate = dateTo?.trim() ? parseMonthYear(dateTo) : undefined;
-  if (fromDate && toDate) {
-    where.date = { gte: fromDate, lte: toDate };
-  } else if (fromDate) {
-    where.date = { gte: fromDate };
-  } else if (toDate) {
-    where.date = { lte: toDate };
+  if (fromDate || toDate) {
+    where.date = {};
+    if (fromDate) where.date.gte = fromDate;
+    if (toDate) where.date.lte = toDate;
   }
 
-  // When sorting by date, fetch all matching rows and sort chronologically in JS, then paginate.
-  if (sortBy === "date") {
-    const [allSales, total] = await Promise.all([
-      prisma.sale.findMany({
-        where,
-        include: { book: { include: { author: true } } },
-      }),
-      prisma.sale.count({ where }),
-    ]);
-    const sorted = [...allSales].sort((a, b) =>
-      compareDates(a.date, b.date, sortDir)
-    );
-    const paginated = sorted.slice(
-      (currentPage - 1) * limit,
-      (currentPage - 1) * limit + limit
-    );
-    return {
-      items: paginated.map(toSaleListItem),
-      total,
-      page: currentPage,
-      pageSize: limit,
-    };
-  }
-
+  // 3. Single, Optimized Database Query
+  // No more "if (sortBy === 'date')" branch!
   const [sales, total] = await Promise.all([
     prisma.sale.findMany({
       where,
-      include: { book: { include: { author: true } } },
-      orderBy: buildOrderBy(sortBy, sortDir),
+      include: { 
+        book: { 
+          include: { author: true } 
+        } 
+      },
+      // Database handles the sort
+      orderBy: buildOrderBy(sortBy, sortDir), 
+      // Database handles the pagination
       skip: (currentPage - 1) * limit,
       take: limit,
     }),
@@ -194,7 +171,7 @@ export interface GetSalesByBookIdParams {
   sortDir?: "asc" | "desc";
 }
 
-/** Server-side paginated/sorted sales for a single book (e.g. book detail page). */
+/** Server-side paginated/sorted sales for a single book. */
 export async function getSalesByBookId(
   bookId: number,
   {
@@ -208,34 +185,12 @@ export async function getSalesByBookId(
   const limit = Math.max(1, Math.min(pageSize, 100));
   const where: Prisma.SaleWhereInput = { bookId };
 
-  if (sortBy === "date") {
-    const [allSales, total] = await Promise.all([
-      prisma.sale.findMany({
-        where,
-        include: { book: { include: { author: true } } },
-      }),
-      prisma.sale.count({ where }),
-    ]);
-    const sorted = [...allSales].sort((a, b) =>
-      compareDates(a.date, b.date, sortDir)
-    );
-    const paginated = sorted.slice(
-      (currentPage - 1) * limit,
-      (currentPage - 1) * limit + limit
-    );
-    return {
-      items: paginated.map(toSaleListItem),
-      total,
-      page: currentPage,
-      pageSize: limit,
-    };
-  }
-
+  // One single query for everything
   const [sales, total] = await Promise.all([
     prisma.sale.findMany({
       where,
       include: { book: { include: { author: true } } },
-      orderBy: buildOrderBy(sortBy, sortDir),
+      orderBy: buildOrderBy(sortBy, sortDir), // DB handles chronological sort
       skip: (currentPage - 1) * limit,
       take: limit,
     }),
@@ -250,14 +205,15 @@ export async function getSalesByBookId(
   };
 }
 
+// Optimized: Get all sales sorted by date natively in the DB
 export default async function asyncGetSalesData() {
-  const sales = await prisma.sale.findMany({
+  return await prisma.sale.findMany({
     include: { book: { include: { author: true } } },
+    orderBy: { date: "desc" }, // No more JS .sort() needed!
   });
-  sales.sort((a, b) => compareDates(a.date, b.date, "desc"));
-  return sales;
 }
 
+// Stays simple, but ensure your schema names match
 export async function asyncGetSaleById(id: number) {
   return await prisma.sale.findUnique({
     where: { id },
