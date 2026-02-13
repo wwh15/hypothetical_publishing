@@ -3,156 +3,124 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "../prisma";
 import { SaleListItem } from "./records";
+import { Prisma } from "@prisma/client";
 
 export interface AuthorGroup {
-  authors: string[]; // All authors in this group (could be 1 or many)
-  authorIds: number[]; // All author IDs in this group
+  author: string; // All authors in this group (could be 1 or many)
+  authorId: number; // All author IDs in this group
   unpaidTotal: number;
   sales: SaleListItem[];
 }
 
+// The "Raw" shape coming out of Prisma
+const authorPaymentSelect = {
+  id: true,
+  name: true,
+  books: {
+    select: {
+      id: true,
+      title: true,
+      sales: {
+        select: {
+          id: true,
+          quantity: true,
+          date: true,
+          publisherRevenue: true,
+          authorRoyalty: true, // If you forget this now, the error will trigger
+          paid: true,
+        },
+      },
+    },
+  },
+} satisfies Prisma.AuthorSelect;
+
+// 2. Use that Select object to define your Payload type
+export type PrismaAuthorWithSales = Prisma.AuthorGetPayload<{
+  select: typeof authorPaymentSelect;
+}>;
+
 export default async function asyncGetAuthorPaymentData(
   pageNumber: number = 1,
-  pageSize: number = 2  // groups per page
-): Promise<{ groups: AuthorGroup[]; totalGroups: number }> {
-  const offset = (pageNumber - 1) * pageSize;
-  
-  // Step 1: Get paginated author groups from DB
-  const rawRows = await prisma.$queryRaw<Array<{
-    book_id: number;
-    book_title: string;
-    author_names: string;
-    author_ids: number[];  // PostgreSQL array
-    sale_id: number;
-    publisher_revenue: number;
-    author_royalty: number;
-    quantity: number;
-    paid: boolean;
-    date: Date;
-  }>>`
-    WITH book_author_ids AS (
-      SELECT
-        ab."B" AS book_id,
-        array_agg(ab."A" ORDER BY ab."A") AS author_ids,
-        string_agg(a.name, ', ' ORDER BY a.name) AS author_names
-      FROM "_AuthorToBook" ab
-      JOIN authors a ON a.id = ab."A"
-      GROUP BY ab."B"
-      ORDER BY author_names ASC
-      LIMIT ${pageSize}
-      OFFSET ${offset}
-    )
-    SELECT
-      bai.book_id,
-      b.title AS book_title,
-      bai.author_names,
-      bai.author_ids,
-      s.id AS sale_id,
-      s.publisher_revenue,
-      s.author_royalty,
-      s.quantity,
-      s.paid,
-      s.date
-    FROM book_author_ids bai
-    INNER JOIN sales s ON s.book_id = bai.book_id
-    INNER JOIN books b ON b.id = bai.book_id
-    ORDER BY
-      bai.author_names ASC,
-      s.date DESC;
-  `;
+  pageSize: number = 2
+): Promise<{ authors: AuthorGroup[]; totalGroups: number }> {
 
-  // Step 2: Group rows by author combination (same logic as before)
-  const authorGroupMap = new Map<string, {
-    authorNames: string[];
-    authorIds: number[];
-    sales: SaleListItem[];
-  }>();
+  const [rawAuthors, totalGroups] = await Promise.all([
+    prisma.author.findMany({
+      // 1. Paginate the Root (Authors)
+      skip: (pageNumber - 1) * pageSize,
+      take: pageSize,
 
-  for (const row of rawRows) {
-    const authorIds = Array.isArray(row.author_ids) 
-      ? row.author_ids 
-      : parsePgArray(row.author_ids);
-    const groupKey = authorIds.join(',');
-    
-    if (!authorGroupMap.has(groupKey)) {
-      const authorNames = row.author_names.split(', ').map(s => s.trim());
-      authorGroupMap.set(groupKey, {
-        authorNames,
-        authorIds,
-        sales: [],
-      });
-    }
+      // 2. Sort the Authors by name
+      orderBy: {
+        name: "asc",
+      },
+      
+      // 3. Select fields
+      select: authorPaymentSelect
+    }),
 
-    const group = authorGroupMap.get(groupKey)!;
-    group.sales.push({
-      id: row.sale_id,
-      bookId: row.book_id,
-      title: row.book_title,
-      author: row.author_names,
-      date: row.date,
-      quantity: row.quantity,
-      publisherRevenue: Number(row.publisher_revenue),
-      authorRoyalty: Number(row.author_royalty),
-      paid: row.paid ? 'paid' : 'pending',
-    });
-  }
+    // 4. Count total authors for the pagination UI
+    prisma.author.count(),
+  ]);
 
-  // Step 3: Convert to AuthorGroup[] and calculate totals
-  const groups = Array.from(authorGroupMap.values()).map(({ authorNames, authorIds, sales }) => {
-    const unpaidTotal = sales
-      .filter(sale => sale.paid === 'pending')
-      .reduce((sum, sale) => sum + sale.authorRoyalty, 0);
-    return {
-      authors: authorNames,
-      authorIds,
-      unpaidTotal: +unpaidTotal.toFixed(2),
-      sales,
-    };
-  });
-
-  // Step 4: Get total count (separate query)
-  const totalResult = await prisma.$queryRaw<Array<{ count: bigint }>>`
-    SELECT COUNT(DISTINCT (
-      SELECT string_agg(a.name, ', ' ORDER BY a.name)
-      FROM "_AuthorToBook" ab2
-      JOIN authors a ON a.id = ab2."A"
-      WHERE ab2."B" = ab."B"
-    )) as count
-    FROM "_AuthorToBook" ab
-  `;
-  const totalGroups = Number(totalResult[0]?.count || 0);
-
-  return { groups, totalGroups };
+  // Use the transformation function here
+  return {
+    authors: rawAuthors.map(transformToAuthorGroup),
+    totalGroups,
+  };
 }
 
-function parsePgArray(value: unknown): number[] {
-  if (Array.isArray(value)) return value.map(Number);
-  if (typeof value === 'string') {
-    const trimmed = value.replace(/^\{|\}$/g, '').trim();
-    return trimmed ? trimmed.split(',').map(s => parseInt(s.trim(), 10)) : [];
+function transformToAuthorGroup(rawAuthor: PrismaAuthorWithSales): AuthorGroup {
+  const allSales: SaleListItem[] = [];
+  let unpaidTotal = 0;
+
+  for (const book of rawAuthor.books) {
+    for (const sale of book.sales) {
+      // 1. Map Boolean to "paid" | "pending"
+      const status: "paid" | "pending" = sale.paid ? "paid" : "pending";
+
+      // 2. Build the SaleListItem
+      allSales.push({
+        id: sale.id,
+        bookId: book.id,
+        title: book.title,
+        author: rawAuthor.name,
+        date: sale.date,
+        quantity: sale.quantity,
+        publisherRevenue: sale.publisherRevenue,
+        authorRoyalty: sale.authorRoyalty,
+        paid: status,
+      });
+
+      // 3. Accumulate the unpaid total (only if pending)
+      if (status === "pending") {
+        unpaidTotal += sale.authorRoyalty;
+      }
+    }
   }
-  return [];
+
+  // 4. Sort by date (Newest sales first)
+  allSales.sort((a, b) => b.date.getTime() - a.date.getTime());
+
+  return {
+    author: rawAuthor.name,
+    authorId: rawAuthor.id,
+    unpaidTotal,
+    sales: allSales,
+  };
 }
 
 // Mark all unpaid sales for an author group as paid
-export async function markAuthorPaid(authorIds: number[]) {
+export async function markAllPaid(authorId: number) {
   try {
-    // Get all books that have exactly these authors (and no others)
+    // Get all books for this author
     const authorBooks = await prisma.book.findMany({
       where: {
-        authors: {
-          every: { id: { in: authorIds } },
-        },
+        authorId: authorId,
       },
-      include: { authors: { select: { id: true } } },
     });
 
-    // Filter to exact matches
-    const exactMatchBooks = authorBooks.filter(
-      (book) => book.authors.length === authorIds.length
-    );
-
-    const bookIds = exactMatchBooks.map((book) => book.id);
+    const bookIds = authorBooks.map((book) => book.id);
 
     // Update all unpaid sales for these books to paid
     const result = await prisma.sale.updateMany({

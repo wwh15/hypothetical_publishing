@@ -37,7 +37,7 @@ describe("fetchBookFromOpenLibrary", () => {
         json: () =>
           Promise.resolve({
             title: "Test Title",
-            authors: [{ key: "/authors/OL1A" }],
+            authors: [{ key: "/author/OL1A" }],
             isbn_13: ["9781234567890"],
             isbn_10: ["1234567890"],
             publish_date: "2020",
@@ -52,7 +52,7 @@ describe("fetchBookFromOpenLibrary", () => {
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data.title).toBe("Test Title");
-      expect(result.data.authors).toBe("Test Author");
+      expect(result.data.author).toBe("Test Author");
     }
   });
 
