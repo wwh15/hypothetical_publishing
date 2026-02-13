@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { DataTable } from "@/components/DataTable";
 import { SaleListItem } from "@/lib/data/records";
 import {
   salesTablePresets,
@@ -13,9 +12,12 @@ import {
 import { createSalesRecordPath } from "@/lib/table-configs/navigation";
 import { PaginationControls } from "@/components/PaginationControls";
 import { DateRangeFilter } from "@/components/DateRangeFilter";
-import { Search, X } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TableInfo } from "@/components/TableInfo";
+import { BaseDataTable } from "@/components/BaseDataTable";
+// Change this line:
+import { ColumnDef } from "@/components/BaseDataTable";
 
 export type SalesTablePreset = keyof typeof salesTablePresets;
 
@@ -82,7 +84,7 @@ export default function SalesRecordsTable({
     [total, pageSize]
   );
 
-  const buildQueryParams = (overrides: {
+  const buildQueryParams = useCallback((overrides: {
     page?: number;
     q?: string;
     sortBy?: string | null;
@@ -108,7 +110,7 @@ export default function SalesRecordsTable({
     if (dt) params.set("dateTo", dt);
     if (sa) params.set("showAll", "true");
     return params;
-  };
+  }, [search, page, sortBy, sortDir, dateFrom, dateTo, showAll]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -122,19 +124,19 @@ export default function SalesRecordsTable({
     router.push(`/sales/records?${params.toString()}`);
   };
 
-  const handlePageChange = (newPage: number) => {
+  const handlePageChange = useCallback((newPage: number) => {
     const params = buildQueryParams({ page: newPage });
     router.push(`/sales/records?${params.toString()}`);
-  };
+  }, [router, buildQueryParams]);
 
-  const handleSortChange = (field: string, direction: "asc" | "desc" | null) => {
+  const handleSortChange = useCallback((field: string, direction: "asc" | "desc" | null) => {
     const params = buildQueryParams({
-      sortBy: direction === null ? null : field,
-      sortDir: direction,
+      sortBy: direction ? field : "date", // fallback to date if sort is cleared
+      sortDir: direction ? direction : "desc",
       page: 1,
     });
     router.push(`/sales/records?${params.toString()}`);
-  };
+  }, [router, buildQueryParams]);
 
   const handleDateFromChange = (value: string) => {
     const params = buildQueryParams({ dateFrom: value, page: 1 });
@@ -165,9 +167,51 @@ export default function SalesRecordsTable({
   const startRecord = showAll ? 1 : (page - 1) * normalPageSize + 1;
   const endRecord = showAll ? total : Math.min(page * normalPageSize, total);
 
-  const columns = visibleColumns
-    ? getColumnsByVisibleIds(visibleColumns)
-    : getPresetColumns(preset);
+  const columns: ColumnDef<SaleListItem>[] = useMemo(() => {
+    const baseCols = visibleColumns
+      ? getColumnsByVisibleIds(visibleColumns)
+      : getPresetColumns(preset);
+
+    return baseCols.map((col) => {
+      const isSorted = sortBy === col.key;
+      
+      return {
+        ...col,
+        header: (
+          <div className="flex flex-col gap-1">
+            <span className="font-semibold flex items-center gap-1">
+              {col.header as string}
+              <button
+                type="button"
+                onClick={() => {
+                  // Cycle logic: none -> asc -> desc -> reset
+                  const nextDirection = !isSorted 
+                    ? "asc" 
+                    : sortDir === "asc" 
+                      ? "desc" 
+                      : null;
+                  handleSortChange(col.key, nextDirection);
+                }}
+                className={cn(
+                  'ml-1 p-0.5 rounded hover:bg-muted transition-colors',
+                  isSorted && 'text-blue-600 bg-blue-50 dark:bg-blue-900/20'
+                )}
+                aria-label={`Sort by ${col.header}`}
+              >
+                {!isSorted ? (
+                  <ArrowUpDown className="w-4 h-4 text-muted-foreground" />
+                ) : sortDir === "asc" ? (
+                  <ArrowUp className="w-4 h-4" />
+                ) : (
+                  <ArrowDown className="h-4 w-4" />
+                )}
+              </button>
+            </span>
+          </div>
+        ),
+      };
+    });
+  }, [visibleColumns, preset, sortBy, sortDir, handleSortChange]);
 
   const handleRowClick =
     onRowClick ||
@@ -235,7 +279,7 @@ export default function SalesRecordsTable({
         />
       )}
 
-      <DataTable<SaleListItem>
+      <BaseDataTable<SaleListItem>
         columns={columns}
         data={rows}
         emptyMessage={
@@ -244,10 +288,6 @@ export default function SalesRecordsTable({
             : "No sales records"
         }
         onRowClick={handleRowClick}
-        sortField={sortBy}
-        sortDirection={sortDir}
-        onSortChange={handleSortChange}
-        showPagination={false}
       />
 
       {totalPages > 1 && !showAll && (
