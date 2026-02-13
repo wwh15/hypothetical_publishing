@@ -134,9 +134,7 @@ export async function fetchBookFromOpenLibrary(isbn: string): Promise<
     }
 
     // Extract authors
-    let author = "Unknown Author";
-
-    console.log(data.authors);
+    let author = "";
 
     if (data.authors && Array.isArray(data.authors)) {
       // 1. Fire off all author name requests at once
