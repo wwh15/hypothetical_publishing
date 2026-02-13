@@ -1,8 +1,7 @@
 "use client";
 
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { DataTable } from "@/components/DataTable";
 import { SaleListItem } from "@/lib/data/records";
 import {
   getPresetColumns,
@@ -11,6 +10,9 @@ import {
 } from "@/lib/table-configs/sales-columns";
 import { createSalesRecordPath } from "@/lib/table-configs/navigation";
 import { PaginationControls } from "@/components/PaginationControls";
+import { BaseDataTable, ColumnDef } from "@/components/BaseDataTable";
+import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 /**
  * Table that displays sales rows. Can be used in two ways:
@@ -50,9 +52,6 @@ export default function SalesRowsTable({
   paramPrefix = "sales",
 }: SalesRowsTableProps) {
   const router = useRouter();
-  const columns = visibleColumns
-    ? getColumnsByVisibleIds(visibleColumns)
-    : getPresetColumns(preset);
 
   const hasPagination =
     total !== undefined &&
@@ -66,33 +65,103 @@ export default function SalesRowsTable({
     [hasPagination, total, pageSize]
   );
 
-  const buildParams = (overrides: {
-    page?: number;
-    sortBy?: string | null;
-    sortDir?: "asc" | "desc" | null;
-    pageSize?: number;
-  } = {}) => {
-    const p = overrides.page ?? page ?? 1;
-    const sb = "sortBy" in overrides ? overrides.sortBy : (sortBy ?? "date");
-    const sd = "sortDir" in overrides ? overrides.sortDir : (sortDir ?? "desc");
-    const ps = overrides.pageSize ?? pageSize ?? 10;
-    const params = new URLSearchParams();
-    params.set(`${paramPrefix}Page`, String(p));
-    if (sb != null) params.set(`${paramPrefix}SortBy`, sb);
-    if (sd != null) params.set(`${paramPrefix}SortDir`, sd);
-    params.set(`${paramPrefix}PageSize`, String(ps));
-    return params.toString();
-  };
+  const buildParams = useCallback(
+    (
+      overrides: {
+        page?: number;
+        sortBy?: string | null;
+        sortDir?: "asc" | "desc" | null;
+        pageSize?: number;
+      } = {}
+    ) => {
+      const p = overrides.page ?? page ?? 1;
+      const sb = "sortBy" in overrides ? overrides.sortBy : sortBy ?? "date";
+      const sd = "sortDir" in overrides ? overrides.sortDir : sortDir ?? "desc";
+      const ps = overrides.pageSize ?? pageSize ?? 10;
+      const params = new URLSearchParams();
+      params.set(`${paramPrefix}Page`, String(p));
+      if (sb != null) params.set(`${paramPrefix}SortBy`, sb);
+      if (sd != null) params.set(`${paramPrefix}SortDir`, sd);
+      params.set(`${paramPrefix}PageSize`, String(ps));
+      return params.toString();
+    },
+    [page, sortBy, sortDir, pageSize, paramPrefix]
+  );
 
-  const handlePageChange = (newPage: number) => {
-    if (!basePath) return;
-    router.push(`${basePath}?${buildParams({ page: newPage })}`);
-  };
+  const handlePageChange = useCallback(
+    (newPage: number) => {
+      if (!basePath) return;
+      router.push(`${basePath}?${buildParams({ page: newPage })}`, { scroll: false });
+    },
+    [router, buildParams, basePath]
+  );
 
-  const handleSortChange = (field: string, direction: "asc" | "desc" | null) => {
-    if (!basePath) return;
-    router.push(`${basePath}?${buildParams({ sortBy: direction === null ? null : field, sortDir: direction, page: 1 })}`);
-  };
+  const handleSortChange = useCallback(
+    (field: string, direction: "asc" | "desc") => {
+      if (!basePath) return;
+      router.push(
+        `${basePath}?${buildParams({
+          sortBy: direction === null ? null : field,
+          sortDir: direction,
+          page: 1,
+        })}`,
+        { scroll: false }
+      );
+    },
+    [buildParams, router, basePath]
+  );
+
+  const columns: ColumnDef<SaleListItem>[] = useMemo(() => {
+
+    // Get visible columns if specified, else get preset columns
+    const baseCols = visibleColumns
+      ? getColumnsByVisibleIds(visibleColumns)
+      : getPresetColumns(preset);
+
+    // Loop over columns
+    return baseCols.map((col) => {
+
+      // Check if we are sorting by the current column
+      const isSorted = sortBy === col.key;
+
+      // Update the header of the current column
+      return {
+        ...col,
+        header: (
+          <div className="flex flex-col gap-1">
+            <span className="font-semibold flex items-center gap-1">
+              {col.header as string}
+              <button
+                type="button"
+                onClick={() => {
+
+                  // Switch between ascending and descending sort
+                  const nextDirection =
+                    isSorted && sortDir === "desc" ? "asc" : "desc";
+                  handleSortChange(col.key, nextDirection);
+                }}
+
+                // Styling for sort button
+                className={cn(
+                  "ml-1 p-0.5 rounded hover:bg-muted transition-colors",
+                  isSorted && "text-blue-600 bg-blue-50 dark:bg-blue-900/20"
+                )}
+                aria-label={`Sort by ${col.header}`}
+              >
+                {!isSorted ? (
+                  <ArrowUpDown className="w-4 h-4 text-muted-foreground" />
+                ) : sortDir === "asc" ? (
+                  <ArrowUp className="w-4 h-4" />
+                ) : (
+                  <ArrowDown className="h-4 w-4" />
+                )}
+              </button>
+            </span>
+          </div>
+        ),
+      };
+    });
+  }, [visibleColumns, preset, sortBy, sortDir, handleSortChange]);
 
   const handleRowClick = (row: SaleListItem) => {
     if (navigationContext) {
@@ -112,15 +181,11 @@ export default function SalesRowsTable({
         <p className="text-sm text-muted-foreground">
           Showing {rows.length} of {total} sales
         </p>
-        <DataTable<SaleListItem>
+        <BaseDataTable<SaleListItem>
           columns={columns}
           data={rows}
           emptyMessage="No sales found"
           onRowClick={handleRowClick}
-          sortField={sortBy}
-          sortDirection={sortDir}
-          onSortChange={handleSortChange}
-          showPagination={false}
         />
         {totalPages > 1 && (
           <div className="flex justify-end">
@@ -136,14 +201,11 @@ export default function SalesRowsTable({
   }
 
   return (
-    <DataTable<SaleListItem>
+    <BaseDataTable<SaleListItem>
       columns={columns}
       data={rows}
       emptyMessage="No sales found"
       onRowClick={handleRowClick}
-      defaultSortField="date"
-      defaultSortDirection="desc"
-      showPagination={false}
     />
   );
 }

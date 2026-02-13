@@ -5,7 +5,6 @@
  * Configs select subsets via stable column IDs.
  */
 
-import React from "react";
 import { ColumnDef } from "@/components/BaseDataTable";
 import { SaleListItem } from "@/lib/data/records";
 import Link from "next/link";
