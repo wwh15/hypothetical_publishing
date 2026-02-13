@@ -38,10 +38,7 @@ export default function PendingRecordsTable({
       sortable: true,
       render: (row) => (
         <span>
-          {row.author
-            .map((name) => name.trim())
-            .filter(Boolean)
-            .join(", ")}
+          {row.author}
         </span>
       ),
     },

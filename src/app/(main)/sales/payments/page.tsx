@@ -53,7 +53,7 @@ export default async function AuthorPaymentsPage({
         </div>
       </div>
       <AuthorPaymentsTable
-        groups={authorPaymentData.groups}
+        groups={authorPaymentData.authors}
         totalGroups={authorPaymentData.totalGroups}
         currentPage={page}
         totalPages={totalPages}

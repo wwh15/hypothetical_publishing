@@ -42,7 +42,7 @@ export default function BookForm({
   const [seriesOrder, setSeriesOrder] = useState("");
   const [formData, setFormData] = useState({
     title: "",
-    authors: "",
+    author: "",
     isbn13: "",
     isbn10: "",
     publicationMonth: "",
@@ -69,7 +69,7 @@ export default function BookForm({
         : "";
       setFormData({
         title: initialData.title,
-        authors: initialData.authors,
+        author: initialData.author,
         isbn13: initialData.isbn13 || "",
         isbn10: initialData.isbn10 || "",
         publicationMonth: month,
@@ -143,7 +143,7 @@ export default function BookForm({
         };
         setFormData({
           title: result.data.title || "",
-          authors: result.data.authors || "",
+          author: result.data.author || "",
           isbn13: result.data.isbn13 || "",
           isbn10: result.data.isbn10 || "",
           publicationMonth: data.publicationMonth || "",
@@ -178,7 +178,7 @@ export default function BookForm({
       return;
     }
 
-    if (!formData.authors.trim()) {
+    if (!formData.author.trim()) {
       setError("At least one author is required");
       setIsSubmitting(false);
       return;
@@ -268,7 +268,7 @@ export default function BookForm({
     try {
       const bookData = {
         title: formData.title.trim(),
-        authors: formData.authors.trim(),
+        author: formData.author.trim(),
         isbn13: isbn13 || undefined,
         isbn10: isbn10 || undefined,
         publicationDate,
@@ -304,7 +304,7 @@ export default function BookForm({
           const book: BookListItem = {
             id: result.bookId!,
             title: formData.title.trim(),
-            authors: formData.authors.trim(),
+            author: formData.author.trim(),
             isbn13: isbn13Val,
             isbn10: isbn10Val,
             publicationDate,
@@ -436,19 +436,19 @@ export default function BookForm({
           />
         </div>
 
-        {/* Authors */}
+        {/* author */}
         <div className="md:col-span-2 space-y-2">
           <label
-            htmlFor="authors"
+            htmlFor="author"
             className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
           >
             Author(s) <span className="text-red-500">*</span>
           </label>
           <input
-            id="authors"
+            id="author"
             type="text"
-            value={formData.authors}
-            onChange={(e) => handleInputChange("authors", e.target.value)}
+            value={formData.author}
+            onChange={(e) => handleInputChange("author", e.target.value)}
             className={cn(
               "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background",
               "file:border-0 file:bg-transparent file:text-sm file:font-medium",
@@ -461,7 +461,7 @@ export default function BookForm({
             required
           />
           <p className="text-xs text-muted-foreground">
-            Separate multiple authors with commas (e.g., &quot;John Doe, Jane Smith&quot;)
+            Separate multiple author with commas (e.g., &quot;John Doe, Jane Smith&quot;)
           </p>
         </div>
 
@@ -610,7 +610,7 @@ export default function BookForm({
           />
           <p className="text-xs text-muted-foreground">
             Default: 50%. This is the percentage of publisher revenue that goes
-            to authors.
+            to author.
           </p>
         </div>
 

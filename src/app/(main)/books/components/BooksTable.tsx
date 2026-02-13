@@ -54,7 +54,7 @@ export default function BooksTable({
     {
       key: "authors",
       header: "Author(s)",
-      accessor: "authors",
+      accessor: "author",
       sortable: true,
     },
     {
