@@ -53,7 +53,7 @@ export function useBulkPasteSubmit(
       const record: PendingSaleItem = {
         bookId: book.id,
         title: book.title,
-        author: book.authors.split(",").map(a => a.trim()),
+        author: book.author,
         date,
         quantity: row.quantity,
         publisherRevenue,

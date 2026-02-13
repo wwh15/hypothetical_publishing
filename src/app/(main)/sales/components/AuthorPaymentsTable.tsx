@@ -8,7 +8,7 @@ import {
   TableHead,
   TableRow,
 } from "@/components/ui/table";
-import { AuthorGroup, markAuthorPaid } from "@/lib/data/author-payment";
+import { AuthorGroup, markAllPaid } from "@/lib/data/author-payment";
 import { cn } from "@/lib/utils";
 import { SaleListItem } from "@/lib/data/records";
 import { useRouter } from "next/navigation";
@@ -48,16 +48,16 @@ export default function AuthorPaymentsTable({
   };
 
   const handleMarkAllPaid = async (
-    authorIds: number[],
-    authorNames: string[]
+    authorId: number,
+    authorName: string
   ) => {
-    const names = authorNames.join(", ");
-    if (!confirm(`Mark all unpaid royalties for ${names} as paid?`)) {
+
+    if (!confirm(`Mark all unpaid royalties for ${authorName} as paid?`)) {
       return;
     }
 
     setLoading(true);
-    const result = await markAuthorPaid(authorIds);
+    const result = await markAllPaid(authorId);
     setLoading(false);
 
     if (result.success) {
@@ -103,7 +103,7 @@ export default function AuthorPaymentsTable({
               {/* Author Header Row */}
               <TableRow className="bg-muted/50">
                 <TableCell colSpan={2} className="font-semibold text-base">
-                  {group.authors.join(", ")}
+                  {group.author}
                 </TableCell>
                 <TableCell colSpan={2} className="text-right font-semibold">
                   Unpaid Total: ${group.unpaidTotal.toFixed(2)}
@@ -111,7 +111,7 @@ export default function AuthorPaymentsTable({
                 <TableCell colSpan={2} className="text-right">
                   <button
                     onClick={() =>
-                      handleMarkAllPaid(group.authorIds, group.authors)
+                      handleMarkAllPaid(group.authorId, group.author)
                     }
                     disabled={loading || group.unpaidTotal === 0}
                     className={cn(
@@ -180,7 +180,7 @@ export default function AuthorPaymentsTable({
                             : "text-blue-600 font-semibold"
                         }
                       >
-                        ${sale.authorRoyalty.toFixed(2)}
+                        ${sale.authorRoyalty}
                       </span>
                     </TableCell>
                     <TableCell className="text-center">

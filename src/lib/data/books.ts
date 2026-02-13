@@ -11,73 +11,76 @@ function publicationSortKeyFromDate(d: Date | null): string {
 
 // Flat Book type for table display (similar to Sale type)
 export interface BookListItem {
-    id: number;
-    title: string;
-    authors: string;
-    isbn13: string | null;
-    isbn10: string | null;
-    /** First day of publication month (e.g. 2024-01-01); null if unknown */
-    publicationDate: Date | null;
-    /** YYYY-MM string for sorting; nulls become 9999-99 so they sort last */
-    publicationSortKey: string;
-    defaultRoyaltyRate: number; // As percentage (e.g., 50 for 50%)
-    totalSales: number; // Total sales to date
+  id: number;
+  title: string;
+  author: string;
+  isbn13: string | null;
+  isbn10: string | null;
+  /** First day of publication month (e.g. 2024-01-01); null if unknown */
+  publicationDate: Date | null;
+  /** YYYY-MM string for sorting; nulls become 9999-99 so they sort last */
+  publicationSortKey: string;
+  defaultRoyaltyRate: number; // As percentage (e.g., 50 for 50%)
+  totalSales: number; // Total sales to date
 }
 
 // Series type for UI
 export interface SeriesListItem {
-    id: number;
-    name: string;
-    description: string | null;
+  id: number;
+  name: string;
+  description: string | null;
 }
 
 // Form input DTOs (use these for create/update forms)
 export interface CreateBookInput {
-    title: string;
-    authors: string; // later: could be string[] when authors becomes a relation
-    isbn13?: string;
-    isbn10?: string;
-    /** First day of publication month (e.g. new Date(2024, 0, 1) for Jan 2024) */
-    publicationDate?: Date | null;
-    defaultRoyaltyRate?: number; // percentage (e.g., 50), default handled by server
-    seriesId?: number | null; // Existing series ID, or null for no series
-    seriesOrder?: number | null; // Position in series (1, 2, 3, ...)
-    newSeriesName?: string; // Name for new series (if creating new series)
+  title: string;
+  author: string; // later: could be string[] when authors becomes a relation
+  isbn13?: string;
+  isbn10?: string;
+  /** First day of publication month (e.g. new Date(2024, 0, 1) for Jan 2024) */
+  publicationDate?: Date | null;
+  defaultRoyaltyRate?: number; // percentage (e.g., 50), default handled by server
+  seriesId?: number | null; // Existing series ID, or null for no series
+  seriesOrder?: number | null; // Position in series (1, 2, 3, ...)
+  newSeriesName?: string; // Name for new series (if creating new series)
 }
 
 export interface UpdateBookInput extends Partial<CreateBookInput> {
-    id: number;
-    /** Set to null to remove book from series. */
-    seriesId?: number | null;
-    seriesOrder?: number | null;
+  id: number;
+  /** Set to null to remove book from series. */
+  seriesId?: number | null;
+  seriesOrder?: number | null;
 }
 
 export interface BookDetail {
-    id: number;
-    title: string;
-    authors: string;
-    isbn13: string | null;
-    isbn10: string | null;
-    /** First day of publication month; null if unknown */
-    publicationDate: Date | null;
-    defaultRoyaltyRate: number;
-    createdAt: Date;
-    updatedAt: Date;
-    totalSales: number;
-    totalPublisherRevenue: number;
-    unpaidAuthorRoyalty: number;
-    paidAuthorRoyalty: number;
-    totalAuthorRoyalty: number;
-    seriesId: number | null;
-    seriesOrder: number | null;
-    sales?: import('./records').SaleListItem[]; // Sales records for this book
+  id: number;
+  title: string;
+  author: string;
+  isbn13: string | null;
+  isbn10: string | null;
+  /** First day of publication month; null if unknown */
+  publicationDate: Date | null;
+  defaultRoyaltyRate: number;
+  createdAt: Date;
+  updatedAt: Date;
+  totalSales: number;
+  totalPublisherRevenue: number;
+  unpaidAuthorRoyalty: number;
+  paidAuthorRoyalty: number;
+  totalAuthorRoyalty: number;
+  seriesId: number | null;
+  seriesOrder: number | null;
+  sales?: import("./records").SaleListItem[]; // Sales records for this book
 }
 
 // Column keys from BooksTable that support server-side sort.
 // Note: "authors" sorts by number of authors (_count); Prisma relation orderBy does not support ordering by relation field (e.g. name).
-const SORT_FIELD_MAP: Record<string, Prisma.BookOrderByWithRelationInput | Prisma.BookOrderByWithRelationInput[]> = {
+const SORT_FIELD_MAP: Record<
+  string,
+  Prisma.BookOrderByWithRelationInput | Prisma.BookOrderByWithRelationInput[]
+> = {
   title: { title: "asc" },
-  authors: { authors: { _count: "asc" } },
+  author: { author: { name: "asc" } },
   isbn13: { isbn13: "asc" },
   isbn10: { isbn10: "asc" },
   publication: { publicationDate: "asc" },
@@ -132,10 +135,15 @@ export async function getAllSeries(): Promise<SeriesListItem[]> {
 }
 
 // Create a new series
-export async function createSeries(name: string, description?: string): Promise<{ success: true; seriesId: number } | { success: false; error: string }> {
+export async function createSeries(
+  name: string,
+  description?: string
+): Promise<
+  { success: true; seriesId: number } | { success: false; error: string }
+> {
   try {
     if (!name.trim()) {
-      return { success: false, error: 'Series name is required' };
+      return { success: false, error: "Series name is required" };
     }
 
     const series = await prisma.series.create({
@@ -148,7 +156,12 @@ export async function createSeries(name: string, description?: string): Promise<
     return { success: true, seriesId: series.id };
   } catch (error: unknown) {
     // Handle unique constraint violations (duplicate series names)
-    if (error && typeof error === "object" && "code" in error && (error as { code: string }).code === "P2002") {
+    if (
+      error &&
+      typeof error === "object" &&
+      "code" in error &&
+      (error as { code: string }).code === "P2002"
+    ) {
       return {
         success: false,
         error: "A series with this name already exists",
@@ -165,19 +178,18 @@ export async function createSeries(name: string, description?: string): Promise<
 // Get all books (for client-side pagination/sorting)
 export async function getAllBooks(): Promise<BookListItem[]> {
   const books = await prisma.book.findMany({
-    include: { authors: true, sales: true },
+    include: { author: true, sales: true },
     orderBy: { title: "asc" },
   });
 
   return books.map((book) => {
     const totalSales = book.sales.reduce((sum, sale) => sum + sale.quantity, 0);
-    const authors = book.authors.map((a) => a.name).join(", ");
     const defaultRoyaltyRate = Math.round(book.authorRoyaltyRate * 100);
     const publicationSortKey = publicationSortKeyFromDate(book.publicationDate);
     return {
       id: book.id,
       title: book.title,
-      authors,
+      author: book.author.name,
       isbn13: book.isbn13,
       isbn10: book.isbn10,
       publicationDate: book.publicationDate,
@@ -228,12 +240,10 @@ export async function getBooksData({
       },
       // Author name match (case-insensitive)
       {
-        authors: {
-          some: {
-            name: {
-              contains: query,
-              mode: "insensitive",
-            },
+        author: {
+          name: {
+            contains: query,
+            mode: "insensitive",
           },
         },
       },
@@ -253,7 +263,7 @@ export async function getBooksData({
           isbn10: {
             contains: normalizedIsbn,
           },
-        },
+        }
       );
     }
 
@@ -267,18 +277,22 @@ export async function getBooksData({
   if (sortByTotalSales) {
     const books = await prisma.book.findMany({
       where,
-      include: { authors: true, sales: true },
+      include: { author: true, sales: true },
     });
 
     const allItems: BookListItem[] = books.map((book) => {
-      const totalSales = book.sales.reduce((sum, sale) => sum + sale.quantity, 0);
-      const authors = book.authors.map((a) => a.name).join(", ");
+      const totalSales = book.sales.reduce(
+        (sum, sale) => sum + sale.quantity,
+        0
+      );
       const defaultRoyaltyRate = Math.round(book.authorRoyaltyRate * 100);
-      const publicationSortKey = publicationSortKeyFromDate(book.publicationDate);
+      const publicationSortKey = publicationSortKeyFromDate(
+        book.publicationDate
+      );
       return {
         id: book.id,
         title: book.title,
-        authors,
+        author: book.author.name,
         isbn13: book.isbn13,
         isbn10: book.isbn10,
         publicationDate: book.publicationDate,
@@ -311,7 +325,7 @@ export async function getBooksData({
   const [books, total] = await Promise.all([
     prisma.book.findMany({
       where,
-      include: { authors: true, sales: true },
+      include: { author: true, sales: true },
       orderBy,
       skip: (currentPage - 1) * limit,
       take: limit,
@@ -320,17 +334,13 @@ export async function getBooksData({
   ]);
 
   const items: BookListItem[] = books.map((book) => {
-    const totalSales = book.sales.reduce(
-      (sum, sale) => sum + sale.quantity,
-      0,
-    );
-    const authors = book.authors.map((a) => a.name).join(", ");
+    const totalSales = book.sales.reduce((sum, sale) => sum + sale.quantity, 0);
     const defaultRoyaltyRate = Math.round(book.authorRoyaltyRate * 100);
     const publicationSortKey = publicationSortKeyFromDate(book.publicationDate);
     return {
       id: book.id,
       title: book.title,
-      authors,
+      author: book.author.name,
       isbn13: book.isbn13,
       isbn10: book.isbn10,
       publicationDate: book.publicationDate,
@@ -351,14 +361,13 @@ export async function getBooksData({
 export async function getBookById(id: number): Promise<BookDetail | null> {
   const book = await prisma.book.findUnique({
     where: { id },
-    include: { authors: true },
+    include: { author: true },
   });
 
   if (!book) {
     return null;
   }
 
-  const authors = book.authors.map((a) => a.name).join(", ");
   const defaultRoyaltyRate = Math.round(book.authorRoyaltyRate * 100);
 
   // Use aggregates so we don't load all sales (sales list is paginated separately)
@@ -386,7 +395,7 @@ export async function getBookById(id: number): Promise<BookDetail | null> {
   return {
     id: book.id,
     title: book.title,
-    authors,
+    author: book.author.name,
     isbn13: book.isbn13,
     isbn10: book.isbn10,
     publicationDate: book.publicationDate,
@@ -405,21 +414,15 @@ export async function getBookById(id: number): Promise<BookDetail | null> {
   };
 }
 
-export async function createBook(input: CreateBookInput): Promise<{ success: true; bookId: number } | { success: false; error: string }> {
+export async function createBook(
+  input: CreateBookInput
+): Promise<
+  { success: true; bookId: number } | { success: false; error: string }
+> {
   try {
-    // Parse authors (comma-separated string)
-    const authorNames = input.authors
-      .split(',')
-      .map(name => name.trim())
-      .filter(name => name.length > 0);
-
-    if (authorNames.length === 0) {
-      return { success: false, error: 'At least one author is required' };
-    }
-
     // Convert royalty rate from percentage to decimal (e.g., 50 -> 0.50)
-    const authorRoyaltyRate = input.defaultRoyaltyRate 
-      ? input.defaultRoyaltyRate / 100 
+    const authorRoyaltyRate = input.defaultRoyaltyRate
+      ? input.defaultRoyaltyRate / 100
       : 0.5; // Default to 50%
 
     // Determine series handling
@@ -437,26 +440,23 @@ export async function createBook(input: CreateBookInput): Promise<{ success: tru
 
     // Wrap author creation and book creation in a single transaction
     const book = await prisma.$transaction(async (tx) => {
-      // Find or create authors within the transaction
-      const authorConnections = await Promise.all(
-        authorNames.map(async (name) => {
-          // Try to find existing author
-          let author = await tx.author.findUnique({
-            where: { name },
-          });
+      // 1. Find or create the single author
+      let author = await tx.author.findUnique({
+        where: {
+          name: input.author, // Ensure this matches the field in your input
+        },
+      });
 
-          // Create if doesn't exist
-          if (!author) {
-            author = await tx.author.create({
-              data: { name },
-            });
-          }
+      // Create if doesn't exist
+      if (!author) {
+        author = await tx.author.create({
+          data: {
+            name: input.author,
+          },
+        });
+      }
 
-          return { id: author.id };
-        })
-      );
-
-      // Create the book, connected to all authors and optionally to series
+      // 2. Create the book, connected to the single author
       return tx.book.create({
         data: {
           title: input.title,
@@ -466,12 +466,12 @@ export async function createBook(input: CreateBookInput): Promise<{ success: tru
           publicationDate: input.publicationDate ?? null,
           seriesId: seriesId,
           seriesOrder: input.seriesOrder ?? null,
-          authors: {
-            connect: authorConnections,
-          },
+          // Fixed: Use 'author' (singular) and connect to one ID
+          authorId: author.id,
         },
+        // Optional: include if you need author data returned in the 'book' object
         include: {
-          authors: true,
+          author: true,
         },
       });
     });
@@ -479,11 +479,19 @@ export async function createBook(input: CreateBookInput): Promise<{ success: tru
     return { success: true, bookId: book.id };
   } catch (error: unknown) {
     // Handle unique constraint violations (ISBN duplicates)
-    if (error && typeof error === "object" && "code" in error && (error as { code: string }).code === "P2002") {
-      const field = (error as { meta?: { target?: string[] } }).meta?.target?.[0];
+    if (
+      error &&
+      typeof error === "object" &&
+      "code" in error &&
+      (error as { code: string }).code === "P2002"
+    ) {
+      const field = (error as { meta?: { target?: string[] } }).meta
+        ?.target?.[0];
       return {
         success: false,
-        error: `A book with this ${field === "isbn13" ? "ISBN-13" : "ISBN-10"} already exists`,
+        error: `A book with this ${
+          field === "isbn13" ? "ISBN-13" : "ISBN-10"
+        } already exists`,
       };
     }
 
@@ -494,75 +502,73 @@ export async function createBook(input: CreateBookInput): Promise<{ success: tru
   }
 }
 
-export async function updateBook(input: UpdateBookInput): Promise<{ success: true; bookId: number } | { success: false; error: string }> {
+export async function updateBook(
+  input: UpdateBookInput
+): Promise<
+  { success: true; bookId: number } | { success: false; error: string }
+> {
   try {
     // Check if book exists
     const existingBook = await prisma.book.findUnique({
       where: { id: input.id },
-      include: { authors: true },
+      include: { author: true },
     });
 
     if (!existingBook) {
-      return { success: false, error: 'Book not found' };
+      return { success: false, error: "Book not found" };
     }
 
+    // Capture author name as a constant
+    const authorName = input.author;
+
     // Parse authors if provided (comma-separated string)
-    let authorConnections: { id: number }[] | undefined;
-    if (input.authors !== undefined) {
-      const authorNames = input.authors
-        .split(',')
-        .map(name => name.trim())
-        .filter(name => name.length > 0);
-
-      if (authorNames.length === 0) {
-        return { success: false, error: 'At least one author is required' };
-      }
-
+    if (authorName) {
       // Wrap author lookup/creation and book update in a transaction
       const updatedBook = await prisma.$transaction(async (tx) => {
-        // Find or create authors within the transaction
-        authorConnections = await Promise.all(
-          authorNames.map(async (name) => {
-            let author = await tx.author.findUnique({
-              where: { name },
-            });
+        let authorIdToConnect: number | undefined;
 
-            if (!author) {
-              author = await tx.author.create({
-                data: { name },
-              });
-            }
-
-            return { id: author.id };
-          })
-        );
+        // Logic: If author name provided, find or create it and get the ID
+        if (authorName) {
+          let author = await tx.author.findUnique({
+            where: { name: authorName },
+          });
+          if (!author) {
+            author = await tx.author.create({ data: { name: authorName } });
+          }
+          authorIdToConnect = author.id;
+        }
 
         // Update the book
         const updateData: Prisma.BookUpdateInput = {};
 
         if (input.title !== undefined) updateData.title = input.title;
-        if (input.isbn13 !== undefined) updateData.isbn13 = input.isbn13 || null;
-        if (input.isbn10 !== undefined) updateData.isbn10 = input.isbn10 || null;
+        if (input.isbn13 !== undefined)
+          updateData.isbn13 = input.isbn13 || null;
+        if (input.isbn10 !== undefined)
+          updateData.isbn10 = input.isbn10 || null;
         if (input.defaultRoyaltyRate !== undefined) {
           updateData.authorRoyaltyRate = input.defaultRoyaltyRate / 100;
         }
-        if (input.publicationDate !== undefined) updateData.publicationDate = input.publicationDate ?? null;
-        if (input.seriesId !== undefined) updateData.series = input.seriesId == null ? { disconnect: true } : { connect: { id: input.seriesId } };
-        if (input.seriesOrder !== undefined) updateData.seriesOrder = input.seriesOrder ?? null;
+        if (input.publicationDate !== undefined)
+          updateData.publicationDate = input.publicationDate ?? null;
+        if (input.seriesId !== undefined)
+          updateData.series =
+            input.seriesId == null
+              ? { disconnect: true }
+              : { connect: { id: input.seriesId } };
+        if (input.seriesOrder !== undefined)
+          updateData.seriesOrder = input.seriesOrder ?? null;
 
-        // Update authors if provided
-        if (authorConnections) {
-          // Disconnect all existing authors and connect new ones
-          updateData.authors = {
-            set: [], // Disconnect all
-            connect: authorConnections, // Connect new ones
+        if (authorIdToConnect) {
+          updateData.author = {
+            connect: { id: authorIdToConnect },
           };
         }
 
         return tx.book.update({
           where: { id: input.id },
           data: updateData,
-          include: { authors: true },
+          include: { author: true },
         });
       });
 
@@ -584,14 +590,20 @@ export async function updateBook(input: UpdateBookInput): Promise<{ success: tru
       if (input.defaultRoyaltyRate !== undefined) {
         updateData.authorRoyaltyRate = input.defaultRoyaltyRate / 100;
       }
-      if (input.publicationDate !== undefined) updateData.publicationDate = input.publicationDate ?? null;
-      if (input.seriesId !== undefined) updateData.series = input.seriesId == null ? { disconnect: true } : { connect: { id: input.seriesId } };
-      if (input.seriesOrder !== undefined) updateData.seriesOrder = input.seriesOrder ?? null;
+      if (input.publicationDate !== undefined)
+        updateData.publicationDate = input.publicationDate ?? null;
+      if (input.seriesId !== undefined)
+        updateData.series =
+          input.seriesId == null
+            ? { disconnect: true }
+            : { connect: { id: input.seriesId } };
+      if (input.seriesOrder !== undefined)
+        updateData.seriesOrder = input.seriesOrder ?? null;
 
       const updatedBook = await prisma.book.update({
         where: { id: input.id },
         data: updateData,
-        include: { authors: true },
+        include: { author: true },
       });
 
       // Delete the old series if it now has no books (series are auto-deleted when empty).
@@ -605,11 +617,19 @@ export async function updateBook(input: UpdateBookInput): Promise<{ success: tru
     }
   } catch (error: unknown) {
     // Handle unique constraint violations (ISBN duplicates)
-    if (error && typeof error === "object" && "code" in error && (error as { code: string }).code === "P2002") {
-      const field = (error as { meta?: { target?: string[] } }).meta?.target?.[0];
+    if (
+      error &&
+      typeof error === "object" &&
+      "code" in error &&
+      (error as { code: string }).code === "P2002"
+    ) {
+      const field = (error as { meta?: { target?: string[] } }).meta
+        ?.target?.[0];
       return {
         success: false,
-        error: `A book with this ${field === "isbn13" ? "ISBN-13" : "ISBN-10"} already exists`,
+        error: `A book with this ${
+          field === "isbn13" ? "ISBN-13" : "ISBN-10"
+        } already exists`,
       };
     }
 
@@ -628,7 +648,9 @@ async function deleteSeriesIfEmpty(seriesId: number): Promise<void> {
   }
 }
 
-export async function deleteBook(id: number): Promise<{ success: true } | { success: false; error: string }> {
+export async function deleteBook(
+  id: number
+): Promise<{ success: true } | { success: false; error: string }> {
   try {
     const book = await prisma.book.findUnique({
       where: { id },

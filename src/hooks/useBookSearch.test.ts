@@ -7,7 +7,7 @@ const mockBooks: BookListItem[] = [
   {
     id: 1,
     title: "React in Action",
-    authors: "John Doe",
+    author: "John Doe",
     isbn13: "9781617293856",
     isbn10: "1617293859",
     publicationDate: new Date(2018, 2, 1), // March 2018
@@ -18,7 +18,7 @@ const mockBooks: BookListItem[] = [
   {
     id: 2,
     title: "Learning TypeScript",
-    authors: "Jane Smith",
+    author: "Jane Smith",
     isbn13: null,
     isbn10: "1492037658",
     publicationDate: null,
@@ -43,7 +43,7 @@ describe("filterBooksBySearch", () => {
   it("filters by author", () => {
     const result = filterBooksBySearch(mockBooks, "Jane");
     expect(result).toHaveLength(1);
-    expect(result[0].authors).toBe("Jane Smith");
+    expect(result[0].author).toBe("Jane Smith");
   });
 
   it("filters by ISBN (digits only match)", () => {

@@ -135,7 +135,7 @@ export function useSalesForm(
     const newRecord: PendingSaleItem = {
       bookId: parseInt(formData.bookId),
       title: selectedBook.title,
-      author: selectedBook.authors.split(",").map((a) => a.trim()),
+      author: selectedBook.author,
       date,
       quantity: parseInt(formData.quantity),
       publisherRevenue: parseFloat(formData.publisherRevenue),

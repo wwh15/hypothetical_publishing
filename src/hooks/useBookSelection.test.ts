@@ -7,7 +7,7 @@ const mockBooks: BookListItem[] = [
   {
     id: 1,
     title: "First Book",
-    authors: "Author A",
+    author: "Author A",
     isbn13: null,
     isbn10: null,
     publicationDate: null,
@@ -18,7 +18,7 @@ const mockBooks: BookListItem[] = [
   {
     id: 2,
     title: "Second Book",
-    authors: "Author B",
+    author: "Author B",
     isbn13: null,
     isbn10: null,
     publicationDate: null,

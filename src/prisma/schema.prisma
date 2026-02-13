@@ -10,7 +10,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL") 
+  url       = env("DATABASE_URL")
 }
 
 model User {
@@ -51,6 +51,7 @@ model Series {
 
 model Book {
   id                Int      @id @default(autoincrement())
+  authorId          Int
   title             String
   isbn13            String?  @unique // ISBN-13 format, stored without dashes
   isbn10            String?  @unique // ISBN-10 format, stored without dashes
@@ -62,7 +63,7 @@ model Book {
   updatedAt         DateTime @updatedAt @map("updated_at")
   
   // Relations
-  authors           Author[]
+  author            Author   @relation(fields: [authorId], references: [id], onDelete: Cascade)
   sales             Sale[]
   series            Series?  @relation(fields: [seriesId], references: [id], onDelete: SetNull)
   

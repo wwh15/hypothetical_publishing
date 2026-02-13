@@ -18,7 +18,7 @@ export interface PendingSaleItem {
   // No id - these aren't saved yet
   bookId: number;
   title: string;
-  author: string[];
+  author: string;
   date: string; // MM-YYYY format
   quantity: number;
   publisherRevenue: number;
@@ -28,7 +28,7 @@ export interface PendingSaleItem {
 }
 
 export type SaleDetailPayload = Prisma.SaleGetPayload<{
-  include: { book: { include: { authors: true } } };
+  include: { book: { include: { author: true } } };
 }>;
 
 // Sort field map for server-side sorting (column key -> Prisma orderBy asc)
@@ -59,15 +59,13 @@ function buildOrderBy(
   sortDir: "asc" | "desc"
 ): Prisma.SaleOrderByWithRelationInput {
   const map = sortDir === "desc" ? SORT_DESC : SORT_ASC;
-  return map[sortBy] ?? (sortDir === "desc" ? { date: "desc" } : { date: "asc" });
+  return (
+    map[sortBy] ?? (sortDir === "desc" ? { date: "desc" } : { date: "asc" })
+  );
 }
 
 /** Compare dates chronologically. */
-function compareDates(
-  a: Date,
-  b: Date,
-  direction: "asc" | "desc"
-): number {
+function compareDates(a: Date, b: Date, direction: "asc" | "desc"): number {
   const tA = a.getTime();
   const tB = b.getTime();
   return direction === "desc" ? tB - tA : tA - tB;
@@ -125,9 +123,10 @@ export async function getSalesData({
       },
       {
         book: {
-          authors: {
-            some: {
-              name: { contains: trimmedSearch, mode: "insensitive" },
+          author: {
+            name: { 
+              contains: trimmedSearch, 
+              mode: "insensitive" 
             },
           },
         },
@@ -150,7 +149,7 @@ export async function getSalesData({
     const [allSales, total] = await Promise.all([
       prisma.sale.findMany({
         where,
-        include: { book: { include: { authors: true } } },
+        include: { book: { include: { author: true } } },
       }),
       prisma.sale.count({ where }),
     ]);
@@ -172,7 +171,7 @@ export async function getSalesData({
   const [sales, total] = await Promise.all([
     prisma.sale.findMany({
       where,
-      include: { book: { include: { authors: true } } },
+      include: { book: { include: { author: true } } },
       orderBy: buildOrderBy(sortBy, sortDir),
       skip: (currentPage - 1) * limit,
       take: limit,
@@ -213,7 +212,7 @@ export async function getSalesByBookId(
     const [allSales, total] = await Promise.all([
       prisma.sale.findMany({
         where,
-        include: { book: { include: { authors: true } } },
+        include: { book: { include: { author: true } } },
       }),
       prisma.sale.count({ where }),
     ]);
@@ -235,7 +234,7 @@ export async function getSalesByBookId(
   const [sales, total] = await Promise.all([
     prisma.sale.findMany({
       where,
-      include: { book: { include: { authors: true } } },
+      include: { book: { include: { author: true } } },
       orderBy: buildOrderBy(sortBy, sortDir),
       skip: (currentPage - 1) * limit,
       take: limit,
@@ -253,7 +252,7 @@ export async function getSalesByBookId(
 
 export default async function asyncGetSalesData() {
   const sales = await prisma.sale.findMany({
-    include: { book: { include: { authors: true } } },
+    include: { book: { include: { author: true } } },
   });
   sales.sort((a, b) => compareDates(a.date, b.date, "desc"));
   return sales;
@@ -262,7 +261,7 @@ export default async function asyncGetSalesData() {
 export async function asyncGetSaleById(id: number) {
   return await prisma.sale.findUnique({
     where: { id },
-    include: { book: { include: { authors: true } } },
+    include: { book: { include: { author: true } } },
   });
 }
 
@@ -275,13 +274,13 @@ export function toSaleListItem(sale: {
   publisherRevenue: number;
   authorRoyalty: number;
   paid: boolean;
-  book: { title: string; authors: { name: string }[] };
+  book: { title: string; author: { name: string } };
 }): SaleListItem {
   return {
     id: sale.id,
     bookId: sale.bookId,
     title: sale.book.title,
-    author: sale.book.authors.map((a) => a.name).join(", "),
+    author: sale.book.author.name,
     date: sale.date,
     quantity: sale.quantity,
     publisherRevenue: sale.publisherRevenue,
@@ -305,7 +304,7 @@ export async function asyncUpdateSale(
     authorRoyalty?: number;
     royaltyOverridden?: boolean;
     paid?: boolean;
-  },
+  }
 ) {
   return await prisma.sale.update({ where: { id }, data });
 }
@@ -316,7 +315,7 @@ export async function asyncDeleteSale(id: number) {
 
 export async function asyncTogglePaidStatus(
   id: number,
-  currentStatus: boolean,
+  currentStatus: boolean
 ) {
   return await prisma.sale.update({
     where: { id },

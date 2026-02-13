@@ -18,7 +18,7 @@ export function filterBooksBySearch(
 
   return books.filter((book) => {
     const titleMatch = book.title.toLowerCase().includes(q);
-    const authorList = book.authors
+    const authorList = book.author
       .split(",")
       .map((a) => a.trim().toLowerCase());
     const authorMatch = authorList.some((name) => name && name.includes(q));
