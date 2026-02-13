@@ -1,11 +1,12 @@
 import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
+import { connect } from "http2";
 
 const prisma = new PrismaClient();
 
 interface SeedBook {
   title: string;
-  authors: string[];
+  author: string;
   isbn13?: string;
   isbn10?: string;
   publicationDate?: Date; // First day of publication month
@@ -20,48 +21,51 @@ const authorNames = [
   "Carol Williams",
   "David Brown",
   "Emma Davis",
+  "Alice Johnson, Bob Smith",
+  "David Brown, Carol Williams",
+  "Bob Smith, Alice Johnson, Carol Williams"
 ];
 
 const bookData: SeedBook[] = [
   {
     title: "The Test Novel",
-    authors: ["Alice Johnson"],
+    author: "Alice Johnson",
     isbn13: "9781234567890",
     publicationDate: new Date(2024, 0, 1),
   },
   {
     title: "Sample Story",
-    authors: ["Bob Smith"],
+    author: "Bob Smith",
     isbn13: "9780987654321",
     publicationDate: new Date(2023, 1, 1),
   },
   {
     title: "Example Book",
-    authors: ["Carol Williams"],
+    author: "Carol Williams",
     isbn13: "9781122334455",
     publicationDate: new Date(2022, 2, 1),
   },
   {
     title: "Demo Fiction",
-    authors: ["David Brown"],
+    author: "David Brown",
     isbn13: "9785566778899",
     publicationDate: new Date(2021, 3, 1),
   },
   {
     title: "Collaborative Work",
-    authors: ["Alice Johnson", "Bob Smith"],
+    author: "Alice Johnson, Bob Smith",
     isbn13: "9782233445566",
     publicationDate: new Date(2020, 4, 1),
   },
   {
     title: "Joint Publication",
-    authors: ["David Brown", "Carol Williams"],
+    author: "David Brown, Carol Williams",
     isbn13: "9783344556677",
     publicationDate: new Date(2024, 5, 1),
   },
   {
     title: "Multi-Author Project",
-    authors: ["Bob Smith", "Alice Johnson", "Carol Williams"],
+    author: "Bob Smith, Alice Johnson, Carol Williams",
     isbn13: "9784455667788",
     publicationDate: new Date(2023, 6, 1),
   },
@@ -127,27 +131,14 @@ async function main() {
   // Create books (linked to authors)
   const books = await Promise.all(
     bookData.map((book) => {
-      // Find all authors for this book
-      const bookAuthors = book.authors
-        .map((authorName) => {
-          const author = authors.find((a) => a.name === authorName);
-          if (!author) {
-            throw new Error(`Author not found: ${authorName}`);
-          }
-          return author;
-        })
-        .filter((author) => author !== undefined);
-
-      if (bookAuthors.length === 0) {
-        throw new Error(`No valid authors found for book: ${book.title}`);
-      }
-
       // Connect all authors to this book
       return prisma.book.create({
         data: {
           title: book.title,
-          authors: {
-            connect: bookAuthors.map((author) => ({ id: author.id })),
+          author: {
+            connect: {
+              name: book.author
+            }
           },
           isbn13: book.isbn13,
           authorRoyaltyRate: +(Math.random() * 0.2 + 0.4).toFixed(2), // 40–60% around 50% default
@@ -160,10 +151,10 @@ async function main() {
 
   // Count books by author count
   const booksWithOneAuthor = bookData.filter(
-    (b) => b.authors.length === 1,
+    (b) => b.author.split(",").length === 1,
   ).length;
   const booksWithMultipleAuthors = bookData.filter(
-    (b) => b.authors.length > 1,
+    (b) => b.author.split(",").length > 1,
   ).length;
   console.log(`   - Books with 1 author: ${booksWithOneAuthor}`);
   console.log(`   - Books with multiple authors: ${booksWithMultipleAuthors}`);
