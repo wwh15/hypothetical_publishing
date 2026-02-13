@@ -82,7 +82,7 @@ export default async function BookDetailPage({ params, searchParams }: PageProps
               <p className="text-lg">{book.title}</p>
             </div>
             <div>
-              <label className="text-sm font-medium text-muted-foreground">Author(s)</label>
+              <label className="text-sm font-medium text-muted-foreground">Author</label>
               <p className="text-lg">{book.author}</p>
             </div>
             <div>
@@ -182,7 +182,7 @@ export default async function BookDetailPage({ params, searchParams }: PageProps
             <DeleteBookButton
               bookId={bookId}
               bookTitle={book.title}
-              authors={book.author}
+              author={book.author}
               salesRecordCount={salesResult.total}
             />
           </div>

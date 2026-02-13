@@ -442,7 +442,7 @@ export default function BookForm({
             htmlFor="author"
             className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
           >
-            Author(s) <span className="text-red-500">*</span>
+            Author <span className="text-red-500">*</span>
           </label>
           <input
             id="author"
@@ -457,12 +457,9 @@ export default function BookForm({
               "disabled:cursor-not-allowed disabled:opacity-50",
               "dark:bg-gray-700",
             )}
-            placeholder="Enter author names (comma-separated for multiple)"
+            placeholder="Enter author name"
             required
           />
-          <p className="text-xs text-muted-foreground">
-            Separate multiple author with commas (e.g., &quot;John Doe, Jane Smith&quot;)
-          </p>
         </div>
 
         {/* ISBN-13 */}
