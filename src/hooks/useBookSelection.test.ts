@@ -37,7 +37,7 @@ describe("useBookSelection", () => {
     expect(result.current.bookDisplayValue).toBe("Select Book");
   });
 
-  it("shows title and authors when a book is selected", () => {
+  it("shows title and author when a book is selected", () => {
     const onBookChange = vi.fn();
     const { result } = renderHook(() =>
       useBookSelection(mockBooks, "1", onBookChange)

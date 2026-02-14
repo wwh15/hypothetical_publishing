@@ -182,7 +182,7 @@ useBulkPastePreview();
                       {row.book ? row.book.title : "Unknown title"}
                     </span>
                     <span className="text-muted-foreground">
-                      {row.book ? row.book.author : "Unknown author(s)"}
+                      {row.book ? row.book.author : "Unknown author"}
                     </span>
                   </div>
                   <div className="flex flex-wrap gap-3">
