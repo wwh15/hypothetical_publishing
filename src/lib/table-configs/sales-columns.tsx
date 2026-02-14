@@ -5,8 +5,7 @@
  * Configs select subsets via stable column IDs.
  */
 
-import React from "react";
-import { ColumnDef } from "@/components/DataTable";
+import { ColumnDef } from "@/components/BaseDataTable";
 import { SaleListItem } from "@/lib/data/records";
 import Link from "next/link";
 
@@ -57,15 +56,12 @@ export const salesColumns: ColumnDef<SaleListItem>[] = [
   {
     key: "id",
     header: "ID",
-    accessor: "id",
     className: "w-[80px]",
-    sortable: true,
+    render: (row) => row.id,
   },
   {
     key: "title",
     header: "Title",
-    accessor: "title",
-    sortable: true,
     render: (row) => (
       <Link
         href={`/books/${row.bookId}`}
@@ -79,35 +75,26 @@ export const salesColumns: ColumnDef<SaleListItem>[] = [
   {
     key: "author",
     header: "Author",
-    accessor: "author",
-    sortable: true,
+    render: (row) => row.author,
   },
   {
     key: "quantity",
     header: "Quantity",
-    accessor: "quantity",
-    sortable: true,
     render: (row) => salesCellRenderers.quantity(row.quantity),
   },
   {
     key: "publisherRevenue",
     header: "Publisher Revenue",
-    accessor: "publisherRevenue",
-    sortable: true,
     render: (row) => salesCellRenderers.currency(row.publisherRevenue),
   },
   {
     key: "authorRoyalty",
     header: "Author Royalty",
-    accessor: "authorRoyalty",
-    sortable: true,
     render: (row) => salesCellRenderers.currency(row.authorRoyalty),
   },
   {
     key: "date",
     header: "Date",
-    accessor: "date",
-    sortable: true,
     render: (row) =>
       new Intl.DateTimeFormat("en-US", {
         month: "short",
@@ -117,8 +104,6 @@ export const salesColumns: ColumnDef<SaleListItem>[] = [
   {
     key: "paid",
     header: "Royalty Status",
-    accessor: "paid",
-    sortable: true,
     render: (row) => salesCellRenderers.paidStatus(row.paid),
   },
 ];

@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { DataTable } from "@/components/DataTable";
 import { SaleListItem } from "@/lib/data/records";
 import {
   salesTablePresets,
@@ -12,10 +11,13 @@ import {
 } from "@/lib/table-configs/sales-columns";
 import { createSalesRecordPath } from "@/lib/table-configs/navigation";
 import { PaginationControls } from "@/components/PaginationControls";
-import { DateRangeFilter } from "@/components/DateRangeFilter";
-import { Search, X } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TableInfo } from "@/components/TableInfo";
+import { BaseDataTable } from "@/components/BaseDataTable";
+// Change this line:
+import { ColumnDef } from "@/components/BaseDataTable";
+import { MonthYearFilter } from "@/components/MonthYearFilter";
 
 export type SalesTablePreset = keyof typeof salesTablePresets;
 
@@ -72,7 +74,6 @@ export default function SalesRecordsTable({
   visibleColumns,
   onRowClick,
   navigationContext,
-  showDateFilter = true,
 }: SalesRecordsTableProps) {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState(search);
@@ -82,33 +83,39 @@ export default function SalesRecordsTable({
     [total, pageSize]
   );
 
-  const buildQueryParams = (overrides: {
-    page?: number;
-    q?: string;
-    sortBy?: string | null;
-    sortDir?: "asc" | "desc" | null;
-    dateFrom?: string;
-    dateTo?: string;
-    showAll?: boolean;
-  } = {}) => {
-    const params = new URLSearchParams();
-    const q = overrides.q !== undefined ? overrides.q : search.trim();
-    const p = overrides.page ?? page;
-    const sb = "sortBy" in overrides ? overrides.sortBy : sortBy;
-    const sd = "sortDir" in overrides ? overrides.sortDir : sortDir;
-    const df = overrides.dateFrom !== undefined ? overrides.dateFrom : dateFrom;
-    const dt = overrides.dateTo !== undefined ? overrides.dateTo : dateTo;
-    const sa = overrides.showAll !== undefined ? overrides.showAll : showAll;
+  const buildQueryParams = useCallback(
+    (
+      overrides: {
+        page?: number;
+        q?: string;
+        sortBy?: string | null;
+        sortDir?: "asc" | "desc" | null;
+        dateFrom?: string;
+        dateTo?: string;
+        showAll?: boolean;
+      } = {}
+    ) => {
+      const params = new URLSearchParams();
+      const q = overrides.q !== undefined ? overrides.q : search.trim();
+      const p = overrides.page ?? page;
+      const sb = "sortBy" in overrides ? overrides.sortBy : sortBy;
+      const sd = "sortDir" in overrides ? overrides.sortDir : sortDir;
+      const df =
+        overrides.dateFrom !== undefined ? overrides.dateFrom : dateFrom;
+      const dt = overrides.dateTo !== undefined ? overrides.dateTo : dateTo;
+      const sa = overrides.showAll !== undefined ? overrides.showAll : showAll;
 
-    if (q) params.set("q", q);
-    params.set("page", String(p));
-    if (sb != null) params.set("sortBy", sb);
-    if (sd != null) params.set("sortDir", sd);
-    if (df) params.set("dateFrom", df);
-    if (dt) params.set("dateTo", dt);
-    if (sa) params.set("showAll", "true");
-    return params;
-  };
+      if (q) params.set("q", q);
+      params.set("page", String(p));
+      if (sb != null) params.set("sortBy", sb);
+      if (sd != null) params.set("sortDir", sd);
+      if (df) params.set("dateFrom", df);
+      if (dt) params.set("dateTo", dt);
+      if (sa) params.set("showAll", "true");
+      return params;
+    },
+    [search, page, sortBy, sortDir, dateFrom, dateTo, showAll]
+  );
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -122,19 +129,25 @@ export default function SalesRecordsTable({
     router.push(`/sales/records?${params.toString()}`);
   };
 
-  const handlePageChange = (newPage: number) => {
-    const params = buildQueryParams({ page: newPage });
-    router.push(`/sales/records?${params.toString()}`);
-  };
+  const handlePageChange = useCallback(
+    (newPage: number) => {
+      const params = buildQueryParams({ page: newPage });
+      router.push(`/sales/records?${params.toString()}`);
+    },
+    [router, buildQueryParams]
+  );
 
-  const handleSortChange = (field: string, direction: "asc" | "desc" | null) => {
-    const params = buildQueryParams({
-      sortBy: direction === null ? null : field,
-      sortDir: direction,
-      page: 1,
-    });
-    router.push(`/sales/records?${params.toString()}`);
-  };
+  const handleSortChange = useCallback(
+    (field: string, direction: "asc" | "desc") => {
+      const params = buildQueryParams({
+        sortBy: field,
+        sortDir: direction,
+        page: 1, // Always reset to page 1 on sort
+      });
+      router.push(`/sales/records?${params.toString()}`);
+    },
+    [buildQueryParams, router]
+  );
 
   const handleDateFromChange = (value: string) => {
     const params = buildQueryParams({ dateFrom: value, page: 1 });
@@ -165,9 +178,47 @@ export default function SalesRecordsTable({
   const startRecord = showAll ? 1 : (page - 1) * normalPageSize + 1;
   const endRecord = showAll ? total : Math.min(page * normalPageSize, total);
 
-  const columns = visibleColumns
-    ? getColumnsByVisibleIds(visibleColumns)
-    : getPresetColumns(preset);
+  const columns: ColumnDef<SaleListItem>[] = useMemo(() => {
+    const baseCols = visibleColumns
+      ? getColumnsByVisibleIds(visibleColumns)
+      : getPresetColumns(preset);
+
+    return baseCols.map((col) => {
+      const isSorted = sortBy === col.key;
+
+      return {
+        ...col,
+        header: (
+          <div className="flex flex-col gap-1">
+            <span className="font-semibold flex items-center gap-1">
+              {col.header as string}
+              <button
+                type="button"
+                onClick={() => {
+                  const nextDirection =
+                    isSorted && sortDir === "desc" ? "asc" : "desc";
+                  handleSortChange(col.key, nextDirection);
+                }}
+                className={cn(
+                  "ml-1 p-0.5 rounded hover:bg-muted transition-colors",
+                  isSorted && "text-blue-600 bg-blue-50 dark:bg-blue-900/20"
+                )}
+                aria-label={`Sort by ${col.header}`}
+              >
+                {!isSorted ? (
+                  <ArrowUpDown className="w-4 h-4 text-muted-foreground" />
+                ) : sortDir === "asc" ? (
+                  <ArrowUp className="w-4 h-4" />
+                ) : (
+                  <ArrowDown className="h-4 w-4" />
+                )}
+              </button>
+            </span>
+          </div>
+        ),
+      };
+    });
+  }, [visibleColumns, preset, sortBy, sortDir, handleSortChange]);
 
   const handleRowClick =
     onRowClick ||
@@ -213,16 +264,14 @@ export default function SalesRecordsTable({
         )}
       </form>
 
-      {showDateFilter && (
-        <DateRangeFilter
-          startDate={dateFrom}
-          endDate={dateTo}
-          onStartDateChange={handleDateFromChange}
-          onEndDateChange={handleDateToChange}
-          onClear={handleDateClear}
-          hasActiveFilter={hasDateFilter}
-        />
-      )}
+      <MonthYearFilter
+        startDate={dateFrom} // Ensure the initial prop from server is YYYY-MM
+        endDate={dateTo}
+        onStartDateChange={handleDateFromChange}
+        onEndDateChange={handleDateToChange}
+        onClear={handleDateClear}
+        hasActiveFilter={hasDateFilter}
+      />
 
       {total > 0 && (
         <TableInfo
@@ -235,7 +284,7 @@ export default function SalesRecordsTable({
         />
       )}
 
-      <DataTable<SaleListItem>
+      <BaseDataTable<SaleListItem>
         columns={columns}
         data={rows}
         emptyMessage={
@@ -244,10 +293,6 @@ export default function SalesRecordsTable({
             : "No sales records"
         }
         onRowClick={handleRowClick}
-        sortField={sortBy}
-        sortDirection={sortDir}
-        onSortChange={handleSortChange}
-        showPagination={false}
       />
 
       {totalPages > 1 && !showAll && (
