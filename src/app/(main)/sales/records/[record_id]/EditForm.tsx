@@ -10,23 +10,46 @@ import type { SaleDetailPayload } from "@/lib/data/records";
 import Link from "next/link";
 import { BookSelectBox } from "@/components/BookSelectBox";
 import { BookListItem } from "@/lib/data/books";
+import MonthYearSelector from "@/components/MonthYearSelector";
 
 interface EditFormProps {
   books: BookListItem[];
   sale: SaleDetailPayload;
 }
 
-const SALES_YEAR_MIN = 2000;
-const SALES_YEAR_MAX = 2100;
+const SALES_YEAR_MIN = 1000;
+const SALES_YEAR_MAX = new Date().getFullYear(); // Added parentheses to call the function
 
 function initialDateMonth(date: Date): string {
-  if (!date || !Number.isFinite(date.getTime())) return "";
+  // Check if date is valid and year is within the allowed sanity range
+  if (
+    !date || 
+    !Number.isFinite(date.getTime()) || 
+    date.getFullYear() < SALES_YEAR_MIN || 
+    date.getFullYear() > SALES_YEAR_MAX
+  ) {
+    return "";
+  }
   return String(date.getMonth() + 1).padStart(2, "0");
 }
 
 function initialDateYear(date: Date): string {
-  if (!date || !Number.isFinite(date.getTime())) return "";
-  return String(date.getFullYear());
+  const year = date?.getFullYear();
+  
+  // Explicitly filter out dates outside the [MIN, MAX] range
+  if (
+    !date || 
+    !Number.isFinite(date.getTime()) || 
+    year < SALES_YEAR_MIN || 
+    year > SALES_YEAR_MAX
+  ) {
+    // Log the corruption/out-of-bounds for the developer
+    if (date) {
+      console.error(`Database Integrity Error: Year ${year} is outside range [${SALES_YEAR_MIN}-${SALES_YEAR_MAX}]`);
+    }
+    return "";
+  }
+  return String(year);
 }
 
 export default function EditForm({ sale, books }: EditFormProps) {
@@ -47,29 +70,48 @@ export default function EditForm({ sale, books }: EditFormProps) {
 
   const handleSave = async () => {
     setDateError(null);
-    const year = formData.dateYear ? parseInt(formData.dateYear, 10) : NaN;
-    if (
-      !Number.isInteger(year) ||
-      year < SALES_YEAR_MIN ||
-      year > SALES_YEAR_MAX
-    ) {
-      setDateError(`Year must be between ${SALES_YEAR_MIN} and ${SALES_YEAR_MAX}`);
+    
+    // 1. Check for empty strings
+    if (!formData.dateYear || !formData.dateMonth) {
+      console.error("Validation Failed: Missing Date Components", {
+        year: formData.dateYear,
+        month: formData.dateMonth
+      });
+      setDateError("Date is required.");
       return;
     }
-    if (!formData.dateMonth) {
-      setDateError("Please select a month");
-      return;
-    }
+
+    const year = parseInt(formData.dateYear, 10);
     const month = parseInt(formData.dateMonth, 10);
-    if (month < 1 || month > 12) {
-      setDateError("Please select a valid month");
+  
+    // 2. Check for "Garbage" numbers (NaN)
+    if (isNaN(year) || isNaN(month)) {
+      console.error("Validation Failed: Non-numeric Input", { 
+        rawYear: formData.dateYear, 
+        rawMonth: formData.dateMonth 
+      });
+      setDateError("Invalid date format selected.");
       return;
     }
+
+    // 3. Construct the date
     const date = new Date(year, month - 1, 1);
+
+    // Final sanity check: Is it a real date? (e.g., month 13 would fail)
+    if (isNaN(date.getTime())) {
+      console.error("Validation Failed: Invalid Date Object created", {
+        constructedDate: date,
+        inputYear: year,
+        inputMonth: month
+      });
+      setDateError("Please select a valid month and year.");
+      return;
+    }
+
     setLoading(true);
     const result = await updateSale(sale.id, {
       bookId: formData.bookId,
-      date,
+      date, // Guaranteed to be a valid Date object now
       quantity: formData.quantity,
       publisherRevenue: formData.publisherRevenue,
       authorRoyalty: formData.authorRoyalty,
@@ -97,11 +139,11 @@ export default function EditForm({ sale, books }: EditFormProps) {
   };
 
   function normalizeAuthorRoyalty(value: number): number {
-    return (Math.round(value * 100) / 100);
+    return Math.round(value * 100) / 100;
   }
 
   if (!isEditing) {
-    // View Mode
+    // View Mode (unchanged)
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg border p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -238,6 +280,12 @@ export default function EditForm({ sale, books }: EditFormProps) {
   }
 
   // Edit Mode
+  // Compute combined YYYY-MM for the selector's controlled `value`
+  const selectorValue =
+    formData.dateYear && formData.dateMonth
+      ? `${formData.dateYear}-${String(formData.dateMonth).padStart(2, "0")}`
+      : null;
+
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg border p-6">
       <h2 className="text-xl font-bold mb-4">Edit Sale Record</h2>
@@ -261,56 +309,35 @@ export default function EditForm({ sale, books }: EditFormProps) {
               setFormData({
                 ...formData,
                 bookId: Number(bookId),
-                authorRoyalty: newRoyalty,
+                authorRoyalty: normalizeAuthorRoyalty(newRoyalty),
               });
             }}
           />
         </div>
 
-        {/* Date: month/year picker (same pattern as book edit form) */}
-        <div className="space-y-2">
-          <label className="block text-sm font-medium mb-2">
-            Period (month / year)
-          </label>
-          <div className="flex gap-3 items-center flex-wrap">
-            <select
-              value={formData.dateMonth}
-              onChange={(e) => {
-                setFormData({
-                  ...formData,
-                  dateMonth: e.target.value,
-                });
-                setDateError(null);
-              }}
-              className="flex-1 min-w-[140px] h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 dark:bg-gray-700"
-            >
-              <option value="">Select Month</option>
-              {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-                <option key={m} value={m.toString().padStart(2, "0")}>
-                  {new Date(2000, m - 1).toLocaleString("default", {
-                    month: "long",
-                  })}
-                </option>
-              ))}
-            </select>
-            <input
-              type="number"
-              min={SALES_YEAR_MIN}
-              max={SALES_YEAR_MAX}
-              value={formData.dateYear}
-              onChange={(e) => {
-                setFormData({
-                  ...formData,
-                  dateYear: e.target.value,
-                });
-                setDateError(null);
-              }}
-              placeholder="Year"
-              className="w-24 h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 dark:bg-gray-700"
-            />
-          </div>
+        {/* Date: month/year picker */}
+        <div>
+          <label className="block text-sm font-medium mb-2">Sale Date</label>
+          <MonthYearSelector
+            value={selectorValue}
+            onChange={(v) => {
+              setDateError(null);
+              if (!v) {
+                // cleared
+                setFormData({ ...formData, dateYear: "", dateMonth: "" });
+                return;
+              }
+              const [y, m] = v.split("-");
+              setFormData({
+                ...formData,
+                dateYear: y,
+                dateMonth: m ? String(parseInt(m, 10)).padStart(2, "0") : "",
+              });
+            }}
+            placeholder="Select month & year"
+          />
           {dateError && (
-            <p className="text-sm text-red-600 dark:text-red-400">{dateError}</p>
+            <p className="mt-2 text-sm text-red-600">{dateError}</p>
           )}
         </div>
 
@@ -401,7 +428,9 @@ export default function EditForm({ sale, books }: EditFormProps) {
                     : formData.authorRoyalty;
                 setFormData({
                   ...formData,
-                  authorRoyalty: Number.isFinite(computed) ? normalizeAuthorRoyalty(computed) : 0,
+                  authorRoyalty: Number.isFinite(computed)
+                    ? normalizeAuthorRoyalty(computed)
+                    : 0,
                   royaltyOverridden: false,
                 });
               }
