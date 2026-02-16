@@ -1,6 +1,7 @@
 // lib/data/records.ts
 import { Prisma } from "@prisma/client";
 import { prisma } from "../prisma";
+import { Decimal } from "@prisma/client/runtime/library";
 
 export interface SaleListItem {
   id: number;
@@ -27,15 +28,33 @@ export interface PendingSaleItem {
   paid: boolean; // Always false for pending, but included for consistency
 }
 
-export type SaleDetailPayload = Prisma.SaleGetPayload<{
-  include: { book: { include: { author: true } } };
-}>;
+// This represents the data AFTER it has been converted to numbers
+export type SaleDetailPayload = {
+  id: number;
+  date: Date;
+  quantity: number;
+  publisherRevenue: number; // Changed from Decimal to number
+  authorRoyalty: number; // Changed from Decimal to number
+  paid: boolean;
+  royaltyOverridden: boolean;
+  book: {
+    id: number;
+    title: string;
+    author: {
+      id: number;
+      name: string;
+      totalAuthorRoyalty: number; // Changed to number
+      paidAuthorRoyalty: number; // Changed to number
+      unpaidAuthorRoyalty: number; // Changed to number
+    };
+  };
+};
 
 // Sort field map for server-side sorting (column key -> Prisma orderBy asc)
 const SORT_ASC: Record<string, Prisma.SaleOrderByWithRelationInput> = {
   id: { id: "asc" },
   title: { book: { title: "asc" } },
-  author: { book: { author: { name: "asc"}}},
+  author: { book: { author: { name: "asc" } } },
   date: { date: "asc" },
   quantity: { quantity: "asc" },
   publisherRevenue: { publisherRevenue: "asc" },
@@ -46,7 +65,7 @@ const SORT_ASC: Record<string, Prisma.SaleOrderByWithRelationInput> = {
 const SORT_DESC: Record<string, Prisma.SaleOrderByWithRelationInput> = {
   id: { id: "desc" },
   title: { book: { title: "desc" } },
-  author: { book: { author: { name: "desc"}}},
+  author: { book: { author: { name: "desc" } } },
   date: { date: "desc" },
   quantity: { quantity: "desc" },
   publisherRevenue: { publisherRevenue: "desc" },
@@ -68,7 +87,10 @@ function buildOrderBy(
  * @param s The date string (YYYY-MM)
  * @param endOfMonth If true, returns the last millisecond of the month.
  */
-function parseDate(dateStr: string, endOfMonth: boolean = false): Date | undefined {
+function parseDate(
+  dateStr: string,
+  endOfMonth: boolean = false
+): Date | undefined {
   if (!dateStr) return undefined;
 
   const [year, month] = dateStr.split("-").map(Number);
@@ -118,7 +140,11 @@ export async function getSalesData({
   if (trimmedSearch) {
     where.OR = [
       { book: { title: { contains: trimmedSearch, mode: "insensitive" } } },
-      { book: { author: { name: { contains: trimmedSearch, mode: "insensitive" } } } },
+      {
+        book: {
+          author: { name: { contains: trimmedSearch, mode: "insensitive" } },
+        },
+      },
     ];
   }
 
@@ -138,8 +164,8 @@ export async function getSalesData({
       where,
       include: { 
         book: { 
-          include: { author: true } 
-        } 
+          include: { author: true },
+        },
       },
       // Database handles the sort
       orderBy: buildOrderBy(sortBy, sortDir), 
@@ -207,12 +233,30 @@ export default async function asyncGetSalesData() {
   });
 }
 
-// Stays simple, but ensure your schema names match
-export async function asyncGetSaleById(id: number) {
-  return await prisma.sale.findUnique({
+export async function asyncGetSaleById(
+  id: number
+): Promise<SaleDetailPayload | null> {
+  const sale = await prisma.sale.findUnique({
     where: { id },
     include: { book: { include: { author: true } } },
   });
+
+  if (!sale) return null;
+
+  return {
+    ...sale,
+    publisherRevenue: sale.publisherRevenue.toNumber(),
+    authorRoyalty: sale.authorRoyalty.toNumber(),
+    book: {
+      ...sale.book,
+      author: {
+        ...sale.book.author,
+        totalAuthorRoyalty: sale.book.author.totalAuthorRoyalty.toNumber(),
+        paidAuthorRoyalty: sale.book.author.paidAuthorRoyalty.toNumber(),
+        unpaidAuthorRoyalty: sale.book.author.unpaidAuthorRoyalty.toNumber(),
+      },
+    },
+  };
 }
 
 // mapper used by list/payment screens
@@ -221,8 +265,8 @@ export function toSaleListItem(sale: {
   bookId: number;
   date: Date;
   quantity: number;
-  publisherRevenue: number;
-  authorRoyalty: number;
+  publisherRevenue: Decimal;
+  authorRoyalty: Decimal;
   paid: boolean;
   book: { title: string; author: { name: string } };
 }): SaleListItem {
@@ -233,8 +277,8 @@ export function toSaleListItem(sale: {
     author: sale.book.author.name,
     date: sale.date,
     quantity: sale.quantity,
-    publisherRevenue: sale.publisherRevenue,
-    authorRoyalty: sale.authorRoyalty,
+    publisherRevenue: sale.publisherRevenue.toNumber(),
+    authorRoyalty: sale.authorRoyalty.toNumber(),
     paid: sale.paid ? "paid" : "pending",
   };
 }
