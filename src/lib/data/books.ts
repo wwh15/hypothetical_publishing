@@ -386,11 +386,13 @@ export async function getBookById(id: number): Promise<BookDetail | null> {
     }),
   ]);
 
-  const totalSales = totals._sum.quantity ?? 0;
-  const totalPublisherRevenue = totals._sum.publisherRevenue ?? 0;
-  const unpaidAuthorRoyalty = unpaidAgg._sum.authorRoyalty ?? 0;
-  const paidAuthorRoyalty = paidAgg._sum.authorRoyalty ?? 0;
-  const totalAuthorRoyalty = totals._sum.authorRoyalty ?? 0;
+  const totalSales = totals._sum.quantity ?? 0; // Quantity is usually an Int, so this is fine
+
+  // For currency/royalty fields (Decimal types), convert to number for the UI
+  const totalPublisherRevenue = new Prisma.Decimal(totals._sum.publisherRevenue ?? 0).toNumber();
+  const unpaidAuthorRoyalty = new Prisma.Decimal(unpaidAgg._sum.authorRoyalty ?? 0).toNumber();
+  const paidAuthorRoyalty = new Prisma.Decimal(paidAgg._sum.authorRoyalty ?? 0).toNumber();
+  const totalAuthorRoyalty = new Prisma.Decimal(totals._sum.authorRoyalty ?? 0).toNumber();
 
   return {
     id: book.id,

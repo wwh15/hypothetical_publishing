@@ -80,8 +80,8 @@ model Sale {
   bookId           Int      @map("book_id")
   date             DateTime @map("date") // First day of sale month (e.g. 2025-01-01)
   quantity         Int
-  publisherRevenue Float    @map("publisher_revenue")
-  authorRoyalty    Float    @map("author_royalty")
+  publisherRevenue Decimal @default(0)    @map("publisher_revenue")
+  authorRoyalty    Decimal @default(0)    @map("author_royalty")
   royaltyOverridden Boolean @default(false) @map("royalty_overridden") // Track if manually set
   paid             Boolean  @default(false) // Payment status
   createdAt        DateTime @default(now()) @map("created_at")

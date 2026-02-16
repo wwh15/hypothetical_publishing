@@ -87,14 +87,14 @@ function transformToAuthorGroup(rawAuthor: PrismaAuthorWithSales): AuthorGroup {
         author: rawAuthor.name,
         date: sale.date,
         quantity: sale.quantity,
-        publisherRevenue: sale.publisherRevenue,
-        authorRoyalty: sale.authorRoyalty,
+        publisherRevenue: sale.publisherRevenue.toNumber(),
+        authorRoyalty: sale.authorRoyalty.toNumber(),
         paid: status,
       });
 
       // 3. Accumulate the unpaid total (only if pending)
       if (status === "pending") {
-        unpaidTotal += sale.authorRoyalty;
+        unpaidTotal += sale.authorRoyalty.toNumber();
       }
     }
   }

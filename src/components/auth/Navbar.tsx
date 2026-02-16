@@ -29,6 +29,12 @@ export default async function Navbar() {
                   Sales
                 </Link>
                 <Link
+                  href="/authors"
+                  className="text-sm text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                >
+                  Authors
+                </Link>
+                <Link
                   href="/sales/payments"
                   className="text-sm text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
                 >
