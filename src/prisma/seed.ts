@@ -55,9 +55,6 @@ async function main() {
         data: {
           name,
           email: `${name.toLowerCase().replace(/[^a-z]/g, ".")}@example.com`,
-          totalAuthorRoyalty: 0,
-          paidAuthorRoyalty: 0,
-          unpaidAuthorRoyalty: 0,
         },
       }),
     ),
@@ -102,32 +99,6 @@ async function main() {
         authorRoyalty: royalty,
         paid: Math.random() > 0.3,
       },
-    });
-  }
-
-  // 5. THE SYNC
-  console.log("🔄 Syncing Author totals...");
-  for (const author of authors) {
-    const totalStats = await prisma.sale.aggregate({
-      where: { book: { authorId: author.id } },
-      _sum: { authorRoyalty: true }
-    });
-
-    const paidStats = await prisma.sale.aggregate({
-      where: { book: { authorId: author.id }, paid: true },
-      _sum: { authorRoyalty: true }
-    });
-
-    const total = totalStats._sum.authorRoyalty || new Decimal(0);
-    const paid = paidStats._sum.authorRoyalty || new Decimal(0);
-
-    await prisma.author.update({
-      where: { id: author.id },
-      data: {
-        totalAuthorRoyalty: total,
-        paidAuthorRoyalty: paid,
-        unpaidAuthorRoyalty: total.minus(paid),
-      }
     });
   }
 

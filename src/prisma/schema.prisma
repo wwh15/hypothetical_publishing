@@ -25,9 +25,6 @@ model Author {
   id        Int      @id @default(autoincrement())
   name      String   @unique
   email     String?  @unique // Optional: for payment notifications
-  totalAuthorRoyalty Decimal @default(0) @map("total_author_royalty")
-  paidAuthorRoyalty Decimal @default(0) @map("paid_author_royalty")
-  unpaidAuthorRoyalty Decimal @default(0) @map("unpaid_author_royalty")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
   

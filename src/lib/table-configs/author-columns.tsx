@@ -17,7 +17,7 @@ export type AuthorColumnId =
   | "authoredBooks"
   | "totalAuthorRoyalty"
   | "paidAuthorRoyalty"
-  | "unPaidAuthorRoyalty";
+  | "unpaidAuthorRoyalty";
 
 // Reusable cell renderers
 export const authorCellRenderers = {
@@ -92,7 +92,7 @@ export const authorColumns: ColumnDef<AuthorListItem>[] = [
       ),
   },
   {
-    key: "unPaidAuthorRoyalty", // Matches your SORT_ASC/DESC key precise casing
+    key: "unpaidAuthorRoyalty", // Matches your SORT_ASC/DESC key precise casing
     header: "Unpaid Balance",
     render: (row) => authorCellRenderers.unpaidStatus(row.unpaidAuthorRoyalty,),
   },
@@ -134,15 +134,15 @@ export const authorTablePresets = {
       "authoredBooks",
       "totalAuthorRoyalty",
       "paidAuthorRoyalty",
-      "unPaidAuthorRoyalty",
+      "unpaidAuthorRoyalty",
     ] as AuthorColumnId[],
     defaultSortField: "name" as const,
     defaultSortDirection: "asc" as const,
   },
   // Minimalist view for dashboard widgets
   minimal: {
-    columnIds: ["name", "unPaidAuthorRoyalty"] as AuthorColumnId[],
-    defaultSortField: "unPaidAuthorRoyalty" as const,
+    columnIds: ["name", "unpaidAuthorRoyalty"] as AuthorColumnId[],
+    defaultSortField: "unpaidAuthorRoyalty" as const,
     defaultSortDirection: "desc" as const,
   },
 } as const;

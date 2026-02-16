@@ -43,9 +43,6 @@ export type SaleDetailPayload = {
     author: {
       id: number;
       name: string;
-      totalAuthorRoyalty: number; // Changed to number
-      paidAuthorRoyalty: number; // Changed to number
-      unpaidAuthorRoyalty: number; // Changed to number
     };
   };
 };
@@ -251,9 +248,6 @@ export async function asyncGetSaleById(
       ...sale.book,
       author: {
         ...sale.book.author,
-        totalAuthorRoyalty: sale.book.author.totalAuthorRoyalty.toNumber(),
-        paidAuthorRoyalty: sale.book.author.paidAuthorRoyalty.toNumber(),
-        unpaidAuthorRoyalty: sale.book.author.unpaidAuthorRoyalty.toNumber(),
       },
     },
   };
@@ -283,47 +277,8 @@ export function toSaleListItem(sale: {
   };
 }
 
-/**
- * Re-calculates and updates the denormalized royalty columns for a specific author.
- */
-async function syncAuthorRoyaltyWithSales(
-  tx: Prisma.TransactionClient,
-  authorId: number
-) {
-  // 1. Aggregate all sales for this author
-  const stats = await tx.sale.aggregate({
-    where: { book: { authorId } },
-    _sum: { authorRoyalty: true },
-  });
-
-  // 2. Aggregate only PAID sales
-  const paidStats = await tx.sale.aggregate({
-    where: { book: { authorId }, paid: true },
-    _sum: { authorRoyalty: true },
-  });
-
-  const total = stats._sum.authorRoyalty || new Decimal(0);
-  const paid = paidStats._sum.authorRoyalty || new Decimal(0);
-  const unpaid = total.minus(paid);
-
-  // 3. Update Author record
-  await tx.author.update({
-    where: { id: authorId },
-    data: {
-      totalAuthorRoyalty: total,
-      paidAuthorRoyalty: paid,
-      unpaidAuthorRoyalty: unpaid,
-    },
-  });
-}
-
 export async function asyncAddSale(data: Prisma.SaleUncheckedCreateInput) {
-  return await prisma.$transaction(async (tx) => {
-    const sale = await tx.sale.create({ data });
-    const book = await tx.book.findUnique({ where: { id: sale.bookId } });
-    if (book) await syncAuthorRoyaltyWithSales(tx, book.authorId);
-    return sale;
-  });
+  return await prisma.sale.create({ data });
 }
 
 // write ops moved here
@@ -339,14 +294,10 @@ export async function asyncUpdateSale(
     paid?: boolean;
   }
 ) {
-  return await prisma.$transaction(async (tx) => {
-    const sale = await tx.sale.update({
-      where: { id },
-      data,
-      include: { book: true },
-    });
-    await syncAuthorRoyaltyWithSales(tx, sale.book.authorId);
-    return sale;
+  return await prisma.sale.update({
+    where: { id },
+    data,
+    include: { book: true },
   });
 }
 
@@ -359,7 +310,6 @@ export async function asyncDeleteSale(id: number) {
     if (!sale) return;
 
     await tx.sale.delete({ where: { id } });
-    await syncAuthorRoyaltyWithSales(tx, sale.book.authorId);
   });
 }
 
@@ -368,16 +318,12 @@ export async function asyncTogglePaidStatus(
   currentStatus: boolean
 ) {
   return await prisma.$transaction(async (tx) => {
-    // 1. Perform the update
+    // Perform the update
     const sale = await tx.sale.update({
       where: { id },
       data: { paid: !currentStatus },
       include: { book: true }, // Need this to get the authorId
     });
-
-    // 2. Trigger the sync logic
-    await syncAuthorRoyaltyWithSales(tx, sale.book.authorId);
-
     return sale;
   });
 }
