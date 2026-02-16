@@ -11,6 +11,7 @@ import Link from "next/link";
 import { BookSelectBox } from "@/components/BookSelectBox";
 import { BookListItem } from "@/lib/data/books";
 import MonthYearSelector from "@/components/MonthYearSelector";
+import { Decimal } from "decimal.js";
 
 interface EditFormProps {
   books: BookListItem[];
@@ -18,14 +19,14 @@ interface EditFormProps {
 }
 
 const SALES_YEAR_MIN = 1000;
-const SALES_YEAR_MAX = new Date().getFullYear(); // Added parentheses to call the function
+const SALES_YEAR_MAX = new Date().getFullYear();
 
 function initialDateMonth(date: Date): string {
   // Check if date is valid and year is within the allowed sanity range
   if (
-    !date || 
-    !Number.isFinite(date.getTime()) || 
-    date.getFullYear() < SALES_YEAR_MIN || 
+    !date ||
+    !Number.isFinite(date.getTime()) ||
+    date.getFullYear() < SALES_YEAR_MIN ||
     date.getFullYear() > SALES_YEAR_MAX
   ) {
     return "";
@@ -35,17 +36,19 @@ function initialDateMonth(date: Date): string {
 
 function initialDateYear(date: Date): string {
   const year = date?.getFullYear();
-  
+
   // Explicitly filter out dates outside the [MIN, MAX] range
   if (
-    !date || 
-    !Number.isFinite(date.getTime()) || 
-    year < SALES_YEAR_MIN || 
+    !date ||
+    !Number.isFinite(date.getTime()) ||
+    year < SALES_YEAR_MIN ||
     year > SALES_YEAR_MAX
   ) {
     // Log the corruption/out-of-bounds for the developer
     if (date) {
-      console.error(`Database Integrity Error: Year ${year} is outside range [${SALES_YEAR_MIN}-${SALES_YEAR_MAX}]`);
+      console.error(
+        `Database Integrity Error: Year ${year} is outside range [${SALES_YEAR_MIN}-${SALES_YEAR_MAX}]`
+      );
     }
     return "";
   }
@@ -55,12 +58,18 @@ function initialDateYear(date: Date): string {
 export default function EditForm({ sale, books }: EditFormProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
-    bookId: sale.bookId,
+    bookId: sale.book.id,
     dateMonth: initialDateMonth(sale.date),
     dateYear: initialDateYear(sale.date),
     quantity: sale.quantity,
-    publisherRevenue: sale.publisherRevenue,
-    authorRoyalty: sale.authorRoyalty,
+    /**
+     * Next.js serializes Decimal objects as strings when passing data
+     * from Server Components to Client Components.
+     * * We re-instantiate as a Decimal to ensure precision during parsing,
+     * then convert to a number for compatibility with standard JS UI logic.
+     */
+    publisherRevenue: new Decimal(sale.publisherRevenue).toNumber(),
+    authorRoyalty: new Decimal(sale.authorRoyalty).toNumber(),
     royaltyOverridden: sale.royaltyOverridden,
   });
 
@@ -70,12 +79,12 @@ export default function EditForm({ sale, books }: EditFormProps) {
 
   const handleSave = async () => {
     setDateError(null);
-    
+
     // 1. Check for empty strings
     if (!formData.dateYear || !formData.dateMonth) {
       console.error("Validation Failed: Missing Date Components", {
         year: formData.dateYear,
-        month: formData.dateMonth
+        month: formData.dateMonth,
       });
       setDateError("Date is required.");
       return;
@@ -83,12 +92,12 @@ export default function EditForm({ sale, books }: EditFormProps) {
 
     const year = parseInt(formData.dateYear, 10);
     const month = parseInt(formData.dateMonth, 10);
-  
+
     // 2. Check for "Garbage" numbers (NaN)
     if (isNaN(year) || isNaN(month)) {
-      console.error("Validation Failed: Non-numeric Input", { 
-        rawYear: formData.dateYear, 
-        rawMonth: formData.dateMonth 
+      console.error("Validation Failed: Non-numeric Input", {
+        rawYear: formData.dateYear,
+        rawMonth: formData.dateMonth,
       });
       setDateError("Invalid date format selected.");
       return;
@@ -102,7 +111,7 @@ export default function EditForm({ sale, books }: EditFormProps) {
       console.error("Validation Failed: Invalid Date Object created", {
         constructedDate: date,
         inputYear: year,
-        inputMonth: month
+        inputMonth: month,
       });
       setDateError("Please select a valid month and year.");
       return;
@@ -154,7 +163,7 @@ export default function EditForm({ sale, books }: EditFormProps) {
             </label>
             <p className="text-lg font-semibold mt-1">
               <Link
-                href={`/books/${sale.bookId}`}
+                href={`/books/${sale.book.id}`}
                 onClick={(e) => e.stopPropagation()}
                 className="text-blue-600 hover:underline focus:outline focus:underline"
               >
@@ -192,7 +201,10 @@ export default function EditForm({ sale, books }: EditFormProps) {
               Publisher Revenue
             </label>
             <p className="text-lg font-semibold mt-1 text-green-600">
-              ${sale.publisherRevenue.toFixed(2)}
+              {/** * Parse serialized string back to Decimal for precision
+               * and convert to number for standard JS use.
+               */}
+              ${new Decimal(sale.publisherRevenue).toFixed(2)}
             </p>
           </div>
 
@@ -201,7 +213,10 @@ export default function EditForm({ sale, books }: EditFormProps) {
               Author Royalty
             </label>
             <p className="text-lg font-semibold mt-1 text-blue-600">
-              ${sale.authorRoyalty.toFixed(2)}
+              {/** * Parse serialized string back to Decimal for precision
+               * and convert to number for standard JS use.
+               */}
+              ${new Decimal(sale.authorRoyalty).toFixed(2)}
               {sale.royaltyOverridden && (
                 <span className="ml-2 text-xs text-orange-600">(Override)</span>
               )}
