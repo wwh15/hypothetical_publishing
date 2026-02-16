@@ -162,13 +162,13 @@ export async function getSalesData({
   const [sales, total] = await Promise.all([
     prisma.sale.findMany({
       where,
-      include: { 
-        book: { 
+      include: {
+        book: {
           include: { author: true },
         },
       },
       // Database handles the sort
-      orderBy: buildOrderBy(sortBy, sortDir), 
+      orderBy: buildOrderBy(sortBy, sortDir),
       // Database handles the pagination
       skip: (currentPage - 1) * limit,
       take: limit,
@@ -283,8 +283,47 @@ export function toSaleListItem(sale: {
   };
 }
 
+/**
+ * Re-calculates and updates the denormalized royalty columns for a specific author.
+ */
+async function syncAuthorRoyaltyWithSales(
+  tx: Prisma.TransactionClient,
+  authorId: number
+) {
+  // 1. Aggregate all sales for this author
+  const stats = await tx.sale.aggregate({
+    where: { book: { authorId } },
+    _sum: { authorRoyalty: true },
+  });
+
+  // 2. Aggregate only PAID sales
+  const paidStats = await tx.sale.aggregate({
+    where: { book: { authorId }, paid: true },
+    _sum: { authorRoyalty: true },
+  });
+
+  const total = stats._sum.authorRoyalty || new Decimal(0);
+  const paid = paidStats._sum.authorRoyalty || new Decimal(0);
+  const unpaid = total.minus(paid);
+
+  // 3. Update Author record
+  await tx.author.update({
+    where: { id: authorId },
+    data: {
+      totalAuthorRoyalty: total,
+      paidAuthorRoyalty: paid,
+      unpaidAuthorRoyalty: unpaid,
+    },
+  });
+}
+
 export async function asyncAddSale(data: Prisma.SaleUncheckedCreateInput) {
-  return await prisma.sale.create({ data });
+  return await prisma.$transaction(async (tx) => {
+    const sale = await tx.sale.create({ data });
+    const book = await tx.book.findUnique({ where: { id: sale.bookId } });
+    if (book) await syncAuthorRoyaltyWithSales(tx, book.authorId);
+    return sale;
+  });
 }
 
 // write ops moved here
@@ -300,19 +339,45 @@ export async function asyncUpdateSale(
     paid?: boolean;
   }
 ) {
-  return await prisma.sale.update({ where: { id }, data });
+  return await prisma.$transaction(async (tx) => {
+    const sale = await tx.sale.update({
+      where: { id },
+      data,
+      include: { book: true },
+    });
+    await syncAuthorRoyaltyWithSales(tx, sale.book.authorId);
+    return sale;
+  });
 }
 
 export async function asyncDeleteSale(id: number) {
-  return await prisma.sale.delete({ where: { id } });
+  return await prisma.$transaction(async (tx) => {
+    const sale = await tx.sale.findUnique({
+      where: { id },
+      include: { book: true },
+    });
+    if (!sale) return;
+
+    await tx.sale.delete({ where: { id } });
+    await syncAuthorRoyaltyWithSales(tx, sale.book.authorId);
+  });
 }
 
 export async function asyncTogglePaidStatus(
   id: number,
   currentStatus: boolean
 ) {
-  return await prisma.sale.update({
-    where: { id },
-    data: { paid: !currentStatus },
+  return await prisma.$transaction(async (tx) => {
+    // 1. Perform the update
+    const sale = await tx.sale.update({
+      where: { id },
+      data: { paid: !currentStatus },
+      include: { book: true }, // Need this to get the authorId
+    });
+
+    // 2. Trigger the sync logic
+    await syncAuthorRoyaltyWithSales(tx, sale.book.authorId);
+
+    return sale;
   });
 }
