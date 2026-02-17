@@ -1,8 +1,9 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "../prisma";
+import { getBooksSortedByTotalSales } from "./books-queries";
 
 /** Build YYYY-MM sort key from publication date; nulls become 9999-99 so they sort last */
-function publicationSortKeyFromDate(d: Date | null): string {
+export function publicationSortKeyFromDate(d: Date | null): string {
   if (!d) return "9999-99";
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
@@ -270,51 +271,16 @@ export async function getBooksData({
     where.OR = orConditions;
   }
 
-  // When sorting by totalSales we order by sum(sales.quantity); Prisma only supports _count. Fetch all, sort in memory, then paginate.
-  // TODO: This is a hack to get the total sales to work. We should find a better way to do this.
+  // When sorting by totalSales, use raw SQL to compute SUM(sales.quantity) in the database
+  // This avoids loading all books and sales into memory
   const sortByTotalSales = sortBy === "totalSales" && sortDir;
 
   if (sortByTotalSales) {
-    const books = await prisma.book.findMany({
-      where,
-      include: { author: true, sales: true },
-    });
-
-    const allItems: BookListItem[] = books.map((book) => {
-      const totalSales = book.sales.reduce(
-        (sum, sale) => sum + sale.quantity,
-        0
-      );
-      const defaultRoyaltyRate = Math.round(book.authorRoyaltyRate * 100);
-      const publicationSortKey = publicationSortKeyFromDate(
-        book.publicationDate
-      );
-      return {
-        id: book.id,
-        title: book.title,
-        author: book.author.name,
-        isbn13: book.isbn13,
-        isbn10: book.isbn10,
-        publicationDate: book.publicationDate,
-        publicationSortKey,
-        defaultRoyaltyRate,
-        totalSales,
-      };
-    });
-
-    allItems.sort((a, b) =>
-      sortDir === "desc"
-        ? b.totalSales - a.totalSales
-        : a.totalSales - b.totalSales
+    return getBooksSortedByTotalSales(
+      { search: trimmedSearch },
+      { page: currentPage, pageSize: limit },
+      { sortDir }
     );
-
-    const total = allItems.length;
-    const items = allItems.slice(
-      (currentPage - 1) * limit,
-      currentPage * limit
-    );
-
-    return { items, total, page: currentPage, pageSize: limit };
   }
 
   const orderBy =
