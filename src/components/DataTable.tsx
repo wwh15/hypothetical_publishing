@@ -99,9 +99,8 @@ export function DataTable<T extends object>({
         enabled: showPagination && !serverSortMode, // Disable pagination in server mode
     });
 
-    // In server mode, display data as-is (already paginated on server)
-    // In client mode, use paginated data
-    const displayData = serverSortMode ? data : paginatedData;
+    // In server mode, data is already paginated on server; in client mode use paginatedData
+    const rowsToShow = serverSortMode ? data : paginatedData;
 
     const displaySortField: string | null = serverSortMode
       ? (externalSortField ?? null)
@@ -176,7 +175,7 @@ export function DataTable<T extends object>({
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {paginatedData.length === 0 ? (
+                    {rowsToShow.length === 0 ? (
                         <TableRow>
                             <TableCell
                                 colSpan={columns.length}
@@ -186,7 +185,7 @@ export function DataTable<T extends object>({
                             </TableCell>
                         </TableRow>
                     ) : (
-                        paginatedData.map((row, rowIndex) => (
+                        rowsToShow.map((row, rowIndex) => (
                             <TableRow
                                 key={rowIndex}
                                 onClick={() => onRowClick?.(row)}

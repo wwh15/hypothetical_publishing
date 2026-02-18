@@ -6,7 +6,7 @@ import { supabaseAdmin } from './lib/supabase/admin';
 // check if setup has been completed
   async function isSetupComplete(): Promise<boolean> {
 
-    const { data: { users }, error } = await supabaseAdmin.auth.admin.listUsers();
+    const { data: { users } } = await supabaseAdmin.auth.admin.listUsers();
     
     
     return (users?.length ?? 0) > 0; // true if there is more than 0 users

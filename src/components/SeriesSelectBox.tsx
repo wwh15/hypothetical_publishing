@@ -56,27 +56,38 @@ export function SeriesSelectBox({
   const [newSeriesDescription, setNewSeriesDescription] = useState("");
   const [createError, setCreateError] = useState<string | null>(null);
 
-  // Track the last selected series ID to detect when it changes externally
-  const lastSelectedSeriesIdRef = useRef<number | null>(selectedSeriesId);
+  // Track the last selected series ID to detect when it changes externally.
+  // Initialize with null so initial load (when parent passes selectedSeriesId) triggers sync.
+  const lastSelectedSeriesIdRef = useRef<number | null>(null);
+  const didClearRef = useRef(false);
+  const didSelectFromDropdownRef = useRef(false);
+  const userHasTypedRef = useRef(false);
 
-  // Initialize input value when component mounts or selectedSeriesId changes
+  // Sync input value when selectedSeriesId changes (from parent or from our own selection/clear).
+  // Also sync when selectedSeries becomes available (e.g. series list loaded after mount).
+  // Don't overwrite when user cleared by backspace - treat that as explicit clear.
   useEffect(() => {
-    // Update ref if selectedSeriesId changed
-    if (lastSelectedSeriesIdRef.current !== selectedSeriesId) {
+    const selectionChanged = lastSelectedSeriesIdRef.current !== selectedSeriesId;
+    if (selectionChanged) {
       lastSelectedSeriesIdRef.current = selectedSeriesId;
+      userHasTypedRef.current = false;
     }
-
-    // Update input value based on selected series
-    if (selectedSeries) {
-      // Always update to match the selected series (important for initial load when editing)
-      setInputValue(selectedSeries.name);
-    } else if (selectedSeriesId === null && !isOpen && !inputValue) {
-      // Only clear if nothing is selected, dropdown is closed, and input is empty
-      setInputValue("");
+    if (selectionChanged) {
+      if (selectedSeries) {
+        setInputValue(selectedSeries.name);
+      } else {
+        setInputValue("");
+      }
+    } else if (selectedSeries && inputValue === "") {
+      if (userHasTypedRef.current) {
+        userHasTypedRef.current = false;
+        onSelect(null);
+      } else {
+        setInputValue(selectedSeries.name);
+      }
     }
-    // Note: If selectedSeriesId is set but selectedSeries is undefined (series list not loaded yet),
-    // the input will be populated once the series list loads and selectedSeries becomes defined
-  }, [selectedSeriesId, selectedSeries?.name, selectedSeries?.id, series]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- onSelect omitted to avoid re-runs when parent passes inline callback
+  }, [selectedSeriesId, selectedSeries?.name, selectedSeries?.id, inputValue]);
 
   // Update search query when input value changes
   useEffect(() => {
@@ -84,6 +95,7 @@ export function SeriesSelectBox({
   }, [inputValue, setSearchQuery]);
 
   const handleInputChange = (value: string) => {
+    userHasTypedRef.current = true;
     setInputValue(value);
     setIsOpen(true);
   };
@@ -93,23 +105,36 @@ export function SeriesSelectBox({
   };
 
   const handleInputBlur = () => {
-    // Delay closing to allow click events on dropdown items
+    // Delay closing to allow click events (e.g. X button, dropdown items)
     setTimeout(() => {
       setIsOpen(false);
+      if (didClearRef.current) {
+        didClearRef.current = false;
+        return;
+      }
+      if (didSelectFromDropdownRef.current) {
+        didSelectFromDropdownRef.current = false;
+        return;
+      }
       const typed = inputValue.trim();
-      if (!typed) return;
+      if (!typed) {
+        setInputValue("");
+        return;
+      }
 
       const exact = series.find(
         (s) => s.name.toLowerCase() === typed.toLowerCase(),
       );
       if (exact) {
-        // If user typed an exact existing series name, select it.
-        onSelect(exact.id);
-        setInputValue(exact.name);
+        if (lastSelectedSeriesIdRef.current !== exact.id) {
+          onSelect(exact.id);
+          setInputValue(exact.name);
+          lastSelectedSeriesIdRef.current = exact.id;
+        }
         return;
       }
 
-      // Otherwise revert to selected series (or clear)
+      // No exact match - revert to current selection
       if (selectedSeries) {
         setInputValue(selectedSeries.name);
       } else {
@@ -121,6 +146,8 @@ export function SeriesSelectBox({
   const handleSelectSeries = (seriesId: number) => {
     const selected = series.find((s) => s.id === seriesId);
     if (selected) {
+      didSelectFromDropdownRef.current = true;
+      userHasTypedRef.current = false;
       lastSelectedSeriesIdRef.current = seriesId;
       setInputValue(selected.name);
       onSelect(seriesId);
@@ -130,6 +157,8 @@ export function SeriesSelectBox({
   };
 
   const handleClearSelection = () => {
+    didClearRef.current = true;
+    userHasTypedRef.current = false;
     setInputValue("");
     lastSelectedSeriesIdRef.current = null;
     onSelect(null);
@@ -207,8 +236,10 @@ export function SeriesSelectBox({
               {selectedSeriesId && inputValue && (
                 <button
                   type="button"
+                  onMouseDown={(e) => e.preventDefault()}
                   onClick={handleClearSelection}
                   className="absolute right-2 top-1/2 -translate-y-1/2 rounded-sm opacity-70 hover:opacity-100 focus:outline-none"
+                  aria-label="Clear series"
                 >
                   <X className="h-4 w-4" />
                 </button>

@@ -49,20 +49,9 @@ export default function AuthorsTable({
   sortDir,
   showAll = false,
   onRowClick,
-  navigationContext,
 }: AuthorsTableProps) {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState(search);
-
-  // Memoize the formatter for performance and consistency
-  const formatter = useMemo(
-    () =>
-      new Intl.NumberFormat("en-US", {
-        style: "currency",
-        currency: "USD",
-      }),
-    []
-  );
 
   const totalPages = useMemo(
     () => (total > 0 && pageSize > 0 ? Math.ceil(total / pageSize) : 1),
@@ -168,7 +157,7 @@ const enhancedColumns = useMemo(() => {
 
   const handleRowClick =
     onRowClick ||
-    ((row: AuthorListItem) => {
+    (() => {
       alert("Still need to implement Author Detail Page");
     });
 
