@@ -2,13 +2,6 @@ import { useState } from "react";
 import { PendingSaleItem } from "@/lib/data/records";
 import { BookListItem } from "@/lib/data/books";
 
-interface Book {
-  id: number;
-  title: string;
-  author: { name: string };
-  authorRoyaltyRate: number;
-}
-
 interface FormData {
   month: string;
   year: string;

@@ -429,6 +429,16 @@ export async function createBook(
         });
       }
 
+      // When adding to a series without explicit order, assign next available
+      let seriesOrderVal = input.seriesOrder ?? null;
+      if (seriesId !== null && seriesOrderVal === null) {
+        const max = await tx.book.aggregate({
+          where: { seriesId },
+          _max: { seriesOrder: true },
+        });
+        seriesOrderVal = (max._max.seriesOrder ?? 0) + 1;
+      }
+
       // 2. Create the book, connected to the single author
       return tx.book.create({
         data: {
@@ -438,7 +448,7 @@ export async function createBook(
           authorRoyaltyRate,
           publicationDate: input.publicationDate ?? null,
           seriesId: seriesId,
-          seriesOrder: input.seriesOrder ?? null,
+          seriesOrder: seriesOrderVal,
           // Fixed: Use 'author' (singular) and connect to one ID
           authorId: author.id,
         },
@@ -501,59 +511,93 @@ export async function updateBook(
     if (!author) {
       return {
         success: false,
-        error: `"No author found with email ${authorEmail}. Please verify the address or create a new author record before assigning this book.`,
+        error: `No author found with email ${authorEmail}. Please verify the address or create a new author record before assigning this book.`,
       };
     }
 
     // Update the book
     const updatedBook = await prisma.$transaction(async (tx) => {
-      
       // Find the author within the transaction
-      const author = await tx.author.findUnique({
+      const authorInTx = await tx.author.findUnique({
         where: { email: authorEmail },
       });
 
-      // Check if author exists to guard against database race condition 
-      if (!author) {
-        throw new Error(`No author found with email ${authorEmail}. Please verify the address or create a new author record.`);
+      // Check if author exists to guard against database race condition
+      if (!authorInTx) {
+        throw new Error(
+          `No author found with email ${authorEmail}. Please verify the address or create a new author record.`,
+        );
       }
 
       // Update the author name if the name has changed
-      if (input.author && input.author !== author.name) {
+      if (input.author && input.author !== authorInTx.name) {
         await tx.author.update({
-          where: { id: author.id },
+          where: { id: authorInTx.id },
           data: { name: input.author },
         });
       }
 
       // Prepare data
-      const updateData: Prisma.BookUpdateInput = {
-        title: input.title,
-        isbn13: input.isbn13 || null,
-        isbn10: input.isbn10 || null,
-        authorRoyaltyRate: input.defaultRoyaltyRate ? input.defaultRoyaltyRate / 100 : undefined,
-        publicationDate: input.publicationDate ?? null,
-        seriesOrder: input.seriesOrder ?? null,
-        author: { connect: { id: author.id } }, // Link updated book to existing author
-      };
+      const updateData: Prisma.BookUpdateInput = {};
 
-      if (input.seriesId !== undefined) {
-        updateData.series = input.seriesId === null 
-          ? { disconnect: true } 
-          : { connect: { id: input.seriesId } };
+      if (input.title !== undefined) updateData.title = input.title;
+      if (input.isbn13 !== undefined)
+        updateData.isbn13 = input.isbn13 || null;
+      if (input.isbn10 !== undefined)
+        updateData.isbn10 = input.isbn10 || null;
+      if (input.defaultRoyaltyRate !== undefined) {
+        updateData.authorRoyaltyRate = input.defaultRoyaltyRate / 100;
       }
+      if (input.publicationDate !== undefined)
+        updateData.publicationDate = input.publicationDate ?? null;
+      if (input.seriesId !== undefined) {
+        updateData.series =
+          input.seriesId == null
+            ? { disconnect: true }
+            : { connect: { id: input.seriesId } };
+        if (input.seriesId == null) updateData.seriesOrder = null;
+      }
+      if (input.seriesOrder !== undefined) {
+        updateData.seriesOrder = input.seriesOrder ?? null;
+      } else if (
+        input.seriesId != null &&
+        existingBook.seriesId !== input.seriesId
+      ) {
+        // Newly connecting to series without explicit order: assign next available
+        const max = await tx.book.aggregate({
+          where: { seriesId: input.seriesId },
+          _max: { seriesOrder: true },
+        });
+        updateData.seriesOrder = (max._max.seriesOrder ?? 0) + 1;
+      }
+
+      updateData.author = {
+        connect: { id: authorInTx.id },
+      };
 
       return tx.book.update({
         where: { id: input.id },
         data: updateData,
+        include: { author: true },
       });
     });
 
+    // Shift series order for remaining books when disconnecting from a series.
+    const oldSeriesId = existingBook.seriesId ?? null;
+    const newSeriesId = updatedBook.seriesId ?? null;
+    const removedOrder = existingBook.seriesOrder ?? null;
+    if (
+      oldSeriesId !== null &&
+      oldSeriesId !== newSeriesId &&
+      removedOrder !== null
+    ) {
+      await shiftSeriesOrderAfterRemoval(oldSeriesId, removedOrder);
+      await deleteSeriesIfEmpty(oldSeriesId);
+    }
+
     // Delete the old series if it now has no books (series are auto-deleted when empty).
-    const oldSeriesIdTx = existingBook.seriesId ?? null;
-    const newSeriesIdTx = updatedBook.seriesId ?? null;
-    if (oldSeriesIdTx !== null && oldSeriesIdTx !== newSeriesIdTx) {
-      await deleteSeriesIfEmpty(oldSeriesIdTx);
+    if (oldSeriesId !== null && oldSeriesId !== newSeriesId) {
+      await deleteSeriesIfEmpty(oldSeriesId);
     }
 
     return { success: true, bookId: updatedBook.id };
@@ -582,11 +626,82 @@ export async function updateBook(
   }
 }
 
+/** Shift series order down for remaining books after a book is removed. Call after disconnect or delete. */
+async function shiftSeriesOrderAfterRemoval(
+  seriesId: number,
+  removedOrder: number
+): Promise<void> {
+  const toShift = await prisma.book.findMany({
+    where: {
+      seriesId,
+      seriesOrder: { gt: removedOrder },
+    },
+    select: { id: true },
+  });
+  await prisma.$transaction(
+    toShift.map((b) =>
+      prisma.book.update({
+        where: { id: b.id },
+        data: { seriesOrder: { decrement: 1 } },
+      })
+    )
+  );
+}
+
 /** Deletes a series if it has no books left. Call after removing a book from a series (delete or update). */
 async function deleteSeriesIfEmpty(seriesId: number): Promise<void> {
   const count = await prisma.book.count({ where: { seriesId } });
   if (count === 0) {
     await prisma.series.delete({ where: { id: seriesId } });
+  }
+}
+
+/** Book in a series for the order modal */
+export interface SeriesBook {
+  id: number;
+  title: string;
+  author: string;
+  seriesOrder: number;
+}
+
+/** Get all books in a series, ordered by seriesOrder (nulls last) */
+export async function getBooksInSeries(
+  seriesId: number
+): Promise<SeriesBook[]> {
+  const books = await prisma.book.findMany({
+    where: { seriesId },
+    include: { author: true },
+    orderBy: [{ seriesOrder: "asc" }, { title: "asc" }],
+  });
+
+  return books.map((book) => ({
+    id: book.id,
+    title: book.title,
+    author: book.author.name,
+    seriesOrder: book.seriesOrder ?? 0,
+  }));
+}
+
+/** Reorder books in a series. orderedBookIds is the desired order (ids in order 1, 2, 3, ...). */
+export async function reorderSeriesBooks(
+  seriesId: number,
+  orderedBookIds: number[]
+): Promise<{ success: true } | { success: false; error: string }> {
+  try {
+    await prisma.$transaction(
+      orderedBookIds.map((bookId, index) =>
+        prisma.book.update({
+          where: { id: bookId, seriesId },
+          data: { seriesOrder: index + 1 },
+        })
+      )
+    );
+    return { success: true };
+  } catch (error: unknown) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to reorder",
+    };
   }
 }
 
@@ -603,15 +718,21 @@ export async function deleteBook(
     }
 
     const seriesIdBeforeDelete = book.seriesId ?? null;
+    const deletedSeriesOrder = book.seriesOrder ?? null;
 
     // Delete the book. Sales records are deleted automatically (FK onDelete: Cascade).
-    // Authors are unchanged (many-to-many; other books may reference them).
     await prisma.book.delete({
       where: { id },
     });
 
-    // Series are not user-editable; delete the series when it has no books left.
+    // Shift series order for remaining books in the same series
     if (seriesIdBeforeDelete !== null) {
+      if (deletedSeriesOrder !== null) {
+        await shiftSeriesOrderAfterRemoval(
+          seriesIdBeforeDelete,
+          deletedSeriesOrder
+        );
+      }
       await deleteSeriesIfEmpty(seriesIdBeforeDelete);
     }
 
