@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getAuthorBooks, getAuthorById } from "../actions";
+import { deleteAuthor, getAuthorBooks, getAuthorById } from "../actions";
 import { AuthorBooksTable } from "../components/AuthorBooksTable";
 import { Button } from "@/components/ui/button";
+import { DeleteAuthorButton } from "../components/DeleteAuthorButton";
 // import { getAuthorById } from "../action"; // Future server action
 
 export const dynamic = "force-dynamic";
@@ -98,13 +99,7 @@ export default async function AuthorDetailPage({ params }: PageProps) {
             </Link>
             
             {/* Placeholder for a Delete component */}
-            <Button 
-              
-              variant="destructive"
-              className="px-4 py-2"
-            >
-              Delete Author
-            </Button>
+            <DeleteAuthorButton authorId={authorId} authorName={author.name} bookCount={booksResponse.data?.length ?? 0} />
           </div>
         </section>
       </div>
