@@ -12,7 +12,7 @@ import asyncGetSalesData, {
   asyncAddSale,
   asyncGetSaleById,
 } from "@/lib/data/records";
-import { Prisma, Sale } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 

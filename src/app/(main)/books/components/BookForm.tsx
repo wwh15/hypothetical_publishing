@@ -2,12 +2,21 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { createBook, updateBook, fetchBookFromOpenLibrary, getAllSeries } from "../action";
+import {
+  createBook,
+  updateBook,
+  reorderSeriesBooks,
+  fetchBookFromOpenLibrary,
+  getAllSeries,
+} from "../action";
 import { BookDetail, BookListItem, SeriesListItem } from "@/lib/data/books";
 import { cn } from "@/lib/utils";
-import { Search, Loader2 } from "lucide-react";
-import { title } from "process";
+import { Search, Loader2, ListOrdered } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { SeriesSelectBox } from "@/components/SeriesSelectBox";
+import SeriesOrderModal, {
+  CURRENT_BOOK_SENTINEL,
+} from "./SeriesOrderModal";
 
 interface BookFormProps {
   bookId?: number;
@@ -39,7 +48,11 @@ export default function BookForm({
   const [series, setSeries] = useState<SeriesListItem[]>([]);
   const [isLoadingSeries, setIsLoadingSeries] = useState(true);
   const [selectedSeriesId, setSelectedSeriesId] = useState<number | null>(null);
-  const [seriesOrder, setSeriesOrder] = useState("");
+  const [seriesOrderModalOpen, setSeriesOrderModalOpen] = useState(false);
+  /** Desired order from modal when current book is unsaved (ids, with CURRENT_BOOK_SENTINEL for this book) */
+  const [seriesOrderOverride, setSeriesOrderOverride] = useState<
+    number[] | null
+  >(null);
   const [formData, setFormData] = useState({
     title: "",
     author: "",
@@ -80,11 +93,10 @@ export default function BookForm({
       // Set series information only on initial load
       if (initialData.seriesId !== null && initialData.seriesId !== undefined) {
         setSelectedSeriesId(initialData.seriesId);
-        setSeriesOrder(initialData.seriesOrder?.toString() || "");
       } else {
         setSelectedSeriesId(null);
-        setSeriesOrder("");
       }
+      setSeriesOrderOverride(null);
       
       formInitializedRef.current = true;
     }
@@ -241,24 +253,8 @@ export default function BookForm({
       return;
     }
 
-    // Validate series order if series is selected
-    if (selectedSeriesId !== null && seriesOrder && (isNaN(parseInt(seriesOrder)) || parseInt(seriesOrder) < 1)) {
-      setError("Series order must be a positive number");
-      setIsSubmitting(false);
-      return;
-    }
-
-
-    // Validate series order if series is selected
-    if (selectedSeriesId !== null && seriesOrder && (isNaN(parseInt(seriesOrder)) || parseInt(seriesOrder) < 1)) {
-      setError("Series order must be a positive number");
-      setIsSubmitting(false);
-      return;
-    }
-
-    // Handle series data
+    // Handle series data (order is auto-assigned or set via reorder modal)
     const seriesId = selectedSeriesId;
-    const seriesOrderNum = seriesOrder ? parseInt(seriesOrder) : null;
 
     const publicationDate =
       publicationYear && formData.publicationMonth
@@ -274,7 +270,7 @@ export default function BookForm({
         publicationDate,
         defaultRoyaltyRate: royaltyRate,
         seriesId: seriesId ?? null,
-        seriesOrder: seriesOrderNum,
+        seriesOrder: undefined, // Backend auto-assigns when adding to series
       };
 
       let result;
@@ -288,6 +284,27 @@ export default function BookForm({
       }
 
       if (result.success) {
+        const savedBookId = result.bookId!;
+
+        // Apply series order if user set it in the modal (with unsaved current book)
+        if (
+          seriesOrderOverride &&
+          seriesId !== null &&
+          seriesOrderOverride.some((id) => id === CURRENT_BOOK_SENTINEL)
+        ) {
+          const orderedIds = seriesOrderOverride.map((id) =>
+            id === CURRENT_BOOK_SENTINEL ? savedBookId : id
+          );
+          const reorderResult = await reorderSeriesBooks(seriesId, orderedIds);
+          if (!reorderResult.success) {
+            setError(
+              reorderResult.error ?? "Book saved but failed to apply series order"
+            );
+            setIsSubmitting(false);
+            return;
+          }
+        }
+
         let isbn13Val = isbn13 || null;
         let isbn10Val = isbn10 || null;
 
@@ -629,9 +646,7 @@ export default function BookForm({
               selectedSeriesId={selectedSeriesId}
               onSelect={(seriesId) => {
                 setSelectedSeriesId(seriesId);
-                if (!seriesId) {
-                  setSeriesOrder("");
-                }
+                setSeriesOrderOverride(null);
               }}
               onSeriesCreated={(newSeries) => {
                 // Refresh series list so the new series appears in the dropdown
@@ -644,35 +659,44 @@ export default function BookForm({
             />
           )}
 
-          {/* Series Order Input (shown when a series is selected) */}
+          {/* Series Order - drag-and-drop reorder modal */}
           {selectedSeriesId !== null && (
-            <div className="space-y-2">
-              <label
-                htmlFor="seriesOrder"
-                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-              >
-                Series Order (optional)
+            <div className="space-y-2 mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+              <label className="text-sm font-medium leading-none block mb-3">
+                Series Order
               </label>
-              <input
-                id="seriesOrder"
-                type="number"
-                value={seriesOrder}
-                onChange={(e) => setSeriesOrder(e.target.value)}
-                placeholder="e.g., 1, 2, 3..."
-                className={cn(
-                  "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background",
-                  "file:border-0 file:bg-transparent file:text-sm file:font-medium",
-                  "placeholder:text-muted-foreground",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-                  "disabled:cursor-not-allowed disabled:opacity-50",
-                  "dark:bg-gray-700",
-                )}
-                min="1"
-              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setSeriesOrderModalOpen(true)}
+                className="h-10"
+              >
+                <ListOrdered className="mr-2 h-4 w-4" />
+                Reorder books in series
+              </Button>
               <p className="text-xs text-muted-foreground">
-                The position of this book in the series (e.g., 1 for first book,
-                2 for second book, etc.)
+                Drag and drop to set the order of books in this series. New
+                books are added at the end by default.
               </p>
+              <SeriesOrderModal
+                open={seriesOrderModalOpen}
+                onOpenChange={setSeriesOrderModalOpen}
+                seriesId={selectedSeriesId}
+                seriesName={
+                  series.find((s) => s.id === selectedSeriesId)?.name ?? ""
+                }
+                currentBook={
+                  mode === "create" ||
+                  selectedSeriesId !== initialData?.seriesId
+                    ? { title: formData.title, author: formData.author }
+                    : undefined
+                }
+                onOrderChange={(ids) => {
+                  setSeriesOrderOverride(ids);
+                  setSeriesOrderModalOpen(false);
+                }}
+                onReorderComplete={() => router.refresh()}
+              />
             </div>
           )}
         </div>

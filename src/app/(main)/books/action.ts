@@ -9,11 +9,14 @@ import {
   deleteBook as deleteBookInDb,
   getAllSeries as getAllSeriesFromDb,
   createSeries as createSeriesInDb,
+  getBooksInSeries as getBooksInSeriesFromDb,
+  reorderSeriesBooks as reorderSeriesBooksInDb,
   BookListItem,
   BookDetail,
   CreateBookInput,
   UpdateBookInput,
   SeriesListItem,
+  SeriesBook,
 } from "@/lib/data/books";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -280,6 +283,28 @@ export async function updateBook(input: UpdateBookInput) {
   if (result.success) {
     revalidatePath("/books");
     revalidatePath(`/books/${result.bookId}`);
+  }
+
+  return result;
+}
+
+// Get books in a series (for reorder modal)
+export async function getBooksInSeries(
+  seriesId: number
+): Promise<SeriesBook[]> {
+  return getBooksInSeriesFromDb(seriesId);
+}
+
+// Reorder books in a series
+export async function reorderSeriesBooks(
+  seriesId: number,
+  orderedBookIds: number[]
+) {
+  const result = await reorderSeriesBooksInDb(seriesId, orderedBookIds);
+
+  if (result.success) {
+    revalidatePath("/books");
+    revalidatePath("/books/add");
   }
 
   return result;

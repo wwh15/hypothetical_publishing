@@ -1,7 +1,5 @@
 import { getAuthorsData } from "@/lib/data/author";
 import AuthorsTable from "@/app/(main)/authors/components/AuthorsTable";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
 
 /**
  * Ensure the page is dynamic to reflect the latest denormalized

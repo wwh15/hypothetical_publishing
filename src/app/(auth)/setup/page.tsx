@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { setupAdminUser} from "@/lib/supabase/auth";
-import Link from "next/link";
 import { useRouter }  from "next/navigation";
 
 

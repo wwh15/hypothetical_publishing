@@ -1,10 +1,8 @@
 "use client";
 
 import React from "react";
-import { CalendarIcon, ChevronLeft, ChevronRight, AlertCircle, ChevronsRight, ChevronsLeft } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { cn } from "@/lib/utils";
 import MonthYearSelector from "./MonthYearSelector";
 
 interface MonthYearFilterProps {

@@ -121,7 +121,7 @@ export default function EditForm({ sale, books }: EditFormProps) {
       } else {
         alert(result.error);
       }
-    } catch (err) {
+    } catch {
       alert("An unexpected network error occurred.");
     } finally {
       setLoading(false);
