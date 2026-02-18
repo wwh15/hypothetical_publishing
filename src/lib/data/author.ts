@@ -1,4 +1,4 @@
-import { Prisma } from "@prisma/client";
+import { Author, Prisma } from "@prisma/client";
 import { prisma } from "../prisma";
 import { Decimal } from "decimal.js";
 import { validateEmail, validateName } from "../validation";
@@ -46,6 +46,10 @@ interface CreateAuthorResponse {
     | undefined;
   error: string;
 }
+
+export type GetAuthorByIdResponse =
+  | { success: true; data: Author | null; error: null }
+  | { success: false; data: null; error: string };
 
 // 1. Define the SQL Column Map
 // We use the actual DB column names (snake_case) defined in your @map attributes
@@ -159,8 +163,29 @@ export async function getAuthorsData({
   };
 }
 
-export async function asyncAddAuthor(data: Prisma.AuthorUncheckedCreateInput): Promise<CreateAuthorResponse> {
-  
+export async function getAuthorById(
+  id: number
+): Promise<GetAuthorByIdResponse> {
+  try {
+    const author = await prisma.author.findUnique({
+      where: { id: id },
+    });
+
+    // If author is null, it's still a "successful" DB query, just no result
+    return { success: true, data: author, error: null };
+  } catch (err) {
+    // If it hits the catch block, a real DB error happened
+    return {
+      success: false,
+      data: null,
+      error: err instanceof Error ? err.message : "Failed to fetch author",
+    };
+  }
+}
+
+export async function asyncAddAuthor(
+  data: Prisma.AuthorUncheckedCreateInput
+): Promise<CreateAuthorResponse> {
   // Validate email
   const validatedEmail = validateEmail(data.email);
   if (!validatedEmail.success) {
