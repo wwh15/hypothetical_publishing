@@ -508,96 +508,45 @@ export async function updateBook(
       where: { email: authorEmail },
     });
 
-        if (input.title !== undefined) updateData.title = input.title;
-        if (input.isbn13 !== undefined)
-          updateData.isbn13 = input.isbn13 || null;
-        if (input.isbn10 !== undefined)
-          updateData.isbn10 = input.isbn10 || null;
-        if (input.defaultRoyaltyRate !== undefined) {
-          updateData.authorRoyaltyRate = input.defaultRoyaltyRate / 100;
-        }
-        if (input.publicationDate !== undefined)
-          updateData.publicationDate = input.publicationDate ?? null;
-        if (input.seriesId !== undefined) {
-          updateData.series =
-            input.seriesId == null
-              ? { disconnect: true }
-              : { connect: { id: input.seriesId } };
-          if (input.seriesId == null) updateData.seriesOrder = null;
-        }
-        if (input.seriesOrder !== undefined) {
-          updateData.seriesOrder = input.seriesOrder ?? null;
-        } else if (
-          input.seriesId != null &&
-          existingBook.seriesId !== input.seriesId
-        ) {
-          // Newly connecting to series without explicit order: assign next available
-          const max = await tx.book.aggregate({
-            where: { seriesId: input.seriesId },
-            _max: { seriesOrder: true },
-          });
-          updateData.seriesOrder = (max._max.seriesOrder ?? 0) + 1;
-        }
-
-        if (authorIdToConnect) {
-          updateData.author = {
-            connect: { id: authorIdToConnect },
-          };
-        }
     if (!author) {
       return {
         success: false,
-        error: `"No author found with email ${authorEmail}. Please verify the address or create a new author record before assigning this book.`,
+        error: `No author found with email ${authorEmail}. Please verify the address or create a new author record before assigning this book.`,
       };
     }
 
     // Update the book
     const updatedBook = await prisma.$transaction(async (tx) => {
-      
       // Find the author within the transaction
-      const author = await tx.author.findUnique({
+      const authorInTx = await tx.author.findUnique({
         where: { email: authorEmail },
       });
 
-      // Shift series order for remaining books when disconnecting from a series.
-      const oldSeriesIdTx = existingBook.seriesId ?? null;
-      const newSeriesIdTx = updatedBook.seriesId ?? null;
-      const removedOrderTx = existingBook.seriesOrder ?? null;
-      if (
-        oldSeriesIdTx !== null &&
-        oldSeriesIdTx !== newSeriesIdTx &&
-        removedOrderTx !== null
-      ) {
-        await shiftSeriesOrderAfterRemoval(oldSeriesIdTx, removedOrderTx);
-        await deleteSeriesIfEmpty(oldSeriesIdTx);
-      // Check if author exists to guard against database race condition 
-      if (!author) {
-        throw new Error(`No author found with email ${authorEmail}. Please verify the address or create a new author record.`);
+      // Check if author exists to guard against database race condition
+      if (!authorInTx) {
+        throw new Error(
+          `No author found with email ${authorEmail}. Please verify the address or create a new author record.`,
+        );
       }
 
       // Update the author name if the name has changed
-      if (input.author && input.author !== author.name) {
+      if (input.author && input.author !== authorInTx.name) {
         await tx.author.update({
-          where: { id: author.id },
+          where: { id: authorInTx.id },
           data: { name: input.author },
         });
       }
 
       // Prepare data
-      const updateData: Prisma.BookUpdateInput = {
-        title: input.title,
-        isbn13: input.isbn13 || null,
-        isbn10: input.isbn10 || null,
-        authorRoyaltyRate: input.defaultRoyaltyRate ? input.defaultRoyaltyRate / 100 : undefined,
-        publicationDate: input.publicationDate ?? null,
-        seriesOrder: input.seriesOrder ?? null,
-        author: { connect: { id: author.id } }, // Link updated book to existing author
-      };
+      const updateData: Prisma.BookUpdateInput = {};
 
-      if (input.seriesId !== undefined) {
-        updateData.series = input.seriesId === null 
-          ? { disconnect: true } 
-          : { connect: { id: input.seriesId } };
+      if (input.title !== undefined) updateData.title = input.title;
+      if (input.isbn13 !== undefined)
+        updateData.isbn13 = input.isbn13 || null;
+      if (input.isbn10 !== undefined)
+        updateData.isbn10 = input.isbn10 || null;
+      if (input.defaultRoyaltyRate !== undefined) {
+        updateData.authorRoyaltyRate = input.defaultRoyaltyRate / 100;
       }
       if (input.publicationDate !== undefined)
         updateData.publicationDate = input.publicationDate ?? null;
@@ -614,40 +563,41 @@ export async function updateBook(
         input.seriesId != null &&
         existingBook.seriesId !== input.seriesId
       ) {
-        const max = await prisma.book.aggregate({
+        // Newly connecting to series without explicit order: assign next available
+        const max = await tx.book.aggregate({
           where: { seriesId: input.seriesId },
           _max: { seriesOrder: true },
         });
         updateData.seriesOrder = (max._max.seriesOrder ?? 0) + 1;
       }
 
-      const updatedBook = await prisma.book.update({
+      updateData.author = {
+        connect: { id: authorInTx.id },
+      };
 
       return tx.book.update({
         where: { id: input.id },
         data: updateData,
+        include: { author: true },
       });
     });
 
-      // Shift series order for remaining books when disconnecting from a series.
-      const oldSeriesId = existingBook.seriesId ?? null;
-      const newSeriesId = updatedBook.seriesId ?? null;
-      const removedOrder = existingBook.seriesOrder ?? null;
-      if (
-        oldSeriesId !== null &&
-        oldSeriesId !== newSeriesId &&
-        removedOrder !== null
-      ) {
-        await shiftSeriesOrderAfterRemoval(oldSeriesId, removedOrder);
-        await deleteSeriesIfEmpty(oldSeriesId);
-      }
+    // Shift series order for remaining books when disconnecting from a series.
+    const oldSeriesId = existingBook.seriesId ?? null;
+    const newSeriesId = updatedBook.seriesId ?? null;
+    const removedOrder = existingBook.seriesOrder ?? null;
+    if (
+      oldSeriesId !== null &&
+      oldSeriesId !== newSeriesId &&
+      removedOrder !== null
+    ) {
+      await shiftSeriesOrderAfterRemoval(oldSeriesId, removedOrder);
+      await deleteSeriesIfEmpty(oldSeriesId);
+    }
 
-      return { success: true, bookId: updatedBook.id };
     // Delete the old series if it now has no books (series are auto-deleted when empty).
-    const oldSeriesIdTx = existingBook.seriesId ?? null;
-    const newSeriesIdTx = updatedBook.seriesId ?? null;
-    if (oldSeriesIdTx !== null && oldSeriesIdTx !== newSeriesIdTx) {
-      await deleteSeriesIfEmpty(oldSeriesIdTx);
+    if (oldSeriesId !== null && oldSeriesId !== newSeriesId) {
+      await deleteSeriesIfEmpty(oldSeriesId);
     }
 
     return { success: true, bookId: updatedBook.id };
