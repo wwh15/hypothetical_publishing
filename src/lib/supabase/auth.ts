@@ -17,8 +17,8 @@ export async function setupAdminUser(formData: FormData) {
   return { error: "Setup has already been completed"};
  }
 
- const { error } = await supabaseAdmin.auth.admin.createUser({
-  email: formData.get("email") as string,
+ const { data, error } = await supabaseAdmin.auth.admin.createUser({
+  email,
   password: formData.get("password") as string,
   email_confirm: true ,
   user_metadata: { username },
