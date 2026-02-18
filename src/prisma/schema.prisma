@@ -23,8 +23,8 @@ model User {
 
 model Author {
   id        Int      @id @default(autoincrement())
-  name      String   @unique
-  email     String?  @unique // Optional: for payment notifications
+  name      String   
+  email     String   @unique
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
   
