@@ -17,6 +17,8 @@ export async function setupAdminUser(formData: FormData) {
   return { error: "Setup has already been completed"};
  }
 
+ const username = formData.get("username") as string;
+ const email = `${username}@hypothetical-publishing.local`;
  const { data, error } = await supabaseAdmin.auth.admin.createUser({
   email,
   password: formData.get("password") as string,
