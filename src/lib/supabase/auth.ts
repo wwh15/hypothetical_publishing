@@ -56,7 +56,7 @@ export async function signIn(formData: FormData) {
 
 export async function signOut() {
   const supabase = await createClient();
-  await supabase.auth.signOut();
+  await supabase.auth.signOut({ scope: 'local' });
   revalidatePath("/", "layout");
   redirect("/login");
 }
@@ -84,7 +84,7 @@ export async function updatePassword(formData: FormData) {
   const { error } = await supabase.auth.updateUser({ password });
   if (error) return { error: error.message };
 
-  await supabase.auth.signOut();
+  await supabase.auth.signOut({ scope: 'global' });
   revalidatePath("/", "layout");
   return { success: true };
 }
