@@ -4,7 +4,7 @@ import { useState } from "react";
 import { updatePassword } from "@/lib/supabase/auth";
 import { useRouter } from "next/navigation";
 
-export default function ResetPasswordPage() {
+export default function ChangePasswordPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -41,7 +41,7 @@ export default function ResetPasswordPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
       <div className="bg-white dark:bg-gray-800 rounded-lg border p-8 w-full max-w-md">
-        <h1 className="text-2xl font-bold mb-6 text-center">Reset Password</h1>
+        <h1 className="text-2xl font-bold mb-6 text-center">Change Password</h1>
 
         {error && (
           <p className="mb-4 p-3 bg-red-100 text-red-800 rounded-md text-sm">

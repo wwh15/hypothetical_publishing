@@ -43,11 +43,11 @@ export default async function Navbar() {
               </nav>
               <div className="group relative pb-1">
                 <span className="text-sm text-gray-600 dark:text-gray-400 cursor-pointer">
-                  {user.email}
+                  {user.user_metadata?.username ?? user.email}
                 </span>
                 <div className="absolute right-0 top-full hidden group-hover:block bg-white dark:bg-gray-800 border rounded-md shadow-md py-1 z-10 whitespace-nowrap">
                   <Link
-                    href="/reset-password"
+                    href="/change-password"
                     className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                   >
                     Change Password
