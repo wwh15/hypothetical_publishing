@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "../prisma";
 import { Decimal } from "decimal.js";
+import { validateEmail, validateName } from "../validation";
 
 export interface AuthorListItem {
   id: number;
@@ -25,6 +26,25 @@ export interface GetAuthorsDataResult {
   total: number;
   page: number;
   pageSize: number;
+}
+
+export interface CreateAuthorRequest {
+  name: string;
+  email: string;
+}
+
+interface CreateAuthorResponse {
+  success: boolean;
+  data:
+    | {
+        name: string;
+        id: number;
+        email: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+      }
+    | undefined;
+  error: string;
 }
 
 // 1. Define the SQL Column Map
@@ -137,4 +157,42 @@ export async function getAuthorsData({
     page: currentPage,
     pageSize: limit,
   };
+}
+
+export async function asyncAddAuthor(data: Prisma.AuthorUncheckedCreateInput): Promise<CreateAuthorResponse> {
+  
+  // Validate email
+  const validatedEmail = validateEmail(data.email);
+  if (!validatedEmail.success) {
+    return { success: validatedEmail.success, error: validatedEmail.error, data: undefined };
+  }
+
+  // Validate name
+  const validatedName = validateName(data.name);
+  if (!validatedName.success) {
+    return { success: validatedName.success, error: validatedName.error, data: undefined}
+  }
+
+  // Check if the author exists by email
+  const existingAuthor = await prisma.author.findUnique({
+    where: {
+      email: data.email,
+    },
+  });
+
+  // If they exist, return an error message
+  if (existingAuthor) {
+    return {
+      success: false,
+      error: "An author with this email already exists.",
+      data: undefined,
+    };
+  }
+
+  try {
+    const newAuthor = await prisma.author.create({ data });
+    return { success: true, data: newAuthor, error: "No error" };
+  } catch (err) {
+    return { success: false, data: undefined, error: "Failed to create author in database." };
+  }
 }
