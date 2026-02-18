@@ -72,10 +72,10 @@ export default function AuthorForm() {
       if (!result.success) {
         const newErrors: Record<string, string> = {};
 
-        if (result.error.toLowerCase().includes("email")) {
+        if (result.error && result.error.toLowerCase().includes("email")) {
           newErrors.email = result.error;
         } else {
-          newErrors.global = result.error;
+          newErrors.global = result.error || "A system error occurred. Please try again.";
         }
 
         setErrors(newErrors);
