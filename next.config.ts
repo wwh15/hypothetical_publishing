@@ -1,5 +1,4 @@
 import type { NextConfig } from "next";
-import { redirect } from "next/dist/server/api-utils";
 module.exports = {
   async redirects() {
     return [

@@ -9,15 +9,6 @@ import { useSalesForm } from "../hooks/useSalesForm";
 import { BookSelectBox } from "@/components/BookSelectBox";
 import { BookListItem } from "@/lib/data/books";
 
-interface Book {
-  id: number;
-  title: string;
-  author: { name: string };
-  authorRoyaltyRate: number;
-  isbn13?: string | null;
-  isbn10?: string | null;
-}
-
 interface InputRecordFormProps {
   onAddRecord: (record: PendingSaleItem) => void;
   booksData: BookListItem[];

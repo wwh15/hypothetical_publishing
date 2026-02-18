@@ -192,7 +192,7 @@ export async function asyncAddAuthor(data: Prisma.AuthorUncheckedCreateInput): P
   try {
     const newAuthor = await prisma.author.create({ data });
     return { success: true, data: newAuthor, error: "No error" };
-  } catch (err) {
+  } catch {
     return { success: false, data: undefined, error: "Failed to create author in database." };
   }
 }

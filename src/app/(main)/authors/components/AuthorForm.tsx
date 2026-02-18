@@ -85,7 +85,7 @@ export default function AuthorForm() {
 
       // Data succesfully submitted
       router.push("/authors");
-    } catch (err) {
+    } catch {
       setErrors({ global: "An unexpected network error occurred." });
       setIsSubmitting(false);
     }
