@@ -23,6 +23,8 @@ export interface BookListItem {
   publicationSortKey: string;
   defaultRoyaltyRate: number; // As percentage (e.g., 50 for 50%)
   totalSales: number; // Total sales to date
+  seriesName: string | null;
+  seriesOrder: number | null;
 }
 
 // Series type for UI
@@ -179,7 +181,7 @@ export async function createSeries(
 // Get all books (for client-side pagination/sorting)
 export async function getAllBooks(): Promise<BookListItem[]> {
   const books = await prisma.book.findMany({
-    include: { author: true, sales: true },
+    include: { author: true, sales: true, series: true },
     orderBy: { title: "asc" },
   });
 
@@ -197,6 +199,8 @@ export async function getAllBooks(): Promise<BookListItem[]> {
       publicationSortKey,
       defaultRoyaltyRate,
       totalSales,
+      seriesName: book.series?.name ?? null,
+      seriesOrder: book.seriesOrder ?? null,
     };
   });
 }
@@ -291,7 +295,7 @@ export async function getBooksData({
   const [books, total] = await Promise.all([
     prisma.book.findMany({
       where,
-      include: { author: true, sales: true },
+      include: { author: true, sales: true, series: true },
       orderBy,
       skip: (currentPage - 1) * limit,
       take: limit,
@@ -313,6 +317,8 @@ export async function getBooksData({
       publicationSortKey,
       defaultRoyaltyRate,
       totalSales,
+      seriesName: book.series?.name ?? null,
+      seriesOrder: book.seriesOrder ?? null,
     };
   });
 

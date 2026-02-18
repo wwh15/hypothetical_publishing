@@ -58,6 +58,22 @@ export default function BooksTable({
       sortable: true,
     },
     {
+      key: "series",
+      header: "Series",
+      accessor: "seriesName",
+      sortable: false,
+      render: (row) => {
+        if (!row.seriesName) {
+          return <span>-</span>;
+        }
+        const label =
+          row.seriesOrder != null
+            ? `${row.seriesName} #${row.seriesOrder}`
+            : row.seriesName;
+        return <span>{label}</span>;
+      },
+    },
+    {
       key: "isbn13",
       header: "ISBN-13",
       accessor: "isbn13",
