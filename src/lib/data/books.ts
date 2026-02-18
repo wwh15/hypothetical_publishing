@@ -71,6 +71,7 @@ export interface BookDetail {
   totalAuthorRoyalty: number;
   seriesId: number | null;
   seriesOrder: number | null;
+  seriesName: string | null;
   sales?: import("./records").SaleListItem[]; // Sales records for this book
 }
 
@@ -327,7 +328,7 @@ export async function getBooksData({
 export async function getBookById(id: number): Promise<BookDetail | null> {
   const book = await prisma.book.findUnique({
     where: { id },
-    include: { author: true },
+    include: { author: true, series: true },
   });
 
   if (!book) {
@@ -377,6 +378,7 @@ export async function getBookById(id: number): Promise<BookDetail | null> {
     totalAuthorRoyalty,
     seriesId: book.seriesId,
     seriesOrder: book.seriesOrder,
+    seriesName: book.series?.name ?? null,
     // Sales list is loaded separately via getSalesByBookId (paginated)
     sales: undefined,
   };
