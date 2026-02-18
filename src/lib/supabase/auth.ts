@@ -19,13 +19,8 @@ export async function setupAdminUser(formData: FormData) {
 
  const username = formData.get("username") as string;
  const email = `${username}@hypothetical-publishing.local`;
-
  const { data, error } = await supabaseAdmin.auth.admin.createUser({
   email,
-
- const { error } = await supabaseAdmin.auth.admin.createUser({
-  email: formData.get("email") as string,
-
   password: formData.get("password") as string,
   email_confirm: true ,
   user_metadata: { username },
@@ -60,7 +55,7 @@ export async function signIn(formData: FormData) {
 
 export async function signOut() {
   const supabase = await createClient();
-  await supabase.auth.signOut();
+  await supabase.auth.signOut({ scope: 'local' });
   revalidatePath("/", "layout");
   redirect("/login");
 }
@@ -88,7 +83,7 @@ export async function updatePassword(formData: FormData) {
   const { error } = await supabase.auth.updateUser({ password });
   if (error) return { error: error.message };
 
-  await supabase.auth.signOut();
+  await supabase.auth.signOut({ scope: 'global' });
   revalidatePath("/", "layout");
   return { success: true };
 }
