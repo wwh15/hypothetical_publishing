@@ -56,6 +56,7 @@ export default function BookForm({
   const [formData, setFormData] = useState({
     title: "",
     author: "",
+    email: "",
     isbn13: "",
     isbn10: "",
     publicationMonth: "",
@@ -83,6 +84,7 @@ export default function BookForm({
       setFormData({
         title: initialData.title,
         author: initialData.author,
+        email: initialData.email,
         isbn13: initialData.isbn13 || "",
         isbn10: initialData.isbn10 || "",
         publicationMonth: month,
@@ -153,7 +155,7 @@ export default function BookForm({
           publicationMonth?: string;
           publicationYear?: number;
         };
-        setFormData({
+        setFormData({...formData,
           title: result.data.title || "",
           author: result.data.author || "",
           isbn13: result.data.isbn13 || "",
@@ -191,7 +193,13 @@ export default function BookForm({
     }
 
     if (!formData.author.trim()) {
-      setError("At least one author is required");
+      setError("Author name is required");
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (!formData.email.trim()) {
+      setError("Author email is requied")
       setIsSubmitting(false);
       return;
     }
@@ -265,6 +273,7 @@ export default function BookForm({
       const bookData = {
         title: formData.title.trim(),
         author: formData.author.trim(),
+        email: formData.email.trim(),
         isbn13: isbn13 || undefined,
         isbn10: isbn10 || undefined,
         publicationDate,
@@ -475,6 +484,32 @@ export default function BookForm({
               "dark:bg-gray-700",
             )}
             placeholder="Enter author name"
+            required
+          />
+        </div>
+
+        {/* Author Email */}
+        <div className="md:col-span-2 space-y-2">
+          <label
+            htmlFor="email"
+            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+          >
+            Email <span className="text-red-500">*</span>
+          </label>
+          <input
+            id="email"
+            type="text"
+            value={formData.email}
+            onChange={(e) => handleInputChange("email", e.target.value)}
+            className={cn(
+              "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background",
+              "file:border-0 file:bg-transparent file:text-sm file:font-medium",
+              "placeholder:text-muted-foreground",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+              "disabled:cursor-not-allowed disabled:opacity-50",
+              "dark:bg-gray-700",
+            )}
+            placeholder="Enter author email"
             required
           />
         </div>

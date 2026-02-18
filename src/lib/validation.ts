@@ -3,6 +3,34 @@ export type ValidationResult<T> =
   | { success: false; error: string };
 
 /**
+ * String & Identity Validation
+ */
+
+export const validateName = (name: string): ValidationResult<string> => {
+  const trimmed = name.trim();
+  if (!trimmed) {
+    return { success: false, error: "Name of author is required" };
+  }
+  if (trimmed.length > 50) {
+    return { success: false, error: "Name is too long (max 50 characters)" };
+  }
+  return { success: true, data: trimmed };
+};
+
+export const validateEmail = (email: string): ValidationResult<string> => {
+  const trimmed = email.trim();
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  
+  if (!trimmed) {
+    return { success: false, error: "Email address is required" };
+  }
+  if (!emailRegex.test(trimmed)) {
+    return { success: false, error: "Please enter a valid email address" };
+  }
+  return { success: true, data: trimmed };
+};
+
+/**
  * Currency & Numeric Validation
  */
 

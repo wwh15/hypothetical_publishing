@@ -35,7 +35,8 @@ export interface SeriesListItem {
 // Form input DTOs (use these for create/update forms)
 export interface CreateBookInput {
   title: string;
-  author: string; // later: could be string[] when authors becomes a relation
+  author: string; // name of author
+  email: string; // email of author
   isbn13?: string;
   isbn10?: string;
   /** First day of publication month (e.g. new Date(2024, 0, 1) for Jan 2024) */
@@ -48,6 +49,7 @@ export interface CreateBookInput {
 
 export interface UpdateBookInput extends Partial<CreateBookInput> {
   id: number;
+  email: string;
   /** Set to null to remove book from series. */
   seriesId?: number | null;
   seriesOrder?: number | null;
@@ -57,6 +59,7 @@ export interface BookDetail {
   id: number;
   title: string;
   author: string;
+  email: string;
   isbn13: string | null;
   isbn10: string | null;
   /** First day of publication month; null if unknown */
@@ -364,6 +367,7 @@ export async function getBookById(id: number): Promise<BookDetail | null> {
     id: book.id,
     title: book.title,
     author: book.author.name,
+    email: book.author.email,
     isbn13: book.isbn13,
     isbn10: book.isbn10,
     publicationDate: book.publicationDate,
@@ -411,7 +415,7 @@ export async function createBook(
       // 1. Find or create the single author
       let author = await tx.author.findUnique({
         where: {
-          name: input.author, // Ensure this matches the field in your input
+          email: input.author, // Ensure this matches the field in your input
         },
       });
 
@@ -420,6 +424,7 @@ export async function createBook(
         author = await tx.author.create({
           data: {
             name: input.author,
+            email: input.email,
           },
         });
       }
@@ -496,28 +501,12 @@ export async function updateBook(
       return { success: false, error: "Book not found" };
     }
 
-    // Capture author name as a constant
-    const authorName = input.author;
+    // Check if author exists
+    const authorEmail = input.email;
 
-    // Parse authors if provided (comma-separated string)
-    if (authorName) {
-      // Wrap author lookup/creation and book update in a transaction
-      const updatedBook = await prisma.$transaction(async (tx) => {
-        let authorIdToConnect: number | undefined;
-
-        // Logic: If author name provided, find or create it and get the ID
-        if (authorName) {
-          let author = await tx.author.findUnique({
-            where: { name: authorName },
-          });
-          if (!author) {
-            author = await tx.author.create({ data: { name: authorName } });
-          }
-          authorIdToConnect = author.id;
-        }
-
-        // Update the book
-        const updateData: Prisma.BookUpdateInput = {};
+    const author = await prisma.author.findUnique({
+      where: { email: authorEmail },
+    });
 
         if (input.title !== undefined) updateData.title = input.title;
         if (input.isbn13 !== undefined)
@@ -555,12 +544,19 @@ export async function updateBook(
             connect: { id: authorIdToConnect },
           };
         }
+    if (!author) {
+      return {
+        success: false,
+        error: `"No author found with email ${authorEmail}. Please verify the address or create a new author record before assigning this book.`,
+      };
+    }
 
-        return tx.book.update({
-          where: { id: input.id },
-          data: updateData,
-          include: { author: true },
-        });
+    // Update the book
+    const updatedBook = await prisma.$transaction(async (tx) => {
+      
+      // Find the author within the transaction
+      const author = await tx.author.findUnique({
+        where: { email: authorEmail },
       });
 
       // Shift series order for remaining books when disconnecting from a series.
@@ -574,18 +570,34 @@ export async function updateBook(
       ) {
         await shiftSeriesOrderAfterRemoval(oldSeriesIdTx, removedOrderTx);
         await deleteSeriesIfEmpty(oldSeriesIdTx);
+      // Check if author exists to guard against database race condition 
+      if (!author) {
+        throw new Error(`No author found with email ${authorEmail}. Please verify the address or create a new author record.`);
       }
 
-      return { success: true, bookId: updatedBook.id };
-    } else {
-      // No author changes, just update other fields
-      const updateData: Prisma.BookUpdateInput = {};
+      // Update the author name if the name has changed
+      if (input.author && input.author !== author.name) {
+        await tx.author.update({
+          where: { id: author.id },
+          data: { name: input.author },
+        });
+      }
 
-      if (input.title !== undefined) updateData.title = input.title;
-      if (input.isbn13 !== undefined) updateData.isbn13 = input.isbn13 || null;
-      if (input.isbn10 !== undefined) updateData.isbn10 = input.isbn10 || null;
-      if (input.defaultRoyaltyRate !== undefined) {
-        updateData.authorRoyaltyRate = input.defaultRoyaltyRate / 100;
+      // Prepare data
+      const updateData: Prisma.BookUpdateInput = {
+        title: input.title,
+        isbn13: input.isbn13 || null,
+        isbn10: input.isbn10 || null,
+        authorRoyaltyRate: input.defaultRoyaltyRate ? input.defaultRoyaltyRate / 100 : undefined,
+        publicationDate: input.publicationDate ?? null,
+        seriesOrder: input.seriesOrder ?? null,
+        author: { connect: { id: author.id } }, // Link updated book to existing author
+      };
+
+      if (input.seriesId !== undefined) {
+        updateData.series = input.seriesId === null 
+          ? { disconnect: true } 
+          : { connect: { id: input.seriesId } };
       }
       if (input.publicationDate !== undefined)
         updateData.publicationDate = input.publicationDate ?? null;
@@ -610,10 +622,12 @@ export async function updateBook(
       }
 
       const updatedBook = await prisma.book.update({
+
+      return tx.book.update({
         where: { id: input.id },
         data: updateData,
-        include: { author: true },
       });
+    });
 
       // Shift series order for remaining books when disconnecting from a series.
       const oldSeriesId = existingBook.seriesId ?? null;
@@ -629,7 +643,14 @@ export async function updateBook(
       }
 
       return { success: true, bookId: updatedBook.id };
+    // Delete the old series if it now has no books (series are auto-deleted when empty).
+    const oldSeriesIdTx = existingBook.seriesId ?? null;
+    const newSeriesIdTx = updatedBook.seriesId ?? null;
+    if (oldSeriesIdTx !== null && oldSeriesIdTx !== newSeriesIdTx) {
+      await deleteSeriesIfEmpty(oldSeriesIdTx);
     }
+
+    return { success: true, bookId: updatedBook.id };
   } catch (error: unknown) {
     // Handle unique constraint violations (ISBN duplicates)
     if (
