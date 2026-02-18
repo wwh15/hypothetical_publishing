@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { signIn } from "@/lib/supabase/auth";
-import Link from "next/link";
 
 export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
@@ -34,19 +33,19 @@ export default function LoginPage() {
 
         <form action={handleSubmit}>
           <div className="mb-4">
-            <label htmlFor="email" className="block text-sm font-medium mb-2">
-              Email
+            <label htmlFor="username" className="block text-sm font-medium mb-2">
+              Username
             </label>
             <input
-              type="email"
-              id="email"
-              name="email"
+              type="text"
+              id="username"
+              name="username"
               required
               className="w-full px-3 py-2 border rounded-md"
             />
           </div>
 
-          <div className="mb-4">
+          <div className="mb-6">
             <label htmlFor="password" className="block text-sm font-medium mb-2">
               Password
             </label>
@@ -57,12 +56,6 @@ export default function LoginPage() {
               required
               className="w-full px-3 py-2 border rounded-md"
             />
-          </div>
-
-          <div className="mb-6 text-right">
-            <Link href="/forgot-password" className="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400">
-              Forgot Password?
-            </Link>
           </div>
 
           <button
