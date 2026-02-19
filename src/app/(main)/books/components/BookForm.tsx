@@ -325,7 +325,9 @@ export default function BookForm({
 
         if (inModal && onModalSuccess) {
           const sortKey = publicationDate
-            ? `${publicationDate.getFullYear()}-${String(publicationDate.getMonth() + 1).padStart(2, "0")}`
+            ? `${publicationDate.getFullYear()}-${String(
+                publicationDate.getMonth() + 1,
+              ).padStart(2, "0")}`
             : "9999-99";
           const book: BookListItem = {
             id: result.bookId!,
@@ -337,6 +339,8 @@ export default function BookForm({
             publicationSortKey: sortKey,
             defaultRoyaltyRate: royaltyRate ?? 50,
             totalSales: 0,
+            seriesName: null,
+            seriesOrder: null,
           };
 
           onBookCreated?.(book);

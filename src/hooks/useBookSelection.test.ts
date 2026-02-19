@@ -14,6 +14,8 @@ const mockBooks: BookListItem[] = [
     publicationSortKey: "9999-99",
     defaultRoyaltyRate: 10,
     totalSales: 0,
+    seriesName: null,
+    seriesOrder: null,
   },
   {
     id: 2,
@@ -25,6 +27,8 @@ const mockBooks: BookListItem[] = [
     publicationSortKey: "9999-99",
     defaultRoyaltyRate: 15,
     totalSales: 0,
+    seriesName: null,
+    seriesOrder: null,
   },
 ];
 
