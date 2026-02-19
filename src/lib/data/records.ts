@@ -113,6 +113,7 @@ export interface GetSalesDataParams {
   sortDir?: "asc" | "desc";
   dateFrom?: string; // MM-YYYY
   dateTo?: string; // MM-YYYY
+  source?: "DISTRIBUTOR" | "HAND_SOLD";
 }
 
 export interface GetSalesDataResult {
@@ -131,11 +132,17 @@ export async function getSalesData({
   sortDir = "desc",
   dateFrom,
   dateTo,
+  source,
 }: GetSalesDataParams): Promise<GetSalesDataResult> {
   const currentPage = Math.max(1, page);
   const limit = Math.max(1, Math.min(pageSize, 100));
 
   const where: Prisma.SaleWhereInput = {};
+
+  // Source filter
+  if (source) {
+    where.source = source;
+  }
 
   // 1. Build Filter Logic
   const trimmedSearch = search?.trim();

@@ -9,7 +9,6 @@ interface FormData {
   quantity: string;
   publisherRevenue: string;
   authorRoyalty: string;
-  royaltyOverridden: boolean;
   source: "DISTRIBUTOR" | "HAND_SOLD";
 }
 
@@ -42,7 +41,6 @@ export function useSalesForm(
     quantity: "",
     publisherRevenue: "",
     authorRoyalty: "",
-    royaltyOverridden: false,
     source: "DISTRIBUTOR",
   });
 
@@ -51,9 +49,6 @@ export function useSalesForm(
       const next = {
         ...prev,
         [field]: value,
-        ...(field === "publisherRevenue" || field === "bookId" || field === "source" || field === "quantity"
-          ? { royaltyOverridden: false }
-          : {}),
       } as FormData;
 
       const book = books.find((b) => b.id === parseInt(next.bookId));
@@ -78,46 +73,6 @@ export function useSalesForm(
       }
       return next;
     });
-  };
-
-  const handleRoyaltyChange = (value: string) => {
-    setFormData((prev) => {
-      const book = books.find((b) => b.id === parseInt(prev.bookId));
-      const rate = book ? getRateForSource(book, prev.source) : 0;
-      const calculatedValue =
-        book && prev.publisherRevenue
-          ? ((parseFloat(prev.publisherRevenue) * rate) / 100).toFixed(2)
-          : "";
-
-      const trimmed = value.trim();
-      if (trimmed === "" && calculatedValue !== "") {
-        return {
-          ...prev,
-          authorRoyalty: calculatedValue,
-          royaltyOverridden: false,
-        };
-      }
-
-      return {
-        ...prev,
-        authorRoyalty: value,
-        royaltyOverridden: value !== "" && value !== calculatedValue,
-      };
-    });
-  };
-
-  const revertRoyalty = () => {
-    const book = books.find((b) => b.id === parseInt(formData.bookId));
-    if (book && formData.publisherRevenue) {
-      const rate = getRateForSource(book, formData.source);
-      const calculated =
-        (parseFloat(formData.publisherRevenue) * rate) / 100;
-      setFormData((prev) => ({
-        ...prev,
-        authorRoyalty: calculated.toFixed(2),
-        royaltyOverridden: false,
-      }));
-    }
   };
 
   const SALES_YEAR_MIN = 2000;
@@ -160,7 +115,7 @@ export function useSalesForm(
       quantity: parseInt(formData.quantity),
       publisherRevenue: parseFloat(formData.publisherRevenue),
       authorRoyalty: parseFloat(formData.authorRoyalty),
-      royaltyOverridden: formData.royaltyOverridden,
+      royaltyOverridden: false,
       paid: false,
       source: formData.source,
     };
@@ -175,7 +130,6 @@ export function useSalesForm(
       quantity: "",
       publisherRevenue: "",
       authorRoyalty: "",
-      royaltyOverridden: false,
       source: prev.source,
     }));
   };
@@ -183,8 +137,6 @@ export function useSalesForm(
   return {
     formData,
     handleInputChange,
-    handleRoyaltyChange,
     handleSubmit,
-    revertRoyalty,
   };
 }

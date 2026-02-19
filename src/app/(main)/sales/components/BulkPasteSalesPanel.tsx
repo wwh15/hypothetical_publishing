@@ -86,22 +86,14 @@ useBulkPastePreview();
       const rate = book
         ? (row.source === "HAND_SOLD" ? book.handSoldRoyaltyRate : book.distRoyaltyRate)
         : 0;
-      const computedRoyalty = book
+      const finalRoyalty = book
         ? (row.revenue * rate) / 100
         : undefined;
-      const providedRoyalty = row.authorRoyalty;
-      const finalRoyalty = providedRoyalty ?? computedRoyalty;
-      const isOverridden =
-        providedRoyalty !== undefined &&
-        computedRoyalty !== undefined &&
-        Math.abs(providedRoyalty - computedRoyalty) > 0.01;
 
       return {
         ...row,
         book,
-        computedRoyalty,
         finalRoyalty,
-        isOverridden,
       };
     });
   }, [previewRows, isbnLookup]);
@@ -143,7 +135,7 @@ useBulkPastePreview();
         <div className="rounded-lg border bg-muted/30 p-4 text-sm">
           <div className="font-medium mb-2">Expected format</div>
           <pre className="whitespace-pre-wrap text-xs text-muted-foreground">
-            MM-YYYY,ISBN,Quantity,PublisherRevenue[,AuthorRoyalty][,Source]
+            MM-YYYY,ISBN,Quantity,PublisherRevenue[,Source]
             Source: D (Distributor) or H (Hand Sold). Defaults to D.
           </pre>
         </div>
@@ -214,11 +206,6 @@ useBulkPastePreview();
                           minimumFractionDigits: 2,
                           maximumFractionDigits: 2,
                         })}
-                        {row.isOverridden && (
-                          <span className="ml-1 text-orange-600 font-semibold">
-                            (Overridden)
-                          </span>
-                        )}
                       </span>
                     )}
                     {!row.book && (

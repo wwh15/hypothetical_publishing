@@ -47,15 +47,7 @@ export function useBulkPasteSubmit(
 
       // Select rate based on source
       const rate = source === "HAND_SOLD" ? book.handSoldRoyaltyRate : book.distRoyaltyRate;
-      const computedRoyalty = publisherRevenue * rate / 100;
-
-      // Use provided royalty if it exists, otherwise use computed
-      const authorRoyalty = row.authorRoyalty ?? computedRoyalty;
-
-      // Check if overridden: provided royalty exists and differs from computed
-      const royaltyOverridden =
-        row.authorRoyalty !== undefined &&
-        Math.abs(row.authorRoyalty - computedRoyalty) > 0.01;
+      const authorRoyalty = publisherRevenue * rate / 100;
 
       const record: PendingSaleItem = {
         bookId: book.id,
@@ -65,7 +57,7 @@ export function useBulkPasteSubmit(
         quantity: row.quantity,
         publisherRevenue,
         authorRoyalty,
-        royaltyOverridden,
+        royaltyOverridden: false,
         paid: false,
         source,
       };

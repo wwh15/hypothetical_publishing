@@ -64,22 +64,7 @@ export default function PendingRecordsTable({
       accessor: "authorRoyalty",
       sortable: true,
       render: (row) => (
-        <div className="flex items-center gap-2">
-          <span
-            className={
-              row.royaltyOverridden
-                ? "font-bold text-orange-600"
-                : "font-medium"
-            }
-          >
-            ${row.authorRoyalty.toFixed(2)}
-          </span>
-          {row.royaltyOverridden && (
-            <span className="text-xs bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200 px-2 py-0.5 rounded">
-              Overridden
-            </span>
-          )}
-        </div>
+        <span className="font-medium">${row.authorRoyalty.toFixed(2)}</span>
       ),
     },
     {

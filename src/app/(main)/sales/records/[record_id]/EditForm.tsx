@@ -59,7 +59,6 @@ export default function EditForm({ sale, books }: EditFormProps) {
     quantity: sale.quantity,
     publisherRevenue: new Decimal(sale.publisherRevenue).toNumber(),
     authorRoyalty: new Decimal(sale.authorRoyalty).toNumber(),
-    royaltyOverridden: sale.royaltyOverridden,
     source: sale.source,
   });
 
@@ -119,7 +118,7 @@ export default function EditForm({ sale, books }: EditFormProps) {
         quantity: qtyCheck.data,
         publisherRevenue: revenueCheck.data,
         authorRoyalty: royaltyCheck.data,
-        royaltyOverridden: formData.royaltyOverridden,
+        royaltyOverridden: false,
         source: formData.source,
       });
 
@@ -187,7 +186,6 @@ export default function EditForm({ sale, books }: EditFormProps) {
             <label className="text-sm font-medium text-gray-500">Author Royalty</label>
             <p className="text-lg font-semibold mt-1 text-blue-600">
               ${new Decimal(sale.authorRoyalty).toFixed(2)}
-              {sale.royaltyOverridden && <span className="ml-2 text-xs text-orange-600">(Override)</span>}
             </p>
           </div>
 
@@ -249,6 +247,7 @@ export default function EditForm({ sale, books }: EditFormProps) {
               const book = books.find((b) => b.id === Number(bookId));
               const rate = book ? getRateForSource(book, formData.source) : null;
               const newRoyalty = rate != null ? formData.publisherRevenue * (rate / 100) : formData.authorRoyalty;
+              setDisplayRoyalty(newRoyalty.toFixed(2));
               setFormData({ ...formData, bookId: Number(bookId), authorRoyalty: normalizeCurrency(newRoyalty) });
             }}
           />
@@ -270,24 +269,14 @@ export default function EditForm({ sale, books }: EditFormProps) {
           {dateError && <p className="mt-2 text-sm text-red-600">{dateError}</p>}
         </div>
 
-        {/* Source */}
+        {/* Source (read-only) */}
         <div>
           <label className="block text-sm font-medium mb-2">Source</label>
-          <select
-            value={formData.source}
-            onChange={(e) => {
-              const newSource = e.target.value as "DISTRIBUTOR" | "HAND_SOLD";
-              const book = books.find((b) => b.id === Number(formData.bookId));
-              const rate = book ? getRateForSource(book, newSource) : null;
-              const newRoyalty = rate != null ? formData.publisherRevenue * (rate / 100) : formData.authorRoyalty;
-              setDisplayRoyalty(newRoyalty.toFixed(2));
-              setFormData({ ...formData, source: newSource, authorRoyalty: normalizeCurrency(newRoyalty), royaltyOverridden: false });
-            }}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md"
-          >
-            <option value="DISTRIBUTOR">Distributor</option>
-            <option value="HAND_SOLD">Hand Sold</option>
-          </select>
+          <p className="mt-1">
+            <span className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${formData.source === "HAND_SOLD" ? "bg-purple-100 text-purple-800" : "bg-blue-100 text-blue-800"}`}>
+              {formData.source === "HAND_SOLD" ? "Hand Sold" : "Distributor"}
+            </span>
+          </p>
         </div>
 
         {/* Quantity */}
@@ -334,7 +323,7 @@ export default function EditForm({ sale, books }: EditFormProps) {
                 const rate = book ? getRateForSource(book, formData.source) : null;
                 const newRoyalty = rate != null ? numericRevenue * (rate / 100) : formData.authorRoyalty;
                 setDisplayRoyalty(newRoyalty.toFixed(2));
-                setFormData({ ...formData, publisherRevenue: numericRevenue, authorRoyalty: normalizeCurrency(newRoyalty), royaltyOverridden: false });
+                setFormData({ ...formData, publisherRevenue: numericRevenue, authorRoyalty: normalizeCurrency(newRoyalty) });
                 if (errors.publisherRevenue) setErrors(prev => ({ ...prev, publisherRevenue: "" }));
               }
             }}
@@ -346,42 +335,17 @@ export default function EditForm({ sale, books }: EditFormProps) {
           {errors.publisherRevenue && <p className="mt-1 text-xs text-red-500">{errors.publisherRevenue}</p>}
         </div>
 
-        {/* Author Royalty */}
+        {/* Author Royalty (read-only, auto-calculated) */}
         <div>
           <label className="block text-sm font-medium mb-2">Author Royalty ($)</label>
           <input
             type="text"
-            inputMode="decimal"
-            placeholder="0.00"
             value={displayRoyalty}
-            className={cn(
-              "w-full px-3 py-2 border rounded-md transition-colors", 
-              errors.authorRoyalty ? "border-red-500" : "border-gray-300",
-              formData.royaltyOverridden && !errors.authorRoyalty && "border-orange-300 bg-orange-50/20"
-            )}
-            onChange={(e) => {
-              const val = e.target.value;
-              if (isValidCurrencyInput(val)) {
-                setDisplayRoyalty(val);
-                const book = books.find((b) => b.id === Number(formData.bookId));
-                const rate = book ? getRateForSource(book, formData.source) : null;
-                const computedRoyalty = rate != null ? formData.publisherRevenue * (rate / 100) : null;
-                const numericRoyalty = parseFloat(val) || 0;
-                const isMismatched = computedRoyalty !== null && numericRoyalty.toFixed(2) !== computedRoyalty.toFixed(2);
-                setFormData({ ...formData, authorRoyalty: normalizeCurrency(numericRoyalty), royaltyOverridden: isMismatched });
-                if (errors.authorRoyalty) setErrors(prev => ({ ...prev, authorRoyalty: "" }));
-              }
-            }}
-            onBlur={() => {
-              const numericValue = parseFloat(displayRoyalty) || 0;
-              setDisplayRoyalty(numericValue !== 0 ? numericValue.toFixed(2) : "");
-            }}
+            readOnly
+            className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 dark:bg-gray-700 cursor-not-allowed"
+            tabIndex={-1}
           />
           {errors.authorRoyalty && <p className="mt-1 text-xs text-red-500">{errors.authorRoyalty}</p>}
-          {errors.limit && <p className="mt-1 text-xs text-red-500">{errors.limit}</p>}
-          {formData.royaltyOverridden && !errors.authorRoyalty && (
-            <p className="mt-2 text-sm text-orange-600">(Overridden)</p>
-          )}
         </div>
       </div>
 
