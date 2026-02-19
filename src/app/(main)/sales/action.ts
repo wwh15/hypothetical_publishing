@@ -37,6 +37,7 @@ export async function updateSale(
     authorRoyalty?: number;
     royaltyOverridden?: boolean;
     paid?: boolean;
+    comment?: string | null;
   }
 ) {
   try {

@@ -84,6 +84,7 @@ model Sale {
   authorRoyalty    Decimal @default(0)    @map("author_royalty")
   royaltyOverridden Boolean @default(false) @map("royalty_overridden") // Track if manually set
   paid             Boolean  @default(false) // Payment status
+  comment          String?  @db.VarChar(256) @map("comment")
   createdAt        DateTime @default(now()) @map("created_at")
   updatedAt        DateTime @updatedAt @map("updated_at")
   

@@ -50,6 +50,7 @@ export default function SalesInputClient({
         authorRoyalty: record.authorRoyalty,
         royaltyOverridden: record.royaltyOverridden,
         paid: record.paid,
+        comment: record.comment ?? null,
       });
       if (!result.success) failed += 1;
     }

@@ -20,7 +20,8 @@ import {
   validatePositiveNumber, 
   validateRoyaltyLimit
 } from "@/lib/validation";
-import { cn } from "@/lib/utils"; // Assuming you have a cn utility for Tailwind classes
+import { cn } from "@/lib/utils";
+import { Textarea } from "@/components/ui/textarea";
 
 interface EditFormProps {
   books: BookListItem[];
@@ -55,6 +56,7 @@ export default function EditForm({ sale, books }: EditFormProps) {
     publisherRevenue: new Decimal(sale.publisherRevenue).toNumber(),
     authorRoyalty: new Decimal(sale.authorRoyalty).toNumber(),
     royaltyOverridden: sale.royaltyOverridden,
+    comment: sale.comment ?? "",
   });
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -114,6 +116,7 @@ export default function EditForm({ sale, books }: EditFormProps) {
         publisherRevenue: revenueCheck.data,
         authorRoyalty: royaltyCheck.data,
         royaltyOverridden: formData.royaltyOverridden,
+        comment: formData.comment.trim() || null,
       });
 
       if (result.success) {
@@ -193,6 +196,13 @@ export default function EditForm({ sale, books }: EditFormProps) {
               <button onClick={handleTogglePaid} disabled={loading} className="text-sm text-blue-600 hover:underline">Toggle</button>
             </div>
           </div>
+
+          {sale.comment != null && sale.comment !== "" && (
+            <div className="md:col-span-2">
+              <label className="text-sm font-medium text-gray-500">Comment</label>
+              <p className="text-lg font-semibold mt-1 whitespace-pre-wrap">{sale.comment}</p>
+            </div>
+          )}
         </div>
 
         <div className="flex gap-4 mt-8 pt-6 border-t">
@@ -346,6 +356,19 @@ export default function EditForm({ sale, books }: EditFormProps) {
           {formData.royaltyOverridden && !errors.authorRoyalty && (
             <p className="mt-2 text-sm text-orange-600">(Overridden)</p>
           )}
+        </div>
+
+        {/* Comment */}
+        <div className="md:col-span-2">
+          <label className="block text-sm font-medium mb-2">Comment</label>
+          <Textarea
+            value={formData.comment}
+            onChange={(e) => setFormData((prev) => ({ ...prev, comment: e.target.value }))}
+            placeholder="Optional note (max 256 characters)"
+            maxLength={256}
+            rows={2}
+            className="resize-none w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800"
+          />
         </div>
       </div>
 

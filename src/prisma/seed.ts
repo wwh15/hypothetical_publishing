@@ -24,6 +24,19 @@ const authorNames = [
   "Emma Davis", "Alice Johnson, Bob Smith", "David Brown, Carol Williams"
 ];
 
+// Sample comments for seeded sales (max 256 chars each)
+const SALE_COMMENTS: (string | null)[] = [
+  "Bulk order from bookstore.",
+  "Online promotion.",
+  null,
+  "Conference giveaway.",
+  null,
+  "Backorder fulfilled.",
+  null,
+  null,
+  "Holiday sale.",
+];
+
 // Generates an array of dates for the last 2 years
 const saleMonths: Date[] = [];
 for (let year = 2024; year <= 2025; year++) {
@@ -90,6 +103,7 @@ async function main() {
     const revenue = price.times(quantity);
     const royalty = revenue.times(book.authorRoyaltyRate).toDecimalPlaces(2);
 
+    const comment = randomArrayElement(SALE_COMMENTS);
     await prisma.sale.create({
       data: {
         bookId: book.id,
@@ -98,6 +112,7 @@ async function main() {
         publisherRevenue: revenue,
         authorRoyalty: royalty,
         paid: Math.random() > 0.3,
+        comment: comment ?? undefined,
       },
     });
   }

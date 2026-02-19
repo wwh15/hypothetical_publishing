@@ -13,6 +13,7 @@ export interface SaleListItem {
   publisherRevenue: number;
   authorRoyalty: number;
   paid: "paid" | "pending";
+  comment: string | null;
 }
 
 export interface PendingSaleItem {
@@ -26,6 +27,7 @@ export interface PendingSaleItem {
   authorRoyalty: number;
   royaltyOverridden: boolean; // Whether user manually overrode the calculated royalty
   paid: boolean; // Always false for pending, but included for consistency
+  comment?: string | null;
 }
 
 // This represents the data AFTER it has been converted to numbers
@@ -37,6 +39,7 @@ export type SaleDetailPayload = {
   authorRoyalty: number; // Changed from Decimal to number
   paid: boolean;
   royaltyOverridden: boolean;
+  comment: string | null;
   book: {
     id: number;
     title: string;
@@ -244,6 +247,7 @@ export async function asyncGetSaleById(
     ...sale,
     publisherRevenue: sale.publisherRevenue.toNumber(),
     authorRoyalty: sale.authorRoyalty.toNumber(),
+    comment: sale.comment ?? null,
     book: {
       ...sale.book,
       author: {
@@ -262,6 +266,7 @@ export function toSaleListItem(sale: {
   publisherRevenue: Decimal;
   authorRoyalty: Decimal;
   paid: boolean;
+  comment: string | null;
   book: { title: string; author: { name: string } };
 }): SaleListItem {
   return {
@@ -274,6 +279,7 @@ export function toSaleListItem(sale: {
     publisherRevenue: sale.publisherRevenue.toNumber(),
     authorRoyalty: sale.authorRoyalty.toNumber(),
     paid: sale.paid ? "paid" : "pending",
+    comment: sale.comment ?? null,
   };
 }
 
@@ -292,6 +298,7 @@ export async function asyncUpdateSale(
     authorRoyalty?: number;
     royaltyOverridden?: boolean;
     paid?: boolean;
+    comment?: string | null;
   }
 ) {
   return await prisma.sale.update({

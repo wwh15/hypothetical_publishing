@@ -10,6 +10,7 @@ interface FormData {
   publisherRevenue: string;
   authorRoyalty: string;
   royaltyOverridden: boolean;
+  comment: string;
 }
 
 export function useSalesForm(
@@ -28,6 +29,7 @@ export function useSalesForm(
     publisherRevenue: "",
     authorRoyalty: "",
     royaltyOverridden: false,
+    comment: "",
   });
 
   const handleInputChange = (field: string, value: string | boolean) => {
@@ -125,6 +127,7 @@ export function useSalesForm(
     }
 
     const date = `${formData.month.padStart(2, "0")}-${formData.year}`;
+    const trimmedComment = formData.comment.trim();
     const newRecord: PendingSaleItem = {
       bookId: parseInt(formData.bookId),
       title: selectedBook.title,
@@ -135,6 +138,7 @@ export function useSalesForm(
       authorRoyalty: parseFloat(formData.authorRoyalty),
       royaltyOverridden: formData.royaltyOverridden,
       paid: false,
+      comment: trimmedComment || undefined,
     };
 
     onAddRecord(newRecord);
@@ -148,6 +152,7 @@ export function useSalesForm(
       publisherRevenue: "",
       authorRoyalty: "",
       royaltyOverridden: false,
+      comment: "",
     }));
   };
 
