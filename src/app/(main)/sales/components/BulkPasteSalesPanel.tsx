@@ -83,8 +83,11 @@ useBulkPastePreview();
   const rowsWithRoyalty = useMemo(() => {
     return previewRows.map((row) => {
       const book = isbnLookup.get(row.isbn);
+      const rate = book
+        ? (row.source === "HAND_SOLD" ? book.handSoldRoyaltyRate : book.distRoyaltyRate)
+        : 0;
       const computedRoyalty = book
-        ? (row.revenue * book.distRoyaltyRate) / 100
+        ? (row.revenue * rate) / 100
         : undefined;
       const providedRoyalty = row.authorRoyalty;
       const finalRoyalty = providedRoyalty ?? computedRoyalty;
@@ -140,7 +143,8 @@ useBulkPastePreview();
         <div className="rounded-lg border bg-muted/30 p-4 text-sm">
           <div className="font-medium mb-2">Expected format</div>
           <pre className="whitespace-pre-wrap text-xs text-muted-foreground">
-            MM-YYYY,ISBN,Quantity,PublisherRevenue,AuthorRoyalty (optional)
+            MM-YYYY,ISBN,Quantity,PublisherRevenue[,AuthorRoyalty][,Source]
+            Source: D (Distributor) or H (Hand Sold). Defaults to D.
           </pre>
         </div>
 
@@ -193,6 +197,9 @@ useBulkPastePreview();
                       Date: {row.month}-{row.year}
                     </span>
                     <span>Qty: {row.quantity}</span>
+                    <span className={`text-xs font-medium ${row.source === "HAND_SOLD" ? "text-purple-600" : "text-blue-600"}`}>
+                      {row.source === "HAND_SOLD" ? "Hand Sold" : "Distributor"}
+                    </span>
                     <span className="font-mono">
                       Rev:{" "}
                       {row.revenue.toLocaleString(undefined, {

@@ -83,6 +83,17 @@ export default function PendingRecordsTable({
       ),
     },
     {
+      key: "source",
+      header: "Source",
+      accessor: "source",
+      sortable: true,
+      render: (row) => (
+        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${row.source === "HAND_SOLD" ? "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200" : "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"}`}>
+          {row.source === "HAND_SOLD" ? "Hand Sold" : "Distributor"}
+        </span>
+      ),
+    },
+    {
       key: "paid",
       header: "Royalty Status",
       accessor: "paid",

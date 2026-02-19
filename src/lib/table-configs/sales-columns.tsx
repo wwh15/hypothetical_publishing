@@ -21,7 +21,8 @@ export type SalesColumnId =
   | "publisherRevenue"
   | "authorRoyalty"
   | "date"
-  | "paid";
+  | "paid"
+  | "source";
 
 // Reusable cell renderers
 export const salesCellRenderers = {
@@ -46,6 +47,19 @@ export const salesCellRenderers = {
   },
 
   quantity: (value: number) => <span>{value}</span>,
+
+  source: (value: "DISTRIBUTOR" | "HAND_SOLD") => {
+    const styles = {
+      DISTRIBUTOR: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+      HAND_SOLD: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
+    } as const;
+    const label = value === "HAND_SOLD" ? "Hand Sold" : "Distributor";
+    return (
+      <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${styles[value]}`}>
+        {label}
+      </span>
+    );
+  },
 };
 
 /**
@@ -102,6 +116,11 @@ export const salesColumns: ColumnDef<SaleListItem>[] = [
       }).format(row.date),
   },
   {
+    key: "source",
+    header: "Source",
+    render: (row) => salesCellRenderers.source(row.source),
+  },
+  {
     key: "paid",
     header: "Royalty Status",
     render: (row) => salesCellRenderers.paidStatus(row.paid),
@@ -146,6 +165,7 @@ export const salesTablePresets = {
       "publisherRevenue",
       "authorRoyalty",
       "date",
+      "source",
       "paid",
     ] as SalesColumnId[],
     defaultSortField: "date" as const,
@@ -161,6 +181,7 @@ export const salesTablePresets = {
       "publisherRevenue",
       "authorRoyalty",
       "date",
+      "source",
       "paid",
     ] as SalesColumnId[],
     defaultSortField: "date" as const,

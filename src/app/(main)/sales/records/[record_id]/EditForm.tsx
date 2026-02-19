@@ -20,7 +20,12 @@ import {
   validatePositiveNumber, 
   validateRoyaltyLimit
 } from "@/lib/validation";
-import { cn } from "@/lib/utils"; // Assuming you have a cn utility for Tailwind classes
+import { cn } from "@/lib/utils";
+
+/** Get the royalty rate (as percentage) for a book based on sale source */
+function getRateForSource(book: BookListItem, source: "DISTRIBUTOR" | "HAND_SOLD"): number {
+  return source === "HAND_SOLD" ? book.handSoldRoyaltyRate : book.distRoyaltyRate;
+}
 
 interface EditFormProps {
   books: BookListItem[];
@@ -55,6 +60,7 @@ export default function EditForm({ sale, books }: EditFormProps) {
     publisherRevenue: new Decimal(sale.publisherRevenue).toNumber(),
     authorRoyalty: new Decimal(sale.authorRoyalty).toNumber(),
     royaltyOverridden: sale.royaltyOverridden,
+    source: sale.source,
   });
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -114,6 +120,7 @@ export default function EditForm({ sale, books }: EditFormProps) {
         publisherRevenue: revenueCheck.data,
         authorRoyalty: royaltyCheck.data,
         royaltyOverridden: formData.royaltyOverridden,
+        source: formData.source,
       });
 
       if (result.success) {
@@ -185,6 +192,15 @@ export default function EditForm({ sale, books }: EditFormProps) {
           </div>
 
           <div>
+            <label className="text-sm font-medium text-gray-500">Source</label>
+            <p className="mt-1">
+              <span className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${sale.source === "HAND_SOLD" ? "bg-purple-100 text-purple-800" : "bg-blue-100 text-blue-800"}`}>
+                {sale.source === "HAND_SOLD" ? "Hand Sold" : "Distributor"}
+              </span>
+            </p>
+          </div>
+
+          <div>
             <label className="text-sm font-medium text-gray-500">Payment Status</label>
             <div className="mt-1 flex items-center gap-2">
               <span className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${sale.paid ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}`}>
@@ -231,7 +247,7 @@ export default function EditForm({ sale, books }: EditFormProps) {
             selectedBookId={String(formData.bookId)}
             onSelect={(bookId) => {
               const book = books.find((b) => b.id === Number(bookId));
-              const rate = book?.distRoyaltyRate;
+              const rate = book ? getRateForSource(book, formData.source) : null;
               const newRoyalty = rate != null ? formData.publisherRevenue * (rate / 100) : formData.authorRoyalty;
               setFormData({ ...formData, bookId: Number(bookId), authorRoyalty: normalizeCurrency(newRoyalty) });
             }}
@@ -252,6 +268,26 @@ export default function EditForm({ sale, books }: EditFormProps) {
             placeholder="Select month & year"
           />
           {dateError && <p className="mt-2 text-sm text-red-600">{dateError}</p>}
+        </div>
+
+        {/* Source */}
+        <div>
+          <label className="block text-sm font-medium mb-2">Source</label>
+          <select
+            value={formData.source}
+            onChange={(e) => {
+              const newSource = e.target.value as "DISTRIBUTOR" | "HAND_SOLD";
+              const book = books.find((b) => b.id === Number(formData.bookId));
+              const rate = book ? getRateForSource(book, newSource) : null;
+              const newRoyalty = rate != null ? formData.publisherRevenue * (rate / 100) : formData.authorRoyalty;
+              setDisplayRoyalty(newRoyalty.toFixed(2));
+              setFormData({ ...formData, source: newSource, authorRoyalty: normalizeCurrency(newRoyalty), royaltyOverridden: false });
+            }}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md"
+          >
+            <option value="DISTRIBUTOR">Distributor</option>
+            <option value="HAND_SOLD">Hand Sold</option>
+          </select>
         </div>
 
         {/* Quantity */}
@@ -295,7 +331,7 @@ export default function EditForm({ sale, books }: EditFormProps) {
                 setDisplayRevenue(val);
                 const numericRevenue = parseFloat(val) || 0;
                 const book = books.find((b) => b.id === Number(formData.bookId));
-                const rate = book?.distRoyaltyRate;
+                const rate = book ? getRateForSource(book, formData.source) : null;
                 const newRoyalty = rate != null ? numericRevenue * (rate / 100) : formData.authorRoyalty;
                 setDisplayRoyalty(newRoyalty.toFixed(2));
                 setFormData({ ...formData, publisherRevenue: numericRevenue, authorRoyalty: normalizeCurrency(newRoyalty), royaltyOverridden: false });
@@ -328,7 +364,7 @@ export default function EditForm({ sale, books }: EditFormProps) {
               if (isValidCurrencyInput(val)) {
                 setDisplayRoyalty(val);
                 const book = books.find((b) => b.id === Number(formData.bookId));
-                const rate = book?.distRoyaltyRate;
+                const rate = book ? getRateForSource(book, formData.source) : null;
                 const computedRoyalty = rate != null ? formData.publisherRevenue * (rate / 100) : null;
                 const numericRoyalty = parseFloat(val) || 0;
                 const isMismatched = computedRoyalty !== null && numericRoyalty.toFixed(2) !== computedRoyalty.toFixed(2);

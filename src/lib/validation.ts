@@ -79,6 +79,29 @@ export const validatePositiveNumber = (
   return { success: true, data: num };
 };
 
+// Validates cover price (must be positive if provided)
+export const validateCoverPrice = (
+  value: number | null | undefined
+): ValidationResult<number | null> => {
+  if (value == null) return { success: true, data: null };
+  if (value <= 0)
+    return { success: false, error: "Cover price must be positive." };
+  return { success: true, data: value };
+};
+
+// Validates print cost (must be positive and less than cover price if both provided)
+export const validatePrintCost = (
+  printCost: number | null | undefined,
+  coverPrice: number | null | undefined
+): ValidationResult<number | null> => {
+  if (printCost == null) return { success: true, data: null };
+  if (printCost <= 0)
+    return { success: false, error: "Print cost must be positive." };
+  if (coverPrice != null && printCost >= coverPrice)
+    return { success: false, error: "Print cost must be less than cover price." };
+  return { success: true, data: printCost };
+};
+
 /**
  * Integer Validation
  */

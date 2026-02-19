@@ -10,6 +10,21 @@ interface FormData {
   publisherRevenue: string;
   authorRoyalty: string;
   royaltyOverridden: boolean;
+  source: "DISTRIBUTOR" | "HAND_SOLD";
+}
+
+/** Get the royalty rate (as percentage) for a book based on sale source */
+function getRateForSource(book: BookListItem, source: "DISTRIBUTOR" | "HAND_SOLD"): number {
+  return source === "HAND_SOLD" ? book.handSoldRoyaltyRate : book.distRoyaltyRate;
+}
+
+/** Auto-calculate revenue for hand-sold: (coverPrice - printCost) * quantity */
+function calcHandSoldRevenue(book: BookListItem, quantity: number): string | null {
+  if (book.coverPrice != null && book.printCost != null && quantity > 0) {
+    const rev = (book.coverPrice - book.printCost) * quantity;
+    return rev.toFixed(2);
+  }
+  return null;
 }
 
 export function useSalesForm(
@@ -28,6 +43,7 @@ export function useSalesForm(
     publisherRevenue: "",
     authorRoyalty: "",
     royaltyOverridden: false,
+    source: "DISTRIBUTOR",
   });
 
   const handleInputChange = (field: string, value: string | boolean) => {
@@ -35,17 +51,29 @@ export function useSalesForm(
       const next = {
         ...prev,
         [field]: value,
-        ...(field === "publisherRevenue" || field === "bookId"
+        ...(field === "publisherRevenue" || field === "bookId" || field === "source" || field === "quantity"
           ? { royaltyOverridden: false }
           : {}),
       } as FormData;
-      // Derive author royalty when book or revenue changes (no effect needed)
-      if (field === "publisherRevenue" || field === "bookId") {
-        const book = books.find((b) => b.id === parseInt(next.bookId));
+
+      const book = books.find((b) => b.id === parseInt(next.bookId));
+      const qty = parseInt(next.quantity) || 0;
+
+      // Auto-calculate revenue for hand-sold when quantity or book changes
+      if (next.source === "HAND_SOLD" && book && (field === "quantity" || field === "bookId" || field === "source")) {
+        const autoRevenue = calcHandSoldRevenue(book, qty);
+        if (autoRevenue) {
+          next.publisherRevenue = autoRevenue;
+        }
+      }
+
+      // Derive author royalty when book, revenue, source, or quantity changes
+      if (field === "publisherRevenue" || field === "bookId" || field === "source" || field === "quantity") {
         const rev = parseFloat(next.publisherRevenue);
+        const rate = book ? getRateForSource(book, next.source) : 0;
         next.authorRoyalty =
           book && !isNaN(rev)
-            ? ((rev * book.distRoyaltyRate) / 100).toFixed(2)
+            ? ((rev * rate) / 100).toFixed(2)
             : "";
       }
       return next;
@@ -55,12 +83,10 @@ export function useSalesForm(
   const handleRoyaltyChange = (value: string) => {
     setFormData((prev) => {
       const book = books.find((b) => b.id === parseInt(prev.bookId));
+      const rate = book ? getRateForSource(book, prev.source) : 0;
       const calculatedValue =
         book && prev.publisherRevenue
-          ? (
-              (parseFloat(prev.publisherRevenue) * book.distRoyaltyRate) /
-              100
-            ).toFixed(2)
+          ? ((parseFloat(prev.publisherRevenue) * rate) / 100).toFixed(2)
           : "";
 
       const trimmed = value.trim();
@@ -71,7 +97,7 @@ export function useSalesForm(
           royaltyOverridden: false,
         };
       }
-      
+
       return {
         ...prev,
         authorRoyalty: value,
@@ -83,8 +109,9 @@ export function useSalesForm(
   const revertRoyalty = () => {
     const book = books.find((b) => b.id === parseInt(formData.bookId));
     if (book && formData.publisherRevenue) {
+      const rate = getRateForSource(book, formData.source);
       const calculated =
-        (parseFloat(formData.publisherRevenue) * book.distRoyaltyRate) / 100;
+        (parseFloat(formData.publisherRevenue) * rate) / 100;
       setFormData((prev) => ({
         ...prev,
         authorRoyalty: calculated.toFixed(2),
@@ -135,12 +162,12 @@ export function useSalesForm(
       authorRoyalty: parseFloat(formData.authorRoyalty),
       royaltyOverridden: formData.royaltyOverridden,
       paid: false,
-      source: "DISTRIBUTOR",
+      source: formData.source,
     };
 
     onAddRecord(newRecord);
 
-    // Clear form but keep month/year and book
+    // Clear form but keep month/year, book, and source
     setFormData((prev) => ({
       month: prev.month,
       year: prev.year,
@@ -149,6 +176,7 @@ export function useSalesForm(
       publisherRevenue: "",
       authorRoyalty: "",
       royaltyOverridden: false,
+      source: prev.source,
     }));
   };
 

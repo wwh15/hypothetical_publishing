@@ -10,6 +10,7 @@ export type ParsedSaleRow = {
   quantity: number;
   revenue: number;
   authorRoyalty?: number;
+  source: "DISTRIBUTOR" | "HAND_SOLD";
   raw: string;
 };
 
@@ -28,23 +29,40 @@ const ISBN_RE = /^\d{10}(\d{3})?$/;
 function parseLine(line: string, lineNumber: number) {
   const parts = line.split(",").map((p) => p.trim());
   
-  if (parts.length === 4) {
-    return extractFields(parts, line, lineNumber);
-  } else if (parts.length === 5) {
+  if (parts.length >= 4 && parts.length <= 6) {
     return extractFields(parts, line, lineNumber);
   } else {
     return {
       invalid: {
         line: lineNumber,
         raw: line,
-        reason: "Expected either 4 or 5 comma-separated fields. Please ensure all fields are specified.",
+        reason: "Expected 4-6 comma-separated fields (date,isbn,qty,revenue[,royalty][,source]).",
       } satisfies InvalidSaleRow,
     };
   }
 }
 
 function extractFields(parts: string[], line: string, lineNumber: number) {
-  const [monthYear, isbnRaw, quantityRaw, revenueRaw, authorRoyaltyRaw] = parts;
+  const [monthYear, isbnRaw, quantityRaw, revenueRaw, fifthField, sixthField] = parts;
+
+  // Determine which optional fields are present.
+  // With 6 fields: 5th = authorRoyalty, 6th = source
+  // With 5 fields: 5th could be authorRoyalty OR source (D/H)
+  // With 4 fields: no optional fields
+  let authorRoyaltyRaw: string | undefined;
+  let sourceRaw: string | undefined;
+
+  if (parts.length === 6) {
+    authorRoyaltyRaw = fifthField;
+    sourceRaw = sixthField;
+  } else if (parts.length === 5) {
+    const trimmed5 = fifthField?.trim().toUpperCase();
+    if (trimmed5 === "D" || trimmed5 === "H") {
+      sourceRaw = fifthField;
+    } else {
+      authorRoyaltyRaw = fifthField;
+    }
+  }
 
   // Normalize ISBN: remove all non-digits (spaces, dashes, etc.)
   const isbnDigits = isbnRaw.replace(/\D/g, "");
@@ -130,6 +148,23 @@ function extractFields(parts: string[], line: string, lineNumber: number) {
     };
   }
 
+  // Parse source (D = DISTRIBUTOR, H = HAND_SOLD, default DISTRIBUTOR)
+  let source: "DISTRIBUTOR" | "HAND_SOLD" = "DISTRIBUTOR";
+  if (sourceRaw !== undefined && sourceRaw.trim() !== "") {
+    const s = sourceRaw.trim().toUpperCase();
+    if (s === "H") {
+      source = "HAND_SOLD";
+    } else if (s !== "D") {
+      return {
+        invalid: {
+          line: lineNumber,
+          raw: line,
+          reason: "Source must be 'D' (Distributor) or 'H' (Hand Sold)",
+        } satisfies InvalidSaleRow,
+      };
+    }
+  }
+
   const result: ParsedSaleRow = {
     line: lineNumber,
     month,
@@ -137,6 +172,7 @@ function extractFields(parts: string[], line: string, lineNumber: number) {
     isbn: isbnDigits,
     quantity,
     revenue,
+    source,
     raw: line,
   };
 

@@ -300,6 +300,7 @@ export async function asyncUpdateSale(
     authorRoyalty?: number;
     royaltyOverridden?: boolean;
     paid?: boolean;
+    source?: "DISTRIBUTOR" | "HAND_SOLD";
   }
 ) {
   return await prisma.sale.update({

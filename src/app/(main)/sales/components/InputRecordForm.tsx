@@ -112,6 +112,19 @@ export default function InputRecordForm({
           />
         </FormField>
 
+        {/* Source */}
+        <FormField label="Source" required htmlFor="source">
+          <select
+            id="source"
+            value={formData.source}
+            onChange={(e) => handleInputChange("source", e.target.value)}
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-gray-700"
+          >
+            <option value="DISTRIBUTOR">Distributor</option>
+            <option value="HAND_SOLD">Hand Sold</option>
+          </select>
+        </FormField>
+
         {/* Quantity */}
         <FormField label="Quantity" required htmlFor="quantity">
           <Input
