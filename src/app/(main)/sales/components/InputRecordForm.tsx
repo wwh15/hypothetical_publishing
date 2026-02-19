@@ -50,9 +50,7 @@ export default function InputRecordForm({
   const {
     formData,
     handleInputChange,
-    handleRoyaltyChange,
     handleSubmit,
-    revertRoyalty,
   } = useSalesForm(books, onAddRecord, initialBookId);
 
   return (
@@ -112,6 +110,19 @@ export default function InputRecordForm({
           />
         </FormField>
 
+        {/* Source */}
+        <FormField label="Source" required htmlFor="source">
+          <select
+            id="source"
+            value={formData.source}
+            onChange={(e) => handleInputChange("source", e.target.value)}
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-gray-700"
+          >
+            <option value="DISTRIBUTOR">Distributor</option>
+            <option value="HAND_SOLD">Hand Sold</option>
+          </select>
+        </FormField>
+
         {/* Quantity */}
         <FormField label="Quantity" required htmlFor="quantity">
           <Input
@@ -146,38 +157,14 @@ export default function InputRecordForm({
 
         {/* Author Royalty */}
         <FormField label="Author Royalty ($)" required htmlFor="authorRoyalty">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              {formData.royaltyOverridden && (
-                <span className="text-xs text-orange-600 font-normal">
-                  (Overridden)
-                </span>
-              )}
-            </div>
-            <Input
-              type="number"
-              id="authorRoyalty"
-              value={formData.authorRoyalty}
-              onChange={(e) => handleRoyaltyChange(e.target.value)}
-              min="0.00"
-              step="0.01"
-              className={
-                formData.royaltyOverridden
-                  ? "border-orange-500 dark:border-orange-600"
-                  : ""
-              }
-              required
-            />
-            {formData.royaltyOverridden && (
-              <button
-                type="button"
-                onClick={revertRoyalty}
-                className="text-xs text-blue-600 hover:text-blue-800 hover:underline"
-              >
-                Revert to calculated value
-              </button>
-            )}
-          </div>
+          <Input
+            type="number"
+            id="authorRoyalty"
+            value={formData.authorRoyalty}
+            readOnly
+            className="bg-gray-100 dark:bg-gray-700 cursor-not-allowed"
+            tabIndex={-1}
+          />
         </FormField>
       </div>
 

@@ -28,6 +28,7 @@ const authorPaymentSelect = {
           publisherRevenue: true,
           authorRoyalty: true, // If you forget this now, the error will trigger
           paid: true,
+          source: true,
         },
       },
     },
@@ -90,6 +91,7 @@ function transformToAuthorGroup(rawAuthor: PrismaAuthorWithSales): AuthorGroup {
         publisherRevenue: sale.publisherRevenue.toNumber(),
         authorRoyalty: sale.authorRoyalty.toNumber(),
         paid: status,
+        source: sale.source,
       });
 
       // 3. Accumulate the unpaid total (only if pending)

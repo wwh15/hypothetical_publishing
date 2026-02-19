@@ -37,6 +37,7 @@ export async function updateSale(
     authorRoyalty?: number;
     royaltyOverridden?: boolean;
     paid?: boolean;
+    source?: "DISTRIBUTOR" | "HAND_SOLD";
   }
 ) {
   try {

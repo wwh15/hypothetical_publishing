@@ -18,6 +18,7 @@ interface SalesRecordsPageProps {
     dateFrom?: string;
     dateTo?: string;
     showAll?: string;
+    source?: string;
   }>;
 }
 
@@ -41,6 +42,10 @@ export default async function SalesRecordsPage({
   const dateFrom = params?.dateFrom ?? "";
   const dateTo = params?.dateTo ?? "";
 
+  // Source filter: only accept valid values
+  const rawSource = params?.source;
+  const source = (rawSource === "DISTRIBUTOR" || rawSource === "HAND_SOLD") ? rawSource : undefined;
+
   // 2. Fetch the data using the optimized Database logic
   // This call handles filtering, sorting, and pagination in a single SQL query.
   const { items, total, page: currentPage, pageSize: effectivePageSize } =
@@ -52,6 +57,7 @@ export default async function SalesRecordsPage({
       sortDir,
       dateFrom: dateFrom || undefined,
       dateTo: dateTo || undefined,
+      source,
     });
 
   return (
@@ -87,7 +93,7 @@ export default async function SalesRecordsPage({
         remount/reset when the URL changes, preventing "stale" UI states. 
       */}
       <SalesRecordsTable
-        key={`${search}-${sortBy}-${sortDir}-${currentPage}-${dateFrom}-${dateTo}-${showAll}`}
+        key={`${search}-${sortBy}-${sortDir}-${currentPage}-${dateFrom}-${dateTo}-${showAll}-${source ?? ""}`}
         rows={items}
         total={total}
         page={currentPage}
@@ -98,6 +104,7 @@ export default async function SalesRecordsPage({
         dateFrom={dateFrom}
         dateTo={dateTo}
         showAll={showAll}
+        source={source}
       />
     </div>
   );

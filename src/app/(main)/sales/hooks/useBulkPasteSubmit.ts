@@ -37,18 +37,17 @@ export function useBulkPasteSubmit(
       }
 
       const date = `${row.month}-${row.year}`;
-      const publisherRevenue = row.revenue;
-      
-      // Compute expected royalty from book rate
-      const computedRoyalty = publisherRevenue * book.defaultRoyaltyRate / 100;
-      
-      // Use provided royalty if it exists, otherwise use computed
-      const authorRoyalty = row.authorRoyalty ?? computedRoyalty;
-      
-      // Check if overridden: provided royalty exists and differs from computed
-      const royaltyOverridden =
-        row.authorRoyalty !== undefined &&
-        Math.abs(row.authorRoyalty - computedRoyalty) > 0.01; // Small tolerance for floating point
+      const source = row.source;
+
+      // Auto-calculate revenue for hand-sold when book has pricing
+      let publisherRevenue = row.revenue;
+      if (source === "HAND_SOLD" && book.coverPrice != null && book.printCost != null) {
+        publisherRevenue = (book.coverPrice - book.printCost) * row.quantity;
+      }
+
+      // Select rate based on source
+      const rate = source === "HAND_SOLD" ? book.handSoldRoyaltyRate : book.distRoyaltyRate;
+      const authorRoyalty = publisherRevenue * rate / 100;
 
       const record: PendingSaleItem = {
         bookId: book.id,
@@ -58,8 +57,9 @@ export function useBulkPasteSubmit(
         quantity: row.quantity,
         publisherRevenue,
         authorRoyalty,
-        royaltyOverridden,
+        royaltyOverridden: false,
         paid: false,
+        source,
       };
 
       onAddRecord(record);

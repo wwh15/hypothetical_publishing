@@ -64,14 +64,19 @@ async function main() {
   // 3. CREATE BOOKS
   const createdBooks = [];
   const titles = ['Archive', 'Perspective', 'Legacy', 'Manual', 'Chronicle'];
-  
+
   for (let i = 1; i <= TARGET_BOOK_COUNT; i++) {
     const randomAuthor = randomArrayElement(authors);
+    const coverPrice = new Decimal(randomInt(15, 35));
+    const printCost = new Decimal(randomInt(3, 10));
     const book = await prisma.book.create({
       data: {
         title: `${randomArrayElement(titles)} Vol. ${i}`,
         isbn13: `978${Math.floor(1000000000 + Math.random() * 9000000000)}`,
-        authorRoyaltyRate: +(Math.random() * 0.10 + 0.10).toFixed(2),
+        distAuthorRoyaltyRate: +(Math.random() * 0.10 + 0.10).toFixed(2),
+        handSoldAuthorRoyaltyRate: +(Math.random() * 0.15 + 0.10).toFixed(2),
+        coverPrice,
+        printCost,
         publicationDate: new Date(2023, randomInt(0, 11), 1),
         authorId: randomAuthor.id,
       },
@@ -80,15 +85,29 @@ async function main() {
   }
   console.log(`✅ Created ${createdBooks.length} books.`);
 
-  // 4. CREATE SALES
+  // 4. CREATE SALES (~30% hand-sold, ~70% distributor)
   console.log("💾 Inserting sales data...");
   for (let i = 0; i < TARGET_SALE_COUNT; i++) {
     const book = randomArrayElement(createdBooks);
     const quantity = randomInt(5, 50);
-    const price = new Decimal(randomInt(20, 60));
-    
-    const revenue = price.times(quantity);
-    const royalty = revenue.times(book.authorRoyaltyRate).toDecimalPlaces(2);
+    const isHandSold = Math.random() < 0.3;
+    const source = isHandSold ? "HAND_SOLD" : "DISTRIBUTOR";
+
+    let revenue: Decimal;
+    let royaltyRate: number;
+
+    if (isHandSold && book.coverPrice && book.printCost) {
+      // Hand-sold: revenue = (coverPrice - printCost) * quantity
+      revenue = new Decimal(book.coverPrice).minus(new Decimal(book.printCost)).times(quantity);
+      royaltyRate = book.handSoldAuthorRoyaltyRate;
+    } else {
+      // Distributor: revenue from a random unit price
+      const price = new Decimal(randomInt(20, 60));
+      revenue = price.times(quantity);
+      royaltyRate = book.distAuthorRoyaltyRate;
+    }
+
+    const royalty = revenue.times(royaltyRate).toDecimalPlaces(2);
 
     await prisma.sale.create({
       data: {
@@ -97,6 +116,7 @@ async function main() {
         quantity,
         publisherRevenue: revenue,
         authorRoyalty: royalty,
+        source,
         paid: Math.random() > 0.3,
       },
     });

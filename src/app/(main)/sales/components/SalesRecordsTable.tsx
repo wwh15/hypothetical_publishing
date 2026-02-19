@@ -43,6 +43,8 @@ export interface SalesRecordsTableProps {
   dateTo?: string;
   /** Show all records (no pagination) */
   showAll?: boolean;
+  /** Source filter (DISTRIBUTOR or HAND_SOLD) */
+  source?: string;
 
   /** Preset for column selection; default "full" */
   preset?: SalesTablePreset;
@@ -70,6 +72,7 @@ export default function SalesRecordsTable({
   dateFrom = "",
   dateTo = "",
   showAll = false,
+  source,
   preset = "full",
   visibleColumns,
   onRowClick,
@@ -93,6 +96,7 @@ export default function SalesRecordsTable({
         dateFrom?: string;
         dateTo?: string;
         showAll?: boolean;
+        source?: string;
       } = {}
     ) => {
       const params = new URLSearchParams();
@@ -104,6 +108,7 @@ export default function SalesRecordsTable({
         overrides.dateFrom !== undefined ? overrides.dateFrom : dateFrom;
       const dt = overrides.dateTo !== undefined ? overrides.dateTo : dateTo;
       const sa = overrides.showAll !== undefined ? overrides.showAll : showAll;
+      const src = overrides.source !== undefined ? overrides.source : source;
 
       if (q) params.set("q", q);
       params.set("page", String(p));
@@ -112,9 +117,10 @@ export default function SalesRecordsTable({
       if (df) params.set("dateFrom", df);
       if (dt) params.set("dateTo", dt);
       if (sa) params.set("showAll", "true");
+      if (src) params.set("source", src);
       return params;
     },
-    [search, page, sortBy, sortDir, dateFrom, dateTo, showAll]
+    [search, page, sortBy, sortDir, dateFrom, dateTo, showAll, source]
   );
 
   const handleSearchSubmit = (e: React.FormEvent) => {
@@ -172,8 +178,14 @@ export default function SalesRecordsTable({
     router.push(`/sales/records?${params.toString()}`);
   };
 
+  const handleSourceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const params = buildQueryParams({ source: e.target.value, page: 1 });
+    router.push(`/sales/records?${params.toString()}`);
+  };
+
   const hasSearch = search.trim().length > 0;
   const hasDateFilter = !!(dateFrom || dateTo);
+  const hasSourceFilter = !!source;
   const normalPageSize = 20;
   const startRecord = showAll ? 1 : (page - 1) * normalPageSize + 1;
   const endRecord = showAll ? total : Math.min(page * normalPageSize, total);
@@ -264,6 +276,20 @@ export default function SalesRecordsTable({
         )}
       </form>
 
+      <select
+        value={source ?? ""}
+        onChange={handleSourceChange}
+        className={cn(
+          "block w-full sm:w-48 px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg",
+          "bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100",
+          "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        )}
+      >
+        <option value="">All Sources</option>
+        <option value="DISTRIBUTOR">Distributor</option>
+        <option value="HAND_SOLD">Hand Sold</option>
+      </select>
+
       <MonthYearFilter
         startDate={dateFrom} // Ensure the initial prop from server is YYYY-MM
         endDate={dateTo}
@@ -288,7 +314,7 @@ export default function SalesRecordsTable({
         columns={columns}
         data={rows}
         emptyMessage={
-          hasSearch || hasDateFilter
+          hasSearch || hasDateFilter || hasSourceFilter
             ? "No records match your filters"
             : "No sales records"
         }

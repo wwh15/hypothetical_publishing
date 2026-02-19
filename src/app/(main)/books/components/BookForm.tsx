@@ -61,7 +61,10 @@ export default function BookForm({
     isbn10: "",
     publicationMonth: "",
     publicationYear: "",
-    defaultRoyaltyRate: "50", // Default 50%
+    distRoyaltyRate: "50", // Default 50%
+    handSoldRoyaltyRate: "20", // Default 20%
+    coverPrice: "",
+    printCost: "",
   });
 
   // Track if form has been initialized to prevent resetting user changes
@@ -89,7 +92,10 @@ export default function BookForm({
         isbn10: initialData.isbn10 || "",
         publicationMonth: month,
         publicationYear: year,
-        defaultRoyaltyRate: initialData.defaultRoyaltyRate.toString(),
+        distRoyaltyRate: initialData.distRoyaltyRate.toString(),
+        handSoldRoyaltyRate: initialData.handSoldRoyaltyRate.toString(),
+        coverPrice: initialData.coverPrice?.toString() ?? "",
+        printCost: initialData.printCost?.toString() ?? "",
       });
       
       // Set series information only on initial load
@@ -162,7 +168,10 @@ export default function BookForm({
           isbn10: result.data.isbn10 || "",
           publicationMonth: data.publicationMonth || "",
           publicationYear: data.publicationYear?.toString() || "",
-          defaultRoyaltyRate: "50", // Default to 50% for imported books
+          distRoyaltyRate: "50", // Default to 50% for imported books
+          handSoldRoyaltyRate: "20", // Default to 20% for imported books
+          coverPrice: "",
+          printCost: "",
         });
         setIsImported(true);
         setIsbnLookup(""); // Clear lookup input
@@ -222,13 +231,21 @@ export default function BookForm({
       return;
     }
 
-    // Validate royalty rate
-    const royaltyRate = formData.defaultRoyaltyRate
-      ? parseFloat(formData.defaultRoyaltyRate)
+    // Validate royalty rates
+    const distRate = formData.distRoyaltyRate
+      ? parseFloat(formData.distRoyaltyRate)
+      : undefined;
+    const handSoldRate = formData.handSoldRoyaltyRate
+      ? parseFloat(formData.handSoldRoyaltyRate)
       : undefined;
 
-    if (royaltyRate !== undefined && (royaltyRate < 0 || royaltyRate > 100)) {
-      setError("Royalty rate must be between 0 and 100");
+    if (distRate !== undefined && (distRate < 0 || distRate > 100)) {
+      setError("Distributor royalty rate must be between 0 and 100");
+      setIsSubmitting(false);
+      return;
+    }
+    if (handSoldRate !== undefined && (handSoldRate < 0 || handSoldRate > 100)) {
+      setError("Hand-sold royalty rate must be between 0 and 100");
       setIsSubmitting(false);
       return;
     }
@@ -277,7 +294,10 @@ export default function BookForm({
         isbn13: isbn13 || undefined,
         isbn10: isbn10 || undefined,
         publicationDate,
-        defaultRoyaltyRate: royaltyRate,
+        distRoyaltyRate: distRate,
+        handSoldRoyaltyRate: handSoldRate,
+        coverPrice: formData.coverPrice ? parseFloat(formData.coverPrice) : null,
+        printCost: formData.printCost ? parseFloat(formData.printCost) : null,
         seriesId: seriesId ?? null,
         seriesOrder: undefined, // Backend auto-assigns when adding to series
       };
@@ -337,7 +357,10 @@ export default function BookForm({
             isbn10: isbn10Val,
             publicationDate,
             publicationSortKey: sortKey,
-            defaultRoyaltyRate: royaltyRate ?? 50,
+            distRoyaltyRate: distRate ?? 50,
+            handSoldRoyaltyRate: handSoldRate ?? 20,
+            coverPrice: formData.coverPrice ? parseFloat(formData.coverPrice) : null,
+            printCost: formData.printCost ? parseFloat(formData.printCost) : null,
             totalSales: 0,
             seriesName: null,
             seriesOrder: null,
@@ -633,20 +656,20 @@ export default function BookForm({
           />
         </div>
 
-        {/* Default Royalty Rate */}
-        <div className="md:col-span-2 space-y-2">
+        {/* Distributor Royalty Rate */}
+        <div className="space-y-2">
           <label
-            htmlFor="defaultRoyaltyRate"
+            htmlFor="distRoyaltyRate"
             className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
           >
-            Default Royalty Rate (%)
+            Distributor Royalty Rate (%)
           </label>
           <input
-            id="defaultRoyaltyRate"
+            id="distRoyaltyRate"
             type="number"
-            value={formData.defaultRoyaltyRate}
+            value={formData.distRoyaltyRate}
             onChange={(e) =>
-              handleInputChange("defaultRoyaltyRate", e.target.value)
+              handleInputChange("distRoyaltyRate", e.target.value)
             }
             className={cn(
               "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background",
@@ -662,8 +685,104 @@ export default function BookForm({
             step="0.1"
           />
           <p className="text-xs text-muted-foreground">
-            Default: 50%. This is the percentage of publisher revenue that goes
-            to author.
+            Default: 50%. Percentage of publisher revenue that goes to author for distributor sales.
+          </p>
+        </div>
+
+        {/* Hand-Sold Royalty Rate */}
+        <div className="space-y-2">
+          <label
+            htmlFor="handSoldRoyaltyRate"
+            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+          >
+            Hand-Sold Royalty Rate (%)
+          </label>
+          <input
+            id="handSoldRoyaltyRate"
+            type="number"
+            value={formData.handSoldRoyaltyRate}
+            onChange={(e) =>
+              handleInputChange("handSoldRoyaltyRate", e.target.value)
+            }
+            className={cn(
+              "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background",
+              "file:border-0 file:bg-transparent file:text-sm file:font-medium",
+              "placeholder:text-muted-foreground",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+              "disabled:cursor-not-allowed disabled:opacity-50",
+              "dark:bg-gray-700",
+            )}
+            placeholder="20"
+            min="0"
+            max="100"
+            step="0.1"
+          />
+          <p className="text-xs text-muted-foreground">
+            Default: 20%. Percentage of (cover price - print cost) that goes to author for hand-sold copies.
+          </p>
+        </div>
+
+        {/* Cover Price */}
+        <div className="space-y-2">
+          <label
+            htmlFor="coverPrice"
+            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+          >
+            Cover Price ($)
+          </label>
+          <input
+            id="coverPrice"
+            type="number"
+            value={formData.coverPrice}
+            onChange={(e) =>
+              handleInputChange("coverPrice", e.target.value)
+            }
+            className={cn(
+              "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background",
+              "file:border-0 file:bg-transparent file:text-sm file:font-medium",
+              "placeholder:text-muted-foreground",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+              "disabled:cursor-not-allowed disabled:opacity-50",
+              "dark:bg-gray-700",
+            )}
+            placeholder="25.00"
+            min="0"
+            step="0.01"
+          />
+          <p className="text-xs text-muted-foreground">
+            Retail cover price per copy. Used for hand-sold revenue calculation.
+          </p>
+        </div>
+
+        {/* Print Cost */}
+        <div className="space-y-2">
+          <label
+            htmlFor="printCost"
+            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+          >
+            Print Cost ($)
+          </label>
+          <input
+            id="printCost"
+            type="number"
+            value={formData.printCost}
+            onChange={(e) =>
+              handleInputChange("printCost", e.target.value)
+            }
+            className={cn(
+              "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background",
+              "file:border-0 file:bg-transparent file:text-sm file:font-medium",
+              "placeholder:text-muted-foreground",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+              "disabled:cursor-not-allowed disabled:opacity-50",
+              "dark:bg-gray-700",
+            )}
+            placeholder="5.00"
+            min="0"
+            step="0.01"
+          />
+          <p className="text-xs text-muted-foreground">
+            Cost to print one copy. Used for hand-sold revenue calculation.
           </p>
         </div>
 
