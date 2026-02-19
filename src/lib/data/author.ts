@@ -128,7 +128,7 @@ export function toAuthorListItem(author: RawAuthorResult): AuthorListItem {
 }
 
 // 4. The Main Query Function
-export async function getAuthorsData({
+export async function asyncGetAuthorsData({
   search,
   page = 1,
   pageSize = 20,
@@ -186,6 +186,13 @@ export async function getAuthorsData({
     page: currentPage,
     pageSize: limit,
   };
+}
+
+export async function asyncGetAllAuthors(): Promise<Author[]> {
+  const authors = await prisma.author.findMany({
+    orderBy: { name: "asc" },
+  });
+  return authors;
 }
 
 export async function asyncGetAuthorById(
@@ -388,12 +395,14 @@ export async function asyncUpdateAuthor(
   }
 }
 
-export async function asyncDeleteAuthor(id: number): Promise<DeleteAuthorResponse> {
+export async function asyncDeleteAuthor(
+  id: number
+): Promise<DeleteAuthorResponse> {
   try {
     /**
-     * NOTE: If your database has foreign key constraints, 
+     * NOTE: If your database has foreign key constraints,
      * this will fail if the author has associated books/sales.
-     * You may need to delete associated records first or ensure 
+     * You may need to delete associated records first or ensure
      * 'ON DELETE CASCADE' is set in your Prisma schema.
      */
     await prisma.author.delete({
@@ -403,7 +412,10 @@ export async function asyncDeleteAuthor(id: number): Promise<DeleteAuthorRespons
     return { success: true, error: null };
   } catch (err) {
     // Check for Prisma's P2025 (Record not found) error
-    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2025') {
+    if (
+      err instanceof Prisma.PrismaClientKnownRequestError &&
+      err.code === "P2025"
+    ) {
       return { success: false, error: "Author not found." };
     }
 
