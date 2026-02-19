@@ -67,6 +67,7 @@ export interface BookDetail {
   id: number;
   title: string;
   author: string;
+  authorId: number;
   email: string;
   isbn13: string | null;
   isbn10: string | null;
@@ -394,6 +395,7 @@ export async function getBookById(id: number): Promise<BookDetail | null> {
     id: book.id,
     title: book.title,
     author: book.author.name,
+    authorId: book.author.id,
     email: book.author.email,
     isbn13: book.isbn13,
     isbn10: book.isbn10,
