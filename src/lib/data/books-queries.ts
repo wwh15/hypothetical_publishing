@@ -102,28 +102,16 @@ export async function getBooksSortedByTotalSales(
       b.isbn13,
       b.isbn10,
       b.publication_date,
-<<<<<<< HEAD
       b.dist_author_royalty_rate,
       b.hand_sold_author_royalty_rate,
       b.cover_price,
       b.print_cost,
       COALESCE(SUM(s.quantity), 0)::INTEGER AS total_sales
-=======
-      b.author_royalty_rate,
-      COALESCE(SUM(s.quantity), 0)::INTEGER AS total_sales,
-      sers.name AS series_name,
-      b.series_order
->>>>>>> 7fb476c78d4ba96f6e95e6b9ab56af76a5a6276a
     FROM books b
     INNER JOIN authors a ON a.id = b."authorId"
     LEFT JOIN sales s ON s.book_id = b.id
-    LEFT JOIN series sers ON sers.id = b.series_id
     ${whereClause}
-<<<<<<< HEAD
     GROUP BY b.id, b.title, a.name, b.isbn13, b.isbn10, b.publication_date, b.dist_author_royalty_rate, b.hand_sold_author_royalty_rate, b.cover_price, b.print_cost
-=======
-    GROUP BY b.id, b.title, a.name, b.isbn13, b.isbn10, b.publication_date, b.author_royalty_rate, sers.name, b.series_order
->>>>>>> 7fb476c78d4ba96f6e95e6b9ab56af76a5a6276a
     ORDER BY total_sales ${orderDirection}, b.title ASC
     LIMIT $${limitParamIndex}
     OFFSET $${offsetParamIndex}
@@ -152,8 +140,6 @@ export async function getBooksSortedByTotalSales(
       cover_price: string | null;
       print_cost: string | null;
       total_sales: number;
-      series_name: string | null;
-      series_order: number | null;
     }>>(resultsQuery, ...allParams),
     prisma.$queryRawUnsafe<Array<{ total: bigint }>>(
       countQuery,
@@ -183,8 +169,6 @@ export async function getBooksSortedByTotalSales(
       coverPrice: row.cover_price ? Number(row.cover_price) : null,
       printCost: row.print_cost ? Number(row.print_cost) : null,
       totalSales: row.total_sales,
-      seriesName: row.series_name,
-      seriesOrder: row.series_order,
     };
   });
 
