@@ -64,6 +64,10 @@ export type UpdateAuthorResponse =
   | { success: true; data: Author | null; error: null }
   | { success: false; data: null; error: string };
 
+export type DeleteAuthorResponse =
+  | { success: true; error: null }
+  | { success: false; error: string };
+
 export type GetAuthorByIdResponse =
   | { success: true; data: Author | null; error: null }
   | { success: false; data: null; error: string };
@@ -323,7 +327,9 @@ export async function asyncAddAuthor(
   }
 }
 
-export async function asyncUpdateAuthor(request: UpdateAuthorRequest): Promise<UpdateAuthorResponse> {
+export async function asyncUpdateAuthor(
+  request: UpdateAuthorRequest
+): Promise<UpdateAuthorResponse> {
   const { authorId, name, email } = request;
   const updateData: Prisma.AuthorUpdateInput = {};
 
@@ -378,6 +384,32 @@ export async function asyncUpdateAuthor(request: UpdateAuthorRequest): Promise<U
       success: false,
       data: null,
       error: err instanceof Error ? err.message : "Failed to update author.",
+    };
+  }
+}
+
+export async function asyncDeleteAuthor(id: number): Promise<DeleteAuthorResponse> {
+  try {
+    /**
+     * NOTE: If your database has foreign key constraints, 
+     * this will fail if the author has associated books/sales.
+     * You may need to delete associated records first or ensure 
+     * 'ON DELETE CASCADE' is set in your Prisma schema.
+     */
+    await prisma.author.delete({
+      where: { id: id },
+    });
+
+    return { success: true, error: null };
+  } catch (err) {
+    // Check for Prisma's P2025 (Record not found) error
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2025') {
+      return { success: false, error: "Author not found." };
+    }
+
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to delete author.",
     };
   }
 }
