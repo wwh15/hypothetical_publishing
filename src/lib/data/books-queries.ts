@@ -102,13 +102,16 @@ export async function getBooksSortedByTotalSales(
       b.isbn13,
       b.isbn10,
       b.publication_date,
-      b.author_royalty_rate,
+      b.dist_author_royalty_rate,
+      b.hand_sold_author_royalty_rate,
+      b.cover_price,
+      b.print_cost,
       COALESCE(SUM(s.quantity), 0)::INTEGER AS total_sales
     FROM books b
     INNER JOIN authors a ON a.id = b."authorId"
     LEFT JOIN sales s ON s.book_id = b.id
     ${whereClause}
-    GROUP BY b.id, b.title, a.name, b.isbn13, b.isbn10, b.publication_date, b.author_royalty_rate
+    GROUP BY b.id, b.title, a.name, b.isbn13, b.isbn10, b.publication_date, b.dist_author_royalty_rate, b.hand_sold_author_royalty_rate, b.cover_price, b.print_cost
     ORDER BY total_sales ${orderDirection}, b.title ASC
     LIMIT $${limitParamIndex}
     OFFSET $${offsetParamIndex}
@@ -132,7 +135,10 @@ export async function getBooksSortedByTotalSales(
       isbn13: string | null;
       isbn10: string | null;
       publication_date: Date | null;
-      author_royalty_rate: number;
+      dist_author_royalty_rate: number;
+      hand_sold_author_royalty_rate: number;
+      cover_price: string | null;
+      print_cost: string | null;
       total_sales: number;
     }>>(resultsQuery, ...allParams),
     prisma.$queryRawUnsafe<Array<{ total: bigint }>>(
@@ -145,7 +151,8 @@ export async function getBooksSortedByTotalSales(
 
   // Map database results to BookListItem format
   const items: BookListItem[] = results.map((row) => {
-    const defaultRoyaltyRate = Math.round(row.author_royalty_rate * 100);
+    const distRoyaltyRate = Math.round(row.dist_author_royalty_rate * 100);
+    const handSoldRoyaltyRate = Math.round(row.hand_sold_author_royalty_rate * 100);
     const publicationSortKey = publicationSortKeyFromDate(
       row.publication_date
     );
@@ -157,7 +164,10 @@ export async function getBooksSortedByTotalSales(
       isbn10: row.isbn10,
       publicationDate: row.publication_date,
       publicationSortKey,
-      defaultRoyaltyRate,
+      distRoyaltyRate,
+      handSoldRoyaltyRate,
+      coverPrice: row.cover_price ? Number(row.cover_price) : null,
+      printCost: row.print_cost ? Number(row.print_cost) : null,
       totalSales: row.total_sales,
     };
   });

@@ -84,7 +84,7 @@ useBulkPastePreview();
     return previewRows.map((row) => {
       const book = isbnLookup.get(row.isbn);
       const computedRoyalty = book
-        ? (row.revenue * book.defaultRoyaltyRate) / 100
+        ? (row.revenue * book.distRoyaltyRate) / 100
         : undefined;
       const providedRoyalty = row.authorRoyalty;
       const finalRoyalty = providedRoyalty ?? computedRoyalty;

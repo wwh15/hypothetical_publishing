@@ -28,7 +28,10 @@ describe("getBooksData", () => {
         isbn13: "9781234567890",
         isbn10: "1234567890",
         publicationDate: new Date(2020, 5, 1), // June 2020
-        authorRoyaltyRate: 0.1,
+        distAuthorRoyaltyRate: 0.1,
+        handSoldAuthorRoyaltyRate: 0.05,
+        coverPrice: null,
+        printCost: null,
         author: { name: "Author One" },
         sales: [{ quantity: 5 }],
       },
@@ -47,7 +50,10 @@ describe("getBooksData", () => {
       isbn10: "1234567890",
       publicationDate: new Date(2020, 5, 1),
       publicationSortKey: "2020-06",
-      defaultRoyaltyRate: 10,
+      distRoyaltyRate: 10,
+      handSoldRoyaltyRate: 5,
+      coverPrice: null,
+      printCost: null,
       totalSales: 5,
     });
     expect(result.total).toBe(1);

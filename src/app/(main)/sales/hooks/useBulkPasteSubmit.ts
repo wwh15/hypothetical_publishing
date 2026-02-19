@@ -40,7 +40,7 @@ export function useBulkPasteSubmit(
       const publisherRevenue = row.revenue;
       
       // Compute expected royalty from book rate
-      const computedRoyalty = publisherRevenue * book.defaultRoyaltyRate / 100;
+      const computedRoyalty = publisherRevenue * book.distRoyaltyRate / 100;
       
       // Use provided royalty if it exists, otherwise use computed
       const authorRoyalty = row.authorRoyalty ?? computedRoyalty;
@@ -60,6 +60,7 @@ export function useBulkPasteSubmit(
         authorRoyalty,
         royaltyOverridden,
         paid: false,
+        source: "DISTRIBUTOR",
       };
 
       onAddRecord(record);

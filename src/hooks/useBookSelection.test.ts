@@ -12,7 +12,10 @@ const mockBooks: BookListItem[] = [
     isbn10: null,
     publicationDate: null,
     publicationSortKey: "9999-99",
-    defaultRoyaltyRate: 10,
+    distRoyaltyRate: 10,
+    handSoldRoyaltyRate: 5,
+    coverPrice: null,
+    printCost: null,
     totalSales: 0,
   },
   {
@@ -23,7 +26,10 @@ const mockBooks: BookListItem[] = [
     isbn10: null,
     publicationDate: null,
     publicationSortKey: "9999-99",
-    defaultRoyaltyRate: 15,
+    distRoyaltyRate: 15,
+    handSoldRoyaltyRate: 8,
+    coverPrice: null,
+    printCost: null,
     totalSales: 0,
   },
 ];

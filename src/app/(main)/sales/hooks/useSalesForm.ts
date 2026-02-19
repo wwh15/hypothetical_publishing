@@ -45,7 +45,7 @@ export function useSalesForm(
         const rev = parseFloat(next.publisherRevenue);
         next.authorRoyalty =
           book && !isNaN(rev)
-            ? ((rev * book.defaultRoyaltyRate) / 100).toFixed(2)
+            ? ((rev * book.distRoyaltyRate) / 100).toFixed(2)
             : "";
       }
       return next;
@@ -58,7 +58,7 @@ export function useSalesForm(
       const calculatedValue =
         book && prev.publisherRevenue
           ? (
-              (parseFloat(prev.publisherRevenue) * book.defaultRoyaltyRate) /
+              (parseFloat(prev.publisherRevenue) * book.distRoyaltyRate) /
               100
             ).toFixed(2)
           : "";
@@ -84,7 +84,7 @@ export function useSalesForm(
     const book = books.find((b) => b.id === parseInt(formData.bookId));
     if (book && formData.publisherRevenue) {
       const calculated =
-        (parseFloat(formData.publisherRevenue) * book.defaultRoyaltyRate) / 100;
+        (parseFloat(formData.publisherRevenue) * book.distRoyaltyRate) / 100;
       setFormData((prev) => ({
         ...prev,
         authorRoyalty: calculated.toFixed(2),
@@ -135,6 +135,7 @@ export function useSalesForm(
       authorRoyalty: parseFloat(formData.authorRoyalty),
       royaltyOverridden: formData.royaltyOverridden,
       paid: false,
+      source: "DISTRIBUTOR",
     };
 
     onAddRecord(newRecord);

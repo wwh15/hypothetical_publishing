@@ -231,7 +231,7 @@ export default function EditForm({ sale, books }: EditFormProps) {
             selectedBookId={String(formData.bookId)}
             onSelect={(bookId) => {
               const book = books.find((b) => b.id === Number(bookId));
-              const rate = book?.defaultRoyaltyRate;
+              const rate = book?.distRoyaltyRate;
               const newRoyalty = rate != null ? formData.publisherRevenue * (rate / 100) : formData.authorRoyalty;
               setFormData({ ...formData, bookId: Number(bookId), authorRoyalty: normalizeCurrency(newRoyalty) });
             }}
@@ -295,7 +295,7 @@ export default function EditForm({ sale, books }: EditFormProps) {
                 setDisplayRevenue(val);
                 const numericRevenue = parseFloat(val) || 0;
                 const book = books.find((b) => b.id === Number(formData.bookId));
-                const rate = book?.defaultRoyaltyRate;
+                const rate = book?.distRoyaltyRate;
                 const newRoyalty = rate != null ? numericRevenue * (rate / 100) : formData.authorRoyalty;
                 setDisplayRoyalty(newRoyalty.toFixed(2));
                 setFormData({ ...formData, publisherRevenue: numericRevenue, authorRoyalty: normalizeCurrency(newRoyalty), royaltyOverridden: false });
@@ -328,7 +328,7 @@ export default function EditForm({ sale, books }: EditFormProps) {
               if (isValidCurrencyInput(val)) {
                 setDisplayRoyalty(val);
                 const book = books.find((b) => b.id === Number(formData.bookId));
-                const rate = book?.defaultRoyaltyRate;
+                const rate = book?.distRoyaltyRate;
                 const computedRoyalty = rate != null ? formData.publisherRevenue * (rate / 100) : null;
                 const numericRoyalty = parseFloat(val) || 0;
                 const isMismatched = computedRoyalty !== null && numericRoyalty.toFixed(2) !== computedRoyalty.toFixed(2);

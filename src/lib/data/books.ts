@@ -21,7 +21,10 @@ export interface BookListItem {
   publicationDate: Date | null;
   /** YYYY-MM string for sorting; nulls become 9999-99 so they sort last */
   publicationSortKey: string;
-  defaultRoyaltyRate: number; // As percentage (e.g., 50 for 50%)
+  distRoyaltyRate: number; // Distributor royalty as percentage (e.g., 50 for 50%)
+  handSoldRoyaltyRate: number; // Hand-sold royalty as percentage (e.g., 20 for 20%)
+  coverPrice: number | null; // Retail cover price
+  printCost: number | null; // Cost to print one copy
   totalSales: number; // Total sales to date
 }
 
@@ -41,7 +44,10 @@ export interface CreateBookInput {
   isbn10?: string;
   /** First day of publication month (e.g. new Date(2024, 0, 1) for Jan 2024) */
   publicationDate?: Date | null;
-  defaultRoyaltyRate?: number; // percentage (e.g., 50), default handled by server
+  distRoyaltyRate?: number; // Distributor royalty percentage (e.g., 50), default handled by server
+  handSoldRoyaltyRate?: number; // Hand-sold royalty percentage (e.g., 20), default handled by server
+  coverPrice?: number | null; // Retail cover price
+  printCost?: number | null; // Cost to print one copy
   seriesId?: number | null; // Existing series ID, or null for no series
   seriesOrder?: number | null; // Position in series (1, 2, 3, ...)
   newSeriesName?: string; // Name for new series (if creating new series)
@@ -64,7 +70,10 @@ export interface BookDetail {
   isbn10: string | null;
   /** First day of publication month; null if unknown */
   publicationDate: Date | null;
-  defaultRoyaltyRate: number;
+  distRoyaltyRate: number;
+  handSoldRoyaltyRate: number;
+  coverPrice: number | null;
+  printCost: number | null;
   createdAt: Date;
   updatedAt: Date;
   totalSales: number;
@@ -88,7 +97,7 @@ const SORT_FIELD_MAP: Record<
   isbn13: { isbn13: "asc" },
   isbn10: { isbn10: "asc" },
   publication: { publicationDate: "asc" },
-  defaultRoyaltyRate: { authorRoyaltyRate: "asc" },
+  distRoyaltyRate: { distAuthorRoyaltyRate: "asc" },
   // Prisma can only order by relation _count, not sum(quantity). When sortBy is totalSales we use in-memory sort in getBooksData.
   totalSales: { sales: { _count: "desc" } },
 };
@@ -188,7 +197,8 @@ export async function getAllBooks(): Promise<BookListItem[]> {
 
   return books.map((book) => {
     const totalSales = book.sales.reduce((sum, sale) => sum + sale.quantity, 0);
-    const defaultRoyaltyRate = Math.round(book.authorRoyaltyRate * 100);
+    const distRoyaltyRate = Math.round(book.distAuthorRoyaltyRate * 100);
+    const handSoldRoyaltyRate = Math.round(book.handSoldAuthorRoyaltyRate * 100);
     const publicationSortKey = publicationSortKeyFromDate(book.publicationDate);
     return {
       id: book.id,
@@ -198,7 +208,10 @@ export async function getAllBooks(): Promise<BookListItem[]> {
       isbn10: book.isbn10,
       publicationDate: book.publicationDate,
       publicationSortKey,
-      defaultRoyaltyRate,
+      distRoyaltyRate,
+      handSoldRoyaltyRate,
+      coverPrice: book.coverPrice ? Number(book.coverPrice) : null,
+      printCost: book.printCost ? Number(book.printCost) : null,
       totalSales,
     };
   });
@@ -304,7 +317,8 @@ export async function getBooksData({
 
   const items: BookListItem[] = books.map((book) => {
     const totalSales = book.sales.reduce((sum, sale) => sum + sale.quantity, 0);
-    const defaultRoyaltyRate = Math.round(book.authorRoyaltyRate * 100);
+    const distRoyaltyRate = Math.round(book.distAuthorRoyaltyRate * 100);
+    const handSoldRoyaltyRate = Math.round(book.handSoldAuthorRoyaltyRate * 100);
     const publicationSortKey = publicationSortKeyFromDate(book.publicationDate);
     return {
       id: book.id,
@@ -314,7 +328,10 @@ export async function getBooksData({
       isbn10: book.isbn10,
       publicationDate: book.publicationDate,
       publicationSortKey,
-      defaultRoyaltyRate,
+      distRoyaltyRate,
+      handSoldRoyaltyRate,
+      coverPrice: book.coverPrice ? Number(book.coverPrice) : null,
+      printCost: book.printCost ? Number(book.printCost) : null,
       totalSales,
     };
   });
@@ -337,7 +354,8 @@ export async function getBookById(id: number): Promise<BookDetail | null> {
     return null;
   }
 
-  const defaultRoyaltyRate = Math.round(book.authorRoyaltyRate * 100);
+  const distRoyaltyRate = Math.round(book.distAuthorRoyaltyRate * 100);
+  const handSoldRoyaltyRate = Math.round(book.handSoldAuthorRoyaltyRate * 100);
 
   // Use aggregates so we don't load all sales (sales list is paginated separately)
   const [totals, unpaidAgg, paidAgg] = await Promise.all([
@@ -371,7 +389,10 @@ export async function getBookById(id: number): Promise<BookDetail | null> {
     isbn13: book.isbn13,
     isbn10: book.isbn10,
     publicationDate: book.publicationDate,
-    defaultRoyaltyRate,
+    distRoyaltyRate,
+    handSoldRoyaltyRate,
+    coverPrice: book.coverPrice ? Number(book.coverPrice) : null,
+    printCost: book.printCost ? Number(book.printCost) : null,
     createdAt: book.createdAt,
     updatedAt: book.updatedAt,
     totalSales,
@@ -392,10 +413,13 @@ export async function createBook(
   { success: true; bookId: number } | { success: false; error: string }
 > {
   try {
-    // Convert royalty rate from percentage to decimal (e.g., 50 -> 0.50)
-    const authorRoyaltyRate = input.defaultRoyaltyRate
-      ? input.defaultRoyaltyRate / 100
+    // Convert royalty rates from percentage to decimal (e.g., 50 -> 0.50)
+    const distAuthorRoyaltyRate = input.distRoyaltyRate
+      ? input.distRoyaltyRate / 100
       : 0.5; // Default to 50%
+    const handSoldAuthorRoyaltyRate = input.handSoldRoyaltyRate
+      ? input.handSoldRoyaltyRate / 100
+      : 0.2; // Default to 20%
 
     // Determine series handling
     let seriesId: number | null = null;
@@ -445,7 +469,10 @@ export async function createBook(
           title: input.title,
           isbn13: input.isbn13 || null,
           isbn10: input.isbn10 || null,
-          authorRoyaltyRate,
+          distAuthorRoyaltyRate,
+          handSoldAuthorRoyaltyRate,
+          coverPrice: input.coverPrice ?? null,
+          printCost: input.printCost ?? null,
           publicationDate: input.publicationDate ?? null,
           seriesId: seriesId,
           seriesOrder: seriesOrderVal,
@@ -545,8 +572,17 @@ export async function updateBook(
         updateData.isbn13 = input.isbn13 || null;
       if (input.isbn10 !== undefined)
         updateData.isbn10 = input.isbn10 || null;
-      if (input.defaultRoyaltyRate !== undefined) {
-        updateData.authorRoyaltyRate = input.defaultRoyaltyRate / 100;
+      if (input.distRoyaltyRate !== undefined) {
+        updateData.distAuthorRoyaltyRate = input.distRoyaltyRate / 100;
+      }
+      if (input.handSoldRoyaltyRate !== undefined) {
+        updateData.handSoldAuthorRoyaltyRate = input.handSoldRoyaltyRate / 100;
+      }
+      if (input.coverPrice !== undefined) {
+        updateData.coverPrice = input.coverPrice ?? null;
+      }
+      if (input.printCost !== undefined) {
+        updateData.printCost = input.printCost ?? null;
       }
       if (input.publicationDate !== undefined)
         updateData.publicationDate = input.publicationDate ?? null;

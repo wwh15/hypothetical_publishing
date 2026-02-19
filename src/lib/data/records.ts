@@ -13,6 +13,7 @@ export interface SaleListItem {
   publisherRevenue: number;
   authorRoyalty: number;
   paid: "paid" | "pending";
+  source: "DISTRIBUTOR" | "HAND_SOLD";
 }
 
 export interface PendingSaleItem {
@@ -26,6 +27,7 @@ export interface PendingSaleItem {
   authorRoyalty: number;
   royaltyOverridden: boolean; // Whether user manually overrode the calculated royalty
   paid: boolean; // Always false for pending, but included for consistency
+  source: "DISTRIBUTOR" | "HAND_SOLD";
 }
 
 // This represents the data AFTER it has been converted to numbers
@@ -37,6 +39,7 @@ export type SaleDetailPayload = {
   authorRoyalty: number; // Changed from Decimal to number
   paid: boolean;
   royaltyOverridden: boolean;
+  source: "DISTRIBUTOR" | "HAND_SOLD";
   book: {
     id: number;
     title: string;
@@ -57,6 +60,7 @@ const SORT_ASC: Record<string, Prisma.SaleOrderByWithRelationInput> = {
   publisherRevenue: { publisherRevenue: "asc" },
   authorRoyalty: { authorRoyalty: "asc" },
   paid: { paid: "asc" },
+  source: { source: "asc" },
 };
 
 const SORT_DESC: Record<string, Prisma.SaleOrderByWithRelationInput> = {
@@ -68,6 +72,7 @@ const SORT_DESC: Record<string, Prisma.SaleOrderByWithRelationInput> = {
   publisherRevenue: { publisherRevenue: "desc" },
   authorRoyalty: { authorRoyalty: "desc" },
   paid: { paid: "desc" },
+  source: { source: "desc" },
 };
 
 function buildOrderBy(
@@ -244,6 +249,7 @@ export async function asyncGetSaleById(
     ...sale,
     publisherRevenue: sale.publisherRevenue.toNumber(),
     authorRoyalty: sale.authorRoyalty.toNumber(),
+    source: sale.source,
     book: {
       ...sale.book,
       author: {
@@ -262,6 +268,7 @@ export function toSaleListItem(sale: {
   publisherRevenue: Decimal;
   authorRoyalty: Decimal;
   paid: boolean;
+  source: "DISTRIBUTOR" | "HAND_SOLD";
   book: { title: string; author: { name: string } };
 }): SaleListItem {
   return {
@@ -274,6 +281,7 @@ export function toSaleListItem(sale: {
     publisherRevenue: sale.publisherRevenue.toNumber(),
     authorRoyalty: sale.authorRoyalty.toNumber(),
     paid: sale.paid ? "paid" : "pending",
+    source: sale.source,
   };
 }
 
