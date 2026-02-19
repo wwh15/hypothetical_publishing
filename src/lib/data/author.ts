@@ -54,6 +54,16 @@ interface CreateAuthorResponse {
   error: string | null;
 }
 
+export interface UpdateAuthorRequest {
+  authorId: number;
+  name?: string;
+  email?: string;
+}
+
+export type UpdateAuthorResponse =
+  | { success: true; data: Author | null; error: null }
+  | { success: false; data: null; error: string };
+
 export type GetAuthorByIdResponse =
   | { success: true; data: Author | null; error: null }
   | { success: false; data: null; error: string };
@@ -214,9 +224,8 @@ export async function asyncGetAuthorBooks(
 
     // 2. Map and Calculate totals for each book
     const data: AuthorBookItem[] = books.map((book) => {
-      
       // Calculate sums from the sales array
-      const totalSales = book.sales.reduce((sum, s) => sum + s.quantity, 0)
+      const totalSales = book.sales.reduce((sum, s) => sum + s.quantity, 0);
 
       const totalAuthorRoyalty = book.sales.reduce(
         (sum, s) => sum.plus(new Decimal(s.authorRoyalty.toString())),
@@ -310,6 +319,65 @@ export async function asyncAddAuthor(
       success: false,
       data: null,
       error: "Failed to create author in database.",
+    };
+  }
+}
+
+export async function asyncUpdateAuthor(request: UpdateAuthorRequest): Promise<UpdateAuthorResponse> {
+  const { authorId, name, email } = request;
+  const updateData: Prisma.AuthorUpdateInput = {};
+
+  // 1. Validate Email if provided
+  if (email) {
+    const validatedEmail = validateEmail(email);
+    if (!validatedEmail.success) {
+      return { success: false, error: validatedEmail.error, data: null };
+    }
+
+    // Check for email collision (except for the current author)
+    const existing = await prisma.author.findFirst({
+      where: {
+        email: validatedEmail.data,
+        id: { not: authorId },
+      },
+    });
+    if (existing) {
+      return {
+        success: false,
+        error: "Email is already taken by another author.",
+        data: null,
+      };
+    }
+
+    updateData.email = validatedEmail.data;
+  }
+
+  // 2. Validate Name if provided
+  if (name) {
+    const validatedName = validateName(name);
+    if (!validatedName.success) {
+      return { success: false, error: validatedName.error, data: null };
+    }
+    updateData.name = validatedName.data;
+  }
+
+  // 3. Prevent empty updates
+  if (Object.keys(updateData).length === 0) {
+    return { success: false, error: "No changes provided.", data: null };
+  }
+
+  // 4. Execute single update
+  try {
+    const updatedAuthor = await prisma.author.update({
+      where: { id: authorId },
+      data: updateData,
+    });
+    return { success: true, data: updatedAuthor, error: null };
+  } catch (err) {
+    return {
+      success: false,
+      data: null,
+      error: err instanceof Error ? err.message : "Failed to update author.",
     };
   }
 }
