@@ -61,7 +61,7 @@ export default function BooksTable({
       key: "series",
       header: "Series",
       accessor: "seriesName",
-      sortable: false,
+      sortable: true,
       render: (row) => {
         if (!row.seriesName) {
           return <span>-</span>;
