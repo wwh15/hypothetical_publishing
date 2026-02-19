@@ -101,6 +101,20 @@ export default async function BookDetailPage({ params, searchParams }: PageProps
               <label className="text-sm font-medium text-muted-foreground">Default Royalty Rate</label>
               <p className="text-lg">{book.defaultRoyaltyRate}%</p>
             </div>
+            {book.seriesName && (
+              <>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Series</label>
+                  <p className="text-lg">{book.seriesName}</p>
+                </div>
+                {book.seriesOrder !== null && (
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Series Order</label>
+                    <p className="text-lg">#{book.seriesOrder}</p>
+                  </div>
+                )}
+              </>
+            )}
             <div>
               <label className="text-sm font-medium text-muted-foreground">Created At</label>
               <p className="text-lg">{formatDate(book.createdAt)}</p>
