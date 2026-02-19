@@ -81,7 +81,7 @@ export interface BookDetail {
 }
 
 // Column keys from BooksTable that support server-side sort.
-// Note: "authors" sorts by number of authors (_count); Prisma relation orderBy does not support ordering by relation field (e.g. name).
+// Series: alphabetical by series name, then by series order (1,2,...,9,10); books with no series last.
 const SORT_FIELD_MAP: Record<
   string,
   Prisma.BookOrderByWithRelationInput | Prisma.BookOrderByWithRelationInput[]
@@ -94,6 +94,8 @@ const SORT_FIELD_MAP: Record<
   defaultRoyaltyRate: { authorRoyaltyRate: "asc" },
   // Prisma can only order by relation _count, not sum(quantity). When sortBy is totalSales we use in-memory sort in getBooksData.
   totalSales: { sales: { _count: "desc" } },
+  // Series name (nulls last in PostgreSQL ASC), then series order (numeric; nulls last)
+  series: [{ series: { name: "asc" } }, { seriesOrder: "asc" }],
 };
 
 function flipOrderDir(
