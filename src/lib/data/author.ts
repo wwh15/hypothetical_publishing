@@ -1,4 +1,4 @@
-import { Prisma } from "@prisma/client";
+import { Author, Prisma } from "@prisma/client";
 import { prisma } from "../prisma";
 import { Decimal } from "decimal.js";
 import { validateEmail, validateName } from "../validation";
@@ -11,6 +11,21 @@ export interface AuthorListItem {
   totalAuthorRoyalty: number;
   paidAuthorRoyalty: number;
   unpaidAuthorRoyalty: number;
+}
+
+export interface AuthorBookItem {
+  id: number;
+  title: string;
+  seriesId?: number;
+  seriesOrder?: number;
+  ISBN13: number;
+  publicationMonth: string;
+  publicationYear: string;
+  authorRoyaltyRate: number;
+  totalSales: number;
+  totalAuthorRoyalty: number;
+  unpaidAuthorRoyalty: number;
+  paidAuthorRoyalty: number;
 }
 
 export interface GetAuthorDataParams {
@@ -35,17 +50,17 @@ export interface CreateAuthorRequest {
 
 interface CreateAuthorResponse {
   success: boolean;
-  data:
-    | {
-        name: string;
-        id: number;
-        email: string | null;
-        createdAt: Date;
-        updatedAt: Date;
-      }
-    | undefined;
-  error: string;
+  data: Author | null; // Changed from undefined to null for consistency
+  error: string | null;
 }
+
+export type GetAuthorByIdResponse =
+  | { success: true; data: Author | null; error: null }
+  | { success: false; data: null; error: string };
+
+export type GetAuthorBooksResponse =
+  | { success: true; data: AuthorBookItem[]; error: null }
+  | { success: false; data: null; error: string };
 
 // 1. Define the SQL Column Map
 // We use the actual DB column names (snake_case) defined in your @map attributes
@@ -159,18 +174,116 @@ export async function getAuthorsData({
   };
 }
 
-export async function asyncAddAuthor(data: Prisma.AuthorUncheckedCreateInput): Promise<CreateAuthorResponse> {
-  
+export async function asyncGetAuthorById(
+  id: number
+): Promise<GetAuthorByIdResponse> {
+  try {
+    const author = await prisma.author.findUnique({
+      where: { id: id },
+    });
+
+    // If author is null, it's still a "successful" DB query, just no result
+    return { success: true, data: author, error: null };
+  } catch (err) {
+    // If it hits the catch block, a real DB error happened
+    return {
+      success: false,
+      data: null,
+      error: err instanceof Error ? err.message : "Failed to fetch author",
+    };
+  }
+}
+
+export async function asyncGetAuthorBooks(
+  id: number
+): Promise<GetAuthorBooksResponse> {
+  try {
+    // 1. Fetch books with their sales records included
+    const books = await prisma.book.findMany({
+      where: { authorId: id },
+      include: {
+        sales: true,
+      },
+      orderBy: [
+        { title: "asc" },
+        { seriesId: "asc" },
+        { seriesOrder: "asc" },
+        { publicationDate: "asc" },
+      ],
+    });
+
+    // 2. Map and Calculate totals for each book
+    const data: AuthorBookItem[] = books.map((book) => {
+      
+      // Calculate sums from the sales array
+      const totalSales = book.sales.reduce((sum, s) => sum + s.quantity, 0)
+
+      const totalAuthorRoyalty = book.sales.reduce(
+        (sum, s) => sum.plus(new Decimal(s.authorRoyalty.toString())),
+        new Decimal(0)
+      );
+
+      const totalPaid = book.sales
+        .filter((s) => s.paid)
+        .reduce(
+          (sum, s) => sum.plus(new Decimal(s.authorRoyalty.toString())),
+          new Decimal(0)
+        );
+
+      const totalUnpaid = totalAuthorRoyalty.minus(totalPaid);
+
+      return {
+        id: book.id,
+        title: book.title,
+        seriesId: book.seriesId ?? undefined,
+        seriesOrder: book.seriesOrder ?? undefined,
+        ISBN13: Number(book.isbn13) || 0, // Ensure numeric for your interface
+        publicationMonth: book.publicationDate
+          ? book.publicationDate.toLocaleString("default", { month: "long" })
+          : "N/A",
+        publicationYear: book.publicationDate
+          ? book.publicationDate.getFullYear().toString()
+          : "N/A",
+        authorRoyaltyRate: Number(book.authorRoyaltyRate) * 100, // Display as %
+        totalSales,
+        totalAuthorRoyalty: totalAuthorRoyalty.toNumber(),
+        paidAuthorRoyalty: totalPaid.toNumber(),
+        unpaidAuthorRoyalty: totalUnpaid.toNumber(),
+      };
+    });
+
+    return { success: true, data, error: null };
+  } catch (err) {
+    return {
+      success: false,
+      data: null,
+      error:
+        err instanceof Error ? err.message : "Failed to fetch author books",
+    };
+  }
+}
+
+export async function asyncAddAuthor(
+  data: Prisma.AuthorUncheckedCreateInput
+): Promise<CreateAuthorResponse> {
   // Validate email
   const validatedEmail = validateEmail(data.email);
   if (!validatedEmail.success) {
-    return { success: validatedEmail.success, error: validatedEmail.error, data: undefined };
+    return {
+      success: validatedEmail.success,
+      error: validatedEmail.error,
+      data: null,
+    };
   }
 
   // Validate name
   const validatedName = validateName(data.name);
   if (!validatedName.success) {
-    return { success: validatedName.success, error: validatedName.error, data: undefined}
+    return {
+      success: validatedName.success,
+      error: validatedName.error,
+      data: null,
+    };
   }
 
   // Check if the author exists by email
@@ -185,14 +298,18 @@ export async function asyncAddAuthor(data: Prisma.AuthorUncheckedCreateInput): P
     return {
       success: false,
       error: "An author with this email already exists.",
-      data: undefined,
+      data: null,
     };
   }
 
   try {
     const newAuthor = await prisma.author.create({ data });
     return { success: true, data: newAuthor, error: "No error" };
-  } catch {
-    return { success: false, data: undefined, error: "Failed to create author in database." };
+  } catch (err) {
+    return {
+      success: false,
+      data: null,
+      error: "Failed to create author in database.",
+    };
   }
 }

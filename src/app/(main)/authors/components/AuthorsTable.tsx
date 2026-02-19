@@ -157,8 +157,8 @@ const enhancedColumns = useMemo(() => {
 
   const handleRowClick =
     onRowClick ||
-    (() => {
-      alert("Still need to implement Author Detail Page");
+    ((author: AuthorListItem) => {
+      router.push(`/authors/${author.id}`);
     });
 
   const handleToggleShowAll = () => {
