@@ -17,6 +17,8 @@ const mockBooks: BookListItem[] = [
     coverPrice: null,
     printCost: null,
     totalSales: 100,
+    seriesName: null,
+    seriesOrder: null,
   },
   {
     id: 2,
@@ -31,6 +33,8 @@ const mockBooks: BookListItem[] = [
     coverPrice: null,
     printCost: null,
     totalSales: 50,
+    seriesName: null,
+    seriesOrder: null,
   },
 ];
 

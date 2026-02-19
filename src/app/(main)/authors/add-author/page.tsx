@@ -31,7 +31,7 @@ export default function AddAuthorPage() {
 
       {/* Author Form Section */}
       <div className="max-w-4xl">
-        <AuthorForm />
+        <AuthorForm mode="create" />
       </div>
     </div>
   );

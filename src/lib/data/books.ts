@@ -26,6 +26,8 @@ export interface BookListItem {
   coverPrice: number | null; // Retail cover price
   printCost: number | null; // Cost to print one copy
   totalSales: number; // Total sales to date
+  seriesName: string | null;
+  seriesOrder: number | null;
 }
 
 // Series type for UI
@@ -83,11 +85,12 @@ export interface BookDetail {
   totalAuthorRoyalty: number;
   seriesId: number | null;
   seriesOrder: number | null;
+  seriesName: string | null;
   sales?: import("./records").SaleListItem[]; // Sales records for this book
 }
 
 // Column keys from BooksTable that support server-side sort.
-// Note: "authors" sorts by number of authors (_count); Prisma relation orderBy does not support ordering by relation field (e.g. name).
+// Series: alphabetical by series name, then by series order (1,2,...,9,10); books with no series last.
 const SORT_FIELD_MAP: Record<
   string,
   Prisma.BookOrderByWithRelationInput | Prisma.BookOrderByWithRelationInput[]
@@ -100,6 +103,8 @@ const SORT_FIELD_MAP: Record<
   distRoyaltyRate: { distAuthorRoyaltyRate: "asc" },
   // Prisma can only order by relation _count, not sum(quantity). When sortBy is totalSales we use in-memory sort in getBooksData.
   totalSales: { sales: { _count: "desc" } },
+  // Series name (nulls last in PostgreSQL ASC), then series order (numeric; nulls last)
+  series: [{ series: { name: "asc" } }, { seriesOrder: "asc" }],
 };
 
 function flipOrderDir(
@@ -191,7 +196,7 @@ export async function createSeries(
 // Get all books (for client-side pagination/sorting)
 export async function getAllBooks(): Promise<BookListItem[]> {
   const books = await prisma.book.findMany({
-    include: { author: true, sales: true },
+    include: { author: true, sales: true, series: true },
     orderBy: { title: "asc" },
   });
 
@@ -213,6 +218,8 @@ export async function getAllBooks(): Promise<BookListItem[]> {
       coverPrice: book.coverPrice ? Number(book.coverPrice) : null,
       printCost: book.printCost ? Number(book.printCost) : null,
       totalSales,
+      seriesName: book.series?.name ?? null,
+      seriesOrder: book.seriesOrder ?? null,
     };
   });
 }
@@ -307,7 +314,7 @@ export async function getBooksData({
   const [books, total] = await Promise.all([
     prisma.book.findMany({
       where,
-      include: { author: true, sales: true },
+      include: { author: true, sales: true, series: true },
       orderBy,
       skip: (currentPage - 1) * limit,
       take: limit,
@@ -333,6 +340,8 @@ export async function getBooksData({
       coverPrice: book.coverPrice ? Number(book.coverPrice) : null,
       printCost: book.printCost ? Number(book.printCost) : null,
       totalSales,
+      seriesName: book.series?.name ?? null,
+      seriesOrder: book.seriesOrder ?? null,
     };
   });
 
@@ -347,7 +356,7 @@ export async function getBooksData({
 export async function getBookById(id: number): Promise<BookDetail | null> {
   const book = await prisma.book.findUnique({
     where: { id },
-    include: { author: true },
+    include: { author: true, series: true },
   });
 
   if (!book) {
@@ -402,6 +411,7 @@ export async function getBookById(id: number): Promise<BookDetail | null> {
     totalAuthorRoyalty,
     seriesId: book.seriesId,
     seriesOrder: book.seriesOrder,
+    seriesName: book.series?.name ?? null,
     // Sales list is loaded separately via getSalesByBookId (paginated)
     sales: undefined,
   };
