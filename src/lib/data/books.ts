@@ -58,6 +58,7 @@ export interface CreateBookInput {
 export interface UpdateBookInput extends Partial<CreateBookInput> {
   id: number;
   email: string;
+  authorId: number;
   /** Set to null to remove book from series. */
   seriesId?: number | null;
   seriesOrder?: number | null;
@@ -540,44 +541,27 @@ export async function updateBook(
       return { success: false, error: "Book not found" };
     }
 
-    // Check if author exists
-    const authorEmail = input.email;
-
-    const author = await prisma.author.findUnique({
-      where: { email: authorEmail },
-    });
-
-    if (!author) {
-      return {
-        success: false,
-        error: `No author found with email ${authorEmail}. Please verify the address or create a new author record before assigning this book.`,
-      };
-    }
-
     // Update the book
     const updatedBook = await prisma.$transaction(async (tx) => {
-      // Find the author within the transaction
-      const authorInTx = await tx.author.findUnique({
-        where: { email: authorEmail },
-      });
-
-      // Check if author exists to guard against database race condition
-      if (!authorInTx) {
-        throw new Error(
-          `No author found with email ${authorEmail}. Please verify the address or create a new author record.`,
-        );
-      }
-
-      // Update the author name if the name has changed
-      if (input.author && input.author !== authorInTx.name) {
-        await tx.author.update({
-          where: { id: authorInTx.id },
-          data: { name: input.author },
-        });
-      }
-
       // Prepare data
       const updateData: Prisma.BookUpdateInput = {};
+
+      // Handle Author Connection by ID
+      if (input.authorId !== undefined) {
+        if (input.authorId !== null) {
+          updateData.author = {
+            connect: { id: input.authorId },
+          };
+        } else {
+          // If you REALLY want to allow no author, see Solution B below.
+          // Otherwise, throw an error or handle it as a validation failure.
+          throw new Error("An author is required for this book.");
+        }
+      } 
+      // Fallback: If no ID but email is provided (legacy support)
+      else if (input.email) {
+        updateData.author = { connect: { email: input.email } };
+      }
 
       if (input.title !== undefined) updateData.title = input.title;
       if (input.isbn13 !== undefined)
@@ -618,10 +602,6 @@ export async function updateBook(
         });
         updateData.seriesOrder = (max._max.seriesOrder ?? 0) + 1;
       }
-
-      updateData.author = {
-        connect: { id: authorInTx.id },
-      };
 
       return tx.book.update({
         where: { id: input.id },

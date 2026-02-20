@@ -234,9 +234,8 @@ export default function BookForm({
       return;
     }
 
-    if (!formData.email.trim()) {
-      setError("Author email is requied")
-      setIsSubmitting(false);
+    if (!selectedAuthorId) {
+      setError("Please select an author before saving.");
       return;
     }
 
@@ -317,6 +316,7 @@ export default function BookForm({
       const bookData = {
         title: formData.title.trim(),
         author: formData.author.trim(),
+        authorId: selectedAuthorId,
         email: formData.email.trim(),
         isbn13: isbn13 || undefined,
         isbn10: isbn10 || undefined,
