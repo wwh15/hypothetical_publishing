@@ -81,10 +81,11 @@ export default async function BookDetailPage({ params, searchParams }: PageProps
               <label className="text-sm font-medium text-muted-foreground">Title</label>
               <p className="text-lg">{book.title}</p>
             </div>
-            <div>
-              <label className="text-sm font-medium text-muted-foreground">Author</label>
-              <p className="text-lg">{book.author}</p>
-            </div>
+            <Link
+            href={`/authors/${book.authorId}`}>
+              <label className="text-sm font-medium">Author</label>
+              <p className="text-lg font-medium text-blue-600 hover:underline focus:outline focus:underline">{book.author}</p>
+            </Link>
             <div>
               <label className="text-sm font-medium text-muted-foreground">ISBN-13</label>
               <p className="text-lg">{book.isbn13 || '-'}</p>
