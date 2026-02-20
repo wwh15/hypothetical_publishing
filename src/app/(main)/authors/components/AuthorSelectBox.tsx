@@ -17,9 +17,16 @@ interface AuthorSelectBoxProps {
 
 export function AuthorSelectBox({ authors, selectedAuthorId, onSelect, onAddClick }: AuthorSelectBoxProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [inputValue, setInputValue] = useState("");
-  const inputRef = useRef<HTMLInputElement>(null);
+  
+  // Find the author based on the initial ID prop
+  const initialAuthor = authors.find((a) => a.id === selectedAuthorId);
+
+  // Use the author's name as the initial state, otherwise an empty string
+  const [inputValue, setInputValue] = useState(
+    initialAuthor ? initialAuthor.name : ""
+  );
   const [prevId, setPrevId] = useState<number | null>(selectedAuthorId);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const selectedAuthor = authors.find((a) => a.id === selectedAuthorId);
 
