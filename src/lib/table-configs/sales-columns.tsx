@@ -22,6 +22,7 @@ export type SalesColumnId =
   | "authorRoyalty"
   | "date"
   | "paid"
+  | "comment"
   | "source";
 
 // Reusable cell renderers
@@ -125,6 +126,15 @@ export const salesColumns: ColumnDef<SaleListItem>[] = [
     header: "Royalty Status",
     render: (row) => salesCellRenderers.paidStatus(row.paid),
   },
+  {
+    key: "comment",
+    header: "Comment",
+    render: (row) => (
+      <span className="text-muted-foreground">
+        {row.comment != null && row.comment !== "" ? row.comment : "—"}
+      </span>
+    ),
+  },
 ];
 
 /**
@@ -167,6 +177,7 @@ export const salesTablePresets = {
       "date",
       "source",
       "paid",
+      "comment",
     ] as SalesColumnId[],
     defaultSortField: "date" as const,
     defaultSortDirection: "desc" as const,

@@ -88,14 +88,15 @@ model Sale {
   bookId           Int        @map("book_id")
   date             DateTime   @map("date") // First day of sale month (e.g. 2025-01-01)
   quantity         Int
-  publisherRevenue Decimal    @default(0) @map("publisher_revenue")
-  authorRoyalty    Decimal    @default(0) @map("author_royalty")
-  royaltyOverridden Boolean   @default(false) @map("royalty_overridden") // Track if manually set
-  paid             Boolean    @default(false) // Payment status
+  publisherRevenue Decimal @default(0)    @map("publisher_revenue")
+  authorRoyalty    Decimal @default(0)    @map("author_royalty")
+  royaltyOverridden Boolean @default(false) @map("royalty_overridden") // Track if manually set
+  paid             Boolean  @default(false) // Payment status
+  comment          String?  @db.VarChar(256) @map("comment")
   source           SaleSource @default(DISTRIBUTOR) // Sales channel
-  createdAt        DateTime   @default(now()) @map("created_at")
-  updatedAt        DateTime   @updatedAt @map("updated_at")
-
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+  
   // Relations
   book             Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
 

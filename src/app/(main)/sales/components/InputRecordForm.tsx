@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Plus } from "lucide-react";
 import { PendingSaleItem } from "@/lib/data/records";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { useSalesForm } from "../hooks/useSalesForm";
 import { BookSelectBox } from "@/components/BookSelectBox";
@@ -164,6 +165,19 @@ export default function InputRecordForm({
             readOnly
             className="bg-gray-100 dark:bg-gray-700 cursor-not-allowed"
             tabIndex={-1}
+          />
+        </FormField>
+
+        {/* Comment (optional) */}
+        <FormField label="Comment" htmlFor="comment">
+          <Textarea
+            id="comment"
+            value={formData.comment}
+            onChange={(e) => handleInputChange("comment", e.target.value)}
+            placeholder="Optional note (max 256 characters)"
+            maxLength={256}
+            rows={2}
+            className="resize-none"
           />
         </FormField>
       </div>

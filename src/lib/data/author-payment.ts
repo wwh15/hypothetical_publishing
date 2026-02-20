@@ -28,6 +28,7 @@ const authorPaymentSelect = {
           publisherRevenue: true,
           authorRoyalty: true, // If you forget this now, the error will trigger
           paid: true,
+          comment: true,
           source: true,
         },
       },
@@ -91,6 +92,7 @@ function transformToAuthorGroup(rawAuthor: PrismaAuthorWithSales): AuthorGroup {
         publisherRevenue: sale.publisherRevenue.toNumber(),
         authorRoyalty: sale.authorRoyalty.toNumber(),
         paid: status,
+        comment: sale.comment ?? null,
         source: sale.source,
       });
 

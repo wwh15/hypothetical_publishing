@@ -79,6 +79,17 @@ export default function PendingRecordsTable({
       ),
     },
     {
+      key: "comment",
+      header: "Comment",
+      accessor: "comment",
+      sortable: true,
+      render: (row) => (
+        <span className="text-muted-foreground text-sm">
+          {row.comment != null && row.comment !== "" ? row.comment : "—"}
+        </span>
+      ),
+    },
+    {
       key: "paid",
       header: "Royalty Status",
       accessor: "paid",

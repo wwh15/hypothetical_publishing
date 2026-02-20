@@ -13,6 +13,7 @@ export interface SaleListItem {
   publisherRevenue: number;
   authorRoyalty: number;
   paid: "paid" | "pending";
+  comment: string | null;
   source: "DISTRIBUTOR" | "HAND_SOLD";
 }
 
@@ -27,6 +28,7 @@ export interface PendingSaleItem {
   authorRoyalty: number;
   royaltyOverridden: boolean; // Whether user manually overrode the calculated royalty
   paid: boolean; // Always false for pending, but included for consistency
+  comment?: string | null;
   source: "DISTRIBUTOR" | "HAND_SOLD";
 }
 
@@ -39,6 +41,7 @@ export type SaleDetailPayload = {
   authorRoyalty: number; // Changed from Decimal to number
   paid: boolean;
   royaltyOverridden: boolean;
+  comment: string | null;
   source: "DISTRIBUTOR" | "HAND_SOLD";
   book: {
     id: number;
@@ -256,6 +259,7 @@ export async function asyncGetSaleById(
     ...sale,
     publisherRevenue: sale.publisherRevenue.toNumber(),
     authorRoyalty: sale.authorRoyalty.toNumber(),
+    comment: sale.comment ?? null,
     source: sale.source,
     book: {
       ...sale.book,
@@ -275,6 +279,7 @@ export function toSaleListItem(sale: {
   publisherRevenue: Decimal;
   authorRoyalty: Decimal;
   paid: boolean;
+  comment: string | null;
   source: "DISTRIBUTOR" | "HAND_SOLD";
   book: { title: string; author: { name: string } };
 }): SaleListItem {
@@ -288,6 +293,7 @@ export function toSaleListItem(sale: {
     publisherRevenue: sale.publisherRevenue.toNumber(),
     authorRoyalty: sale.authorRoyalty.toNumber(),
     paid: sale.paid ? "paid" : "pending",
+    comment: sale.comment ?? null,
     source: sale.source,
   };
 }
@@ -307,6 +313,7 @@ export async function asyncUpdateSale(
     authorRoyalty?: number;
     royaltyOverridden?: boolean;
     paid?: boolean;
+    comment?: string | null;
     source?: "DISTRIBUTOR" | "HAND_SOLD";
   }
 ) {

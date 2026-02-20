@@ -21,6 +21,7 @@ import {
   validateRoyaltyLimit
 } from "@/lib/validation";
 import { cn } from "@/lib/utils";
+import { Textarea } from "@/components/ui/textarea";
 
 /** Get the royalty rate (as percentage) for a book based on sale source */
 function getRateForSource(book: BookListItem, source: "DISTRIBUTOR" | "HAND_SOLD"): number {
@@ -59,6 +60,8 @@ export default function EditForm({ sale, books }: EditFormProps) {
     quantity: sale.quantity,
     publisherRevenue: new Decimal(sale.publisherRevenue).toNumber(),
     authorRoyalty: new Decimal(sale.authorRoyalty).toNumber(),
+    royaltyOverridden: sale.royaltyOverridden,
+    comment: sale.comment ?? "",
     source: sale.source,
   });
 
@@ -118,7 +121,8 @@ export default function EditForm({ sale, books }: EditFormProps) {
         quantity: qtyCheck.data,
         publisherRevenue: revenueCheck.data,
         authorRoyalty: royaltyCheck.data,
-        royaltyOverridden: false,
+        royaltyOverridden: formData.royaltyOverridden,
+        comment: formData.comment.trim() || null,
         source: formData.source,
       });
 
@@ -207,6 +211,13 @@ export default function EditForm({ sale, books }: EditFormProps) {
               <button onClick={handleTogglePaid} disabled={loading} className="text-sm text-blue-600 hover:underline">Toggle</button>
             </div>
           </div>
+
+          {sale.comment != null && sale.comment !== "" && (
+            <div className="md:col-span-2">
+              <label className="text-sm font-medium text-gray-500">Comment</label>
+              <p className="text-lg font-semibold mt-1 whitespace-pre-wrap">{sale.comment}</p>
+            </div>
+          )}
         </div>
 
         <div className="flex gap-4 mt-8 pt-6 border-t">
@@ -346,6 +357,19 @@ export default function EditForm({ sale, books }: EditFormProps) {
             tabIndex={-1}
           />
           {errors.authorRoyalty && <p className="mt-1 text-xs text-red-500">{errors.authorRoyalty}</p>}
+        </div>
+
+        {/* Comment */}
+        <div className="md:col-span-2">
+          <label className="block text-sm font-medium mb-2">Comment</label>
+          <Textarea
+            value={formData.comment}
+            onChange={(e) => setFormData((prev) => ({ ...prev, comment: e.target.value }))}
+            placeholder="Optional note (max 256 characters)"
+            maxLength={256}
+            rows={2}
+            className="resize-none w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800"
+          />
         </div>
       </div>
 
