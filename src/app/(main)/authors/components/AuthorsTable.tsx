@@ -133,7 +133,7 @@ const enhancedColumns = useMemo(() => {
               type="button"
               onClick={(e) => {
                 e.stopPropagation(); // Prevent row click if header click bubbles
-                const nextDirection = isSorted && sortDir === "desc" ? "asc" : "desc";
+                const nextDirection = isSorted && sortDir === "asc" ? "desc" : "asc";
                 handleSortChange(col.key, nextDirection);
               }}
               className={cn(
