@@ -51,6 +51,7 @@ export default function SalesInputClient({
         royaltyOverridden: record.royaltyOverridden,
         paid: record.paid,
         comment: record.comment ?? null,
+        source: record.source,
       });
       if (!result.success) failed += 1;
     }

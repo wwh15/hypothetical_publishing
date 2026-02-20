@@ -14,6 +14,7 @@ export interface SaleListItem {
   authorRoyalty: number;
   paid: "paid" | "pending";
   comment: string | null;
+  source: "DISTRIBUTOR" | "HAND_SOLD";
 }
 
 export interface PendingSaleItem {
@@ -28,6 +29,7 @@ export interface PendingSaleItem {
   royaltyOverridden: boolean; // Whether user manually overrode the calculated royalty
   paid: boolean; // Always false for pending, but included for consistency
   comment?: string | null;
+  source: "DISTRIBUTOR" | "HAND_SOLD";
 }
 
 // This represents the data AFTER it has been converted to numbers
@@ -40,6 +42,7 @@ export type SaleDetailPayload = {
   paid: boolean;
   royaltyOverridden: boolean;
   comment: string | null;
+  source: "DISTRIBUTOR" | "HAND_SOLD";
   book: {
     id: number;
     title: string;
@@ -60,6 +63,7 @@ const SORT_ASC: Record<string, Prisma.SaleOrderByWithRelationInput> = {
   publisherRevenue: { publisherRevenue: "asc" },
   authorRoyalty: { authorRoyalty: "asc" },
   paid: { paid: "asc" },
+  source: { source: "asc" },
 };
 
 const SORT_DESC: Record<string, Prisma.SaleOrderByWithRelationInput> = {
@@ -71,6 +75,7 @@ const SORT_DESC: Record<string, Prisma.SaleOrderByWithRelationInput> = {
   publisherRevenue: { publisherRevenue: "desc" },
   authorRoyalty: { authorRoyalty: "desc" },
   paid: { paid: "desc" },
+  source: { source: "desc" },
 };
 
 function buildOrderBy(
@@ -111,6 +116,7 @@ export interface GetSalesDataParams {
   sortDir?: "asc" | "desc";
   dateFrom?: string; // MM-YYYY
   dateTo?: string; // MM-YYYY
+  source?: "DISTRIBUTOR" | "HAND_SOLD";
 }
 
 export interface GetSalesDataResult {
@@ -129,11 +135,17 @@ export async function getSalesData({
   sortDir = "desc",
   dateFrom,
   dateTo,
+  source,
 }: GetSalesDataParams): Promise<GetSalesDataResult> {
   const currentPage = Math.max(1, page);
   const limit = Math.max(1, Math.min(pageSize, 100));
 
   const where: Prisma.SaleWhereInput = {};
+
+  // Source filter
+  if (source) {
+    where.source = source;
+  }
 
   // 1. Build Filter Logic
   const trimmedSearch = search?.trim();
@@ -248,6 +260,7 @@ export async function asyncGetSaleById(
     publisherRevenue: sale.publisherRevenue.toNumber(),
     authorRoyalty: sale.authorRoyalty.toNumber(),
     comment: sale.comment ?? null,
+    source: sale.source,
     book: {
       ...sale.book,
       author: {
@@ -267,6 +280,7 @@ export function toSaleListItem(sale: {
   authorRoyalty: Decimal;
   paid: boolean;
   comment: string | null;
+  source: "DISTRIBUTOR" | "HAND_SOLD";
   book: { title: string; author: { name: string } };
 }): SaleListItem {
   return {
@@ -280,6 +294,7 @@ export function toSaleListItem(sale: {
     authorRoyalty: sale.authorRoyalty.toNumber(),
     paid: sale.paid ? "paid" : "pending",
     comment: sale.comment ?? null,
+    source: sale.source,
   };
 }
 
@@ -299,6 +314,7 @@ export async function asyncUpdateSale(
     royaltyOverridden?: boolean;
     paid?: boolean;
     comment?: string | null;
+    source?: "DISTRIBUTOR" | "HAND_SOLD";
   }
 ) {
   return await prisma.sale.update({

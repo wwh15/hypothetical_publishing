@@ -61,7 +61,7 @@ export default function BooksTable({
       key: "series",
       header: "Series",
       accessor: "seriesName",
-      sortable: false,
+      sortable: true,
       render: (row) => {
         if (!row.seriesName) {
           return <span>-</span>;
@@ -107,12 +107,21 @@ export default function BooksTable({
       },
     },
     {
-      key: "defaultRoyaltyRate",
-      header: "Royalty Rate",
-      accessor: "defaultRoyaltyRate",
+      key: "distRoyaltyRate",
+      header: "Dist. Rate",
+      accessor: "distRoyaltyRate",
       sortable: true,
       render: (row) => (
-        <span className="font-medium">{row.defaultRoyaltyRate}%</span>
+        <span className="font-medium">{row.distRoyaltyRate}%</span>
+      ),
+    },
+    {
+      key: "handSoldRoyaltyRate",
+      header: "Hand-Sold Rate",
+      accessor: "handSoldRoyaltyRate",
+      sortable: false,
+      render: (row) => (
+        <span className="font-medium">{row.handSoldRoyaltyRate}%</span>
       ),
     },
     {

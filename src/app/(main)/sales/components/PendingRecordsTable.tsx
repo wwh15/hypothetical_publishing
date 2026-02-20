@@ -64,22 +64,18 @@ export default function PendingRecordsTable({
       accessor: "authorRoyalty",
       sortable: true,
       render: (row) => (
-        <div className="flex items-center gap-2">
-          <span
-            className={
-              row.royaltyOverridden
-                ? "font-bold text-orange-600"
-                : "font-medium"
-            }
-          >
-            ${row.authorRoyalty.toFixed(2)}
-          </span>
-          {row.royaltyOverridden && (
-            <span className="text-xs bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200 px-2 py-0.5 rounded">
-              Overridden
-            </span>
-          )}
-        </div>
+        <span className="font-medium">${row.authorRoyalty.toFixed(2)}</span>
+      ),
+    },
+    {
+      key: "source",
+      header: "Source",
+      accessor: "source",
+      sortable: true,
+      render: (row) => (
+        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${row.source === "HAND_SOLD" ? "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200" : "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"}`}>
+          {row.source === "HAND_SOLD" ? "Hand Sold" : "Distributor"}
+        </span>
       ),
     },
     {

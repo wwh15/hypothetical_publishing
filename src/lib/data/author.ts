@@ -257,7 +257,7 @@ export async function asyncGetAuthorBooks(
         publicationYear: book.publicationDate
           ? book.publicationDate.getFullYear().toString()
           : "N/A",
-        authorRoyaltyRate: Number(book.authorRoyaltyRate) * 100, // Display as %
+        authorRoyaltyRate: Number(book.distAuthorRoyaltyRate) * 100, // Display as %
         totalSales,
         totalAuthorRoyalty: totalAuthorRoyalty.toNumber(),
         paidAuthorRoyalty: totalPaid.toNumber(),
