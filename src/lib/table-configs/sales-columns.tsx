@@ -22,7 +22,7 @@ export type SalesColumnId =
   | "authorRoyalty"
   | "date"
   | "paid"
-  | "comment";
+  | "comment"
   | "source";
 
 // Reusable cell renderers
