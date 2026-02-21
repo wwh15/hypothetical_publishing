@@ -18,6 +18,7 @@ import { PendingSaleItem } from "@/lib/data/records";
 import { BookListItem } from "@/lib/data/books";
 import AddBookModal from "./AddBookModal";
 import { UploadCloud } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 // Examples: 01-2026,9781234567890,120,4125.50 | 01-2026,9780987654321,80,2600
 
@@ -31,7 +32,6 @@ function buildIsbnLookup(
   booksData: BookListItem[],
   extraBooks: BookListItem[]
 ): Map<string, BookListItem> {
-  
   const map = new Map<string, BookListItem>();
 
   // Removes all characters that are NOT digits from ISBN
@@ -45,20 +45,19 @@ function buildIsbnLookup(
     if (isbn10) map.set(isbn10, book);
   }
   return map;
-
 }
 
 export default function BulkPasteSalesPanel({
   onAddRecord,
   booksData,
 }: BulkPasteSalesPanelProps) {
-
   // Local useState
   const [text, setText] = useState("");
   const [extraBooks, setExtraBooks] = useState<BookListItem[]>([]);
 
   // Hook
-  const { previewRows, invalidRows, handlePreview, clearPreview } = useBulkPastePreview();
+  const { previewRows, invalidRows, handlePreview, clearPreview } =
+    useBulkPastePreview();
 
   // Memoization; all recomputes arrays if data changes
   const allBooks = useMemo(
@@ -84,7 +83,9 @@ export default function BulkPasteSalesPanel({
     return previewRows.map((row) => {
       const book = isbnLookup.get(row.isbn);
       const rate = book
-        ? (row.source === "HAND_SOLD" ? book.handSoldRoyaltyRate : book.distRoyaltyRate)
+        ? row.source === "HAND_SOLD"
+          ? book.handSoldRoyaltyRate
+          : book.distRoyaltyRate
         : 0;
       const finalRoyalty = book
         ? (row.netCompensation * rate) / 100
@@ -106,20 +107,20 @@ export default function BulkPasteSalesPanel({
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-  
+
     // Basic validation
-    if (!file.name.endsWith('.csv')) {
+    if (!file.name.endsWith(".csv")) {
       alert("Please upload a CSV file.");
       return;
     }
-  
+
     const reader = new FileReader();
     reader.onload = () => {
       const content = reader.result as string;
       setText(content); // This fills your Textarea automatically!
     };
     reader.readAsText(file);
-    
+
     // Reset the input value so the same file can be uploaded twice if needed
     e.target.value = "";
   };
@@ -147,7 +148,8 @@ export default function BulkPasteSalesPanel({
       <CardHeader>
         <CardTitle>Bulk Import Sales Records</CardTitle>
         <CardDescription className="border-b pb-2">
-          Upload a CSV or paste raw data. Review the preview below before adding items to the <strong>Pending Records</strong> table.
+          Upload a CSV or paste raw data. Review the preview below before adding
+          items to the <strong>Pending Records</strong> table.
         </CardDescription>
       </CardHeader>
 
@@ -159,7 +161,8 @@ export default function BulkPasteSalesPanel({
         <div className="rounded-lg border bg-muted/30 p-4 text-sm mb-6 pb-2">
           <div className="font-medium mb-2">Required CSV Format/Headers</div>
           <pre className="whitespace-pre-wrap text-xs text-muted-foreground">
-            ISBN,Title,Author,Format,Gross Qty,Returned Qty,Net Qty,Net Compensation,Sales Market
+            ISBN,Title,Author,Format,Gross Qty,Returned Qty,Net Qty,Net
+            Compensation,Sales Market
           </pre>
         </div>
 
@@ -181,7 +184,9 @@ export default function BulkPasteSalesPanel({
         </div>
 
         <div className="space-y-2 mb-6 border-b pb-2">
-          <Label htmlFor="bulk-text">Parsed data will appear here. Feel free to edit or add any new data.</Label>
+          <Label htmlFor="bulk-text">
+            Parsed data will appear here. Feel free to edit or add any new data.
+          </Label>
           <Textarea
             id="bulk-text"
             value={text}
@@ -190,7 +195,7 @@ export default function BulkPasteSalesPanel({
             className="font-mono"
           />
         </div>
-        
+
         <div className="space-y-2">
           <Label htmlFor="bulk-text">Step 2: Preview Data</Label>
         </div>
@@ -207,67 +212,113 @@ export default function BulkPasteSalesPanel({
           </div>
 
           {previewRows.length > 0 ? (
-            <div className="space-y-1 font-mono">
-              {rowsWithRoyalty.map((row) => (
-                <div
-                  key={`${row.line}-${row.isbn}-${row.grossQuantity}`}
-                  className={`rounded border px-3 py-2 text-xs flex flex-col gap-1 ${
-                    !row.book
-                      ? "bg-destructive/5 border-destructive/30"
-                      : "bg-background"
-                  }`}
-                >
-                  <div className="flex flex-wrap items-baseline gap-2">
-                    <span className="font-semibold">
-                      Book: {row.title} | Author: {row.author}
-                    </span>
-                  </div>
+            <div className="space-y-2 font-mono">
+              {rowsWithRoyalty.map((row) => {
+                const isMissingBook = !row.book;
 
-                  <div className="flex flex-wrap gap-3 font-mono">
-                    
-                    <span className="">Qty: {row.grossQuantity} |</span>
-                    <span className="text-xs">
-                      Source: {row.source === "HAND_SOLD" ? "Hand Sold" : "Distributor"} |
-                    </span>
-                    <span>
-                      Publisher Revenue ($):{" "}
-                      {row.netCompensation.toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })} |
-                    </span>
-                    <span className="text-xs">
-                      Author Paid: No |
-                    </span>
-                    {row.finalRoyalty !== undefined && (
-                      <span>
-                        Author Royalty ($):{" "}
-                        {row.finalRoyalty.toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}
-                      </span>
+                return (
+                  <div
+                    key={`${row.line}-${row.isbn}-${row.grossQuantity}`}
+                    className={cn(
+                      "rounded border px-4 py-3 text-xs flex flex-col gap-2 transition-colors",
+                      isMissingBook
+                        ? "bg-destructive/5 border-destructive/40"
+                        : "bg-background border-border"
                     )}
-                    {!row.book && (
-                      <div className="flex items-center gap-2">
-                        <span className="text-destructive font-semibold">
-                          ⚠️ Book not found.
-                        </span>
-                        <AddBookModal
-                          initialIsbn={row.isbn}
-                          inPreview
-                          onBookCreated={handleBookCreated}
-                        />
+                  >
+                    {isMissingBook ? (
+                      /* ERROR STATE: Guide the user to the Books page */
+                      <div className="flex flex-col gap-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 text-destructive">
+                            <span className="font-bold text-sm">
+                              ⚠️ ISBN NOT FOUND
+                            </span>
+                            <span className="bg-destructive/10 px-2 py-0.5 rounded font-mono select-all">
+                              {row.isbn}
+                            </span>
+                          </div>
+                          {/* Visual nudge: Give them a link to open in a new tab */}
+                          <Button
+                            variant="link"
+                            size="sm"
+                            className="h-auto p-0 text-blue-600 underline"
+                            onClick={() => window.open("/books/add", "_blank")}
+                          >
+                            Go to Books Page
+                          </Button>
+                        </div>
+                        <p className="text-muted-foreground leading-relaxed">
+                          Line {row.line}: This ISBN is missing from your
+                          records. <strong>Copy the ISBN</strong> above, add the
+                          book to your inventory, then re-run this preview.
+                        </p>
                       </div>
+                    ) : (
+                      /* SUCCESS STATE: Transformed Data (Same as before) */
+                      <>
+                        <div className="flex flex-wrap items-baseline gap-2">
+                          <span className="font-semibold">
+                            Book: {row.title} | Author: {row.author}
+                          </span>
+                        </div>
+
+                        <div className="flex flex-wrap gap-3 font-mono">
+                          <span className="">Qty: {row.grossQuantity} |</span>
+                          <span className="text-xs">
+                            Source:{" "}
+                            {row.source === "HAND_SOLD"
+                              ? "Hand Sold"
+                              : "Distributor"}{" "}
+                            |
+                          </span>
+                          <span>
+                            Publisher Revenue ($):{" "}
+                            {row.netCompensation.toLocaleString(undefined, {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}{" "}
+                            |
+                          </span>
+                          <span className="text-xs">Author Paid: No |</span>
+                          {row.finalRoyalty !== undefined && (
+                            <span>
+                              Author Royalty ($):{" "}
+                              {row.finalRoyalty.toLocaleString(undefined, {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })}
+                            </span>
+                          )}
+                          {!row.book && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-destructive font-semibold">
+                                ⚠️ Book not found.
+                              </span>
+                              <AddBookModal
+                                initialIsbn={row.isbn}
+                                inPreview
+                                onBookCreated={handleBookCreated}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </>
                     )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <div className="flex flex-col gap-3 text-muted-foreground">
-              <p>Click the <strong>Preview</strong> button below to validate and transform your data into the format below:</p>
-              <p>Source, Date, Book Title, Qty, Revenue, Royalty, Paid (Y/N), Comment</p>
+              <p>
+                Click the <strong>Preview</strong> button below to validate and
+                transform your data into the format below:
+              </p>
+              <p>
+                Source, Date, Book Title, Qty, Revenue, Royalty, Paid (Y/N),
+                Comment
+              </p>
             </div>
           )}
 
