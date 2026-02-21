@@ -48,6 +48,39 @@ function buildIsbnLookup(
   return map;
 }
 
+/**
+ * Normalizes an author name to a canonical string for comparison.
+ * - Lowercases everything
+ * - Removes common titles/suffixes (PhD, Dr, etc.)
+ * - Removes all punctuation
+ * - Sorts name parts alphabetically (handles "Last, First" vs "First Last")
+ */
+export function normalizeName(name: string | null | undefined): string {
+  if (!name) return "";
+
+  return (
+    name
+      .toLowerCase()
+      // 1. Remove common titles and academic suffixes (including those with dots)
+      .replace(/\b(phd|dr|md|jr|sr|iii|ii|mfa|prof)\b\.?/g, "")
+
+      // 2. Remove all non-alphanumeric characters except spaces
+      .replace(/[^a-z0-9\s]/g, "")
+
+      // 3. Split into individual words
+      .split(/\s+/)
+
+      // 4. Remove empty strings (caused by double spaces or trailing punctuation)
+      .filter((word) => word.length > 0)
+
+      // 5. Sort alphabetically so word order doesn't matter
+      .sort()
+
+      // 6. Join back into a single string
+      .join(" ")
+  );
+}
+
 export default function BulkPasteSalesPanel({
   onAddRecord,
   booksData,
@@ -70,8 +103,8 @@ export default function BulkPasteSalesPanel({
     [booksData, extraBooks]
   );
 
-   // Hook
-   const { submitFromRows } = useBulkPasteSubmit(allBooks, onAddRecord);
+  // Hook
+  const { submitFromRows } = useBulkPasteSubmit(allBooks, onAddRecord);
 
   // Callback function that passes through AddModal.tsx into BookForm.tsx
   const handleBookCreated = useCallback((book: BookListItem) => {
@@ -151,22 +184,22 @@ export default function BulkPasteSalesPanel({
       alert("Please select a sales month and year before adding records.");
       return;
     }
-  
+
     // 3. Execute submission
     // Pass previewRows and the validated selectedDate
     submitFromRows(previewRows, selectedDate, fileName ?? undefined);
-  
+
     // 4. Reset UI state
     clearPreview();
     setText("");
   }, [
-    missingBookRows.length, 
-    previewRows, 
+    missingBookRows.length,
+    previewRows,
     selectedDate,
     fileName,
-    submitFromRows, 
-    clearPreview, 
-    setText 
+    submitFromRows,
+    clearPreview,
+    setText,
   ]);
 
   return (
@@ -317,10 +350,37 @@ export default function BulkPasteSalesPanel({
                     ) : (
                       /* SUCCESS STATE: Transformed Data (Same as before) */
                       <>
-                        <div className="flex flex-wrap items-baseline gap-2">
-                          <span className="font-semibold">
-                            Book: {row.title} | Author: {row.author}
-                          </span>
+                        <div className="flex flex-col gap-1">
+
+                          {/* Only show warning if the normalized values are actually different */}
+                          {normalizeName(row.book?.author ?? "") !==
+                              normalizeName(row.author) && (
+                              <span className="text-[10px] text-muted-foreground italic">
+                                ⚠️ (Database author &quot;{row.book?.author}&quot; overrides CSV
+                                  &quot;{row.author}&quot;)
+                              </span>
+                            )}
+
+                          {/* If titles are totally different, that's a bigger red flag */}
+                          {row.book?.title.toLowerCase() !==
+                            row.title.toLowerCase() && (
+                            <span className="text-[10px] text-muted-foreground italic">
+                              ⚠️ (Database title &quot;{row.book?.title}&quot; overrides CSV
+                                &quot;{row.title}&quot;)
+                            </span>
+                          )}
+                          
+                          <div className="flex flex-wrap items-baseline gap-2">
+                            <span className="font-semibold text-sm">
+                              Book: {row.book?.title} |
+                            </span>
+
+                            <span className="font-semibold text-sm">
+                              Author: {row.book?.author}
+                            </span>
+                          </div>
+
+                          
                         </div>
 
                         <div className="flex flex-wrap gap-3 font-mono">
