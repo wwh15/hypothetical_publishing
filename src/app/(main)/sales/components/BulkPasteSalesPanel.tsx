@@ -17,8 +17,9 @@ import { useBulkPasteSubmit } from "../hooks/useBulkPasteSubmit";
 import { PendingSaleItem } from "@/lib/data/records";
 import { BookListItem } from "@/lib/data/books";
 import AddBookModal from "./AddBookModal";
-import { UploadCloud } from "lucide-react";
+import { AlertCircle, UploadCloud } from "lucide-react";
 import { cn } from "@/lib/utils";
+import MonthYearSelector from "@/components/MonthYearSelector";
 
 // Examples: 01-2026,9781234567890,120,4125.50 | 01-2026,9780987654321,80,2600
 
@@ -55,6 +56,10 @@ export default function BulkPasteSalesPanel({
   const [text, setText] = useState("");
   const [extraBooks, setExtraBooks] = useState<BookListItem[]>([]);
 
+  const [selectedDate, setSelectedDate] = useState({ year: "", month: "" });
+  const [dateError, setDateError] = useState<string | null>(null);
+  const [fileName, setFileName] = useState<string | null>(null);
+
   // Hook
   const { previewRows, invalidRows, handlePreview, clearPreview } =
     useBulkPastePreview();
@@ -65,8 +70,8 @@ export default function BulkPasteSalesPanel({
     [booksData, extraBooks]
   );
 
-  // Hook
-  const { submitFromRows } = useBulkPasteSubmit(allBooks, onAddRecord);
+   // Hook
+   const { submitFromRows } = useBulkPasteSubmit(allBooks, onAddRecord);
 
   // Callback function that passes through AddModal.tsx into BookForm.tsx
   const handleBookCreated = useCallback((book: BookListItem) => {
@@ -120,6 +125,7 @@ export default function BulkPasteSalesPanel({
       setText(content); // This fills your Textarea automatically!
     };
     reader.readAsText(file);
+    setFileName(file.name);
 
     // Reset the input value so the same file can be uploaded twice if needed
     e.target.value = "";
@@ -132,16 +138,36 @@ export default function BulkPasteSalesPanel({
   }, [clearPreview]);
 
   const handleAddValidRows = useCallback(() => {
+    // 1. Check for missing books
     if (missingBookRows.length > 0) {
       alert(
         `Cannot submit: ${missingBookRows.length} book(s) not found. Please add the missing books to the database first.`
       );
       return;
     }
-    submitFromRows(previewRows);
+
+    // 2. Properly validate the date object properties
+    if (!selectedDate.year || !selectedDate.month) {
+      alert("Please select a sales month and year before adding records.");
+      return;
+    }
+  
+    // 3. Execute submission
+    // Pass previewRows and the validated selectedDate
+    submitFromRows(previewRows, selectedDate, fileName ?? undefined);
+  
+    // 4. Reset UI state
     clearPreview();
     setText("");
-  }, [missingBookRows.length, previewRows, submitFromRows, clearPreview]);
+  }, [
+    missingBookRows.length, 
+    previewRows, 
+    selectedDate,
+    fileName,
+    submitFromRows, 
+    clearPreview, 
+    setText 
+  ]);
 
   return (
     <Card className="mb-6">
@@ -154,8 +180,42 @@ export default function BulkPasteSalesPanel({
       </CardHeader>
 
       <CardContent className="space-y-4">
+        {/* Step 1: Date Selection - MOVED UP for visibility */}
+        <div className="space-y-3 mb-6 border-b pb-2">
+          <Label className="text-base font-bold text-blue-700 dark:text-blue-400">
+            Step 1: Select Sales Reporting Period
+          </Label>
+          <div className="max-w-xs">
+            <MonthYearSelector
+              value={
+                selectedDate.year
+                  ? `${selectedDate.year}-${selectedDate.month}`
+                  : ""
+              }
+              onChange={(v) => {
+                setDateError(null);
+                if (!v) {
+                  setSelectedDate({ year: "", month: "" });
+                  return;
+                }
+                const [y, m] = v.split("-");
+                setSelectedDate({ year: y, month: m });
+              }}
+              placeholder="Select month & year"
+            />
+            {dateError && (
+              <p className="mt-2 text-sm text-destructive flex items-center gap-1">
+                <AlertCircle className="h-3 w-3" /> {dateError}
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Step 2: Data Input */}
         <div className="space-y-2">
-          <Label htmlFor="bulk-text">Step 1: Provide Data</Label>
+          <Label className="text-base font-bold">
+            Step 2: Provide Ingram Data
+          </Label>
         </div>
 
         <div className="rounded-lg border bg-muted/30 p-4 text-sm mb-6 pb-2">
@@ -184,20 +244,20 @@ export default function BulkPasteSalesPanel({
         </div>
 
         <div className="space-y-2 mb-6 border-b pb-2">
-          <Label htmlFor="bulk-text">
-            Parsed data will appear here. Feel free to edit or add any new data.
-          </Label>
           <Textarea
             id="bulk-text"
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder={`ISBN,Title,Author,Format,Gross Qty,Returned Qty,Net Qty,Net Compensation,Sales Market`}
+            placeholder={`ISBN,Title,Author,Format,Gross Qty,Returned Qty,Net Qty,Net Compensation,Sales Market (Uploaded data will appear here)`}
             className="font-mono"
           />
         </div>
 
+        {/* Step 3: Preview */}
         <div className="space-y-2">
-          <Label htmlFor="bulk-text">Step 2: Preview Data</Label>
+          <Label className="text-base font-bold">
+            Step 3: Preview & Validate
+          </Label>{" "}
         </div>
 
         <div className="rounded-md border border-dashed bg-muted/20 px-3 py-3 text-sm">

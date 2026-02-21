@@ -5,12 +5,10 @@ import type { ParsedSaleRow } from "./useBulkPastePreview";
 import type { PendingSaleItem } from "@/lib/data/records";
 import { BookListItem } from "@/lib/data/books";
 
-
 export function useBulkPasteSubmit(
   booksData: BookListItem[],
   onAddRecord: (record: PendingSaleItem) => void,
 ) {
-  // Optional: build an ISBN -> Book lookup exactly once
   const isbnLookup = useMemo(() => {
     const map = new Map<string, BookListItem>();
     const normalize = (isbn?: string | null) =>
@@ -22,53 +20,60 @@ export function useBulkPasteSubmit(
       if (isbn13) map.set(isbn13, book);
       if (isbn10) map.set(isbn10, book);
     }
-
     return map;
   }, [booksData]);
 
-  function submitFromRows(rows: ParsedSaleRow[]) {
-    const missingBooks: string[] = [];
+  /**
+   * @param rows - The validated rows from the CSV
+   * @param selectedDate - The {year, month} object from the panel state
+   * @param fileName - Optional, used to build the Ingram comment
+   */
+  function submitFromRows(
+    rows: ParsedSaleRow[], 
+    selectedDate: { year: string; month: string },
+    fileName: string = "uploaded_file.csv"
+  ) {
+    const importTimestamp = new Date().toLocaleString();
 
     rows.forEach((row) => {
       const book = isbnLookup.get(row.isbn);
-      if (!book) {
-        missingBooks.push(`ISBN ${row.isbn} (Line ${row.line})`);
-        return;
-      }
+      if (!book) return;
 
-      const date = `${row.month}-${row.year}`;
+      // 1. Use the date from the Step 1 selector (DD-MM-YYYY format or as required by your DB)
+      // Standardizing to MM-YYYY for the PendingSaleItem 'date' field
+      const date = `${selectedDate.month}-${selectedDate.year}`;
+      
       const source = row.source;
 
-      // Auto-calculate revenue for hand-sold when book has pricing
-      let publisherRevenue = row.revenue;
+      // 2. Publisher Revenue Logic
+      let publisherRevenue = row.netCompensation;
       if (source === "HAND_SOLD" && book.coverPrice != null && book.printCost != null) {
-        publisherRevenue = (book.coverPrice - book.printCost) * row.quantity;
+        publisherRevenue = (book.coverPrice - book.printCost) * row.grossQuantity;
       }
 
-      // Select rate based on source
+      // 3. Royalty Calculation
       const rate = source === "HAND_SOLD" ? book.handSoldRoyaltyRate : book.distRoyaltyRate;
-      const authorRoyalty = publisherRevenue * rate / 100;
+      const authorRoyalty = (publisherRevenue * rate) / 100;
+
+      // 4. Requirement 3.5: Build the specific Ingram comment
+      const comment = `Ingram: Format='${row.format}' Market='${row.salesMarket}' File='${fileName}' (${importTimestamp})`;
 
       const record: PendingSaleItem = {
         bookId: book.id,
         title: book.title,
         author: book.author,
         date,
-        quantity: row.quantity,
+        quantity: row.netQuantity, // Per req: Use "Net Qty"
         publisherRevenue,
         authorRoyalty,
         royaltyOverridden: false,
         paid: false,
         source,
+        comment,
       };
 
       onAddRecord(record);
     });
-
-    if (missingBooks.length > 0) {
-      console.warn("Missing books:", missingBooks);
-      // Alert is handled in the component, but log here for debugging
-    }
   }
 
   return { submitFromRows };
