@@ -17,6 +17,7 @@ import { useBulkPasteSubmit } from "../hooks/useBulkPasteSubmit";
 import { PendingSaleItem } from "@/lib/data/records";
 import { BookListItem } from "@/lib/data/books";
 import AddBookModal from "./AddBookModal";
+import { UploadCloud } from "lucide-react";
 
 // Examples: 01-2026,9781234567890,120,4125.50 | 01-2026,9780987654321,80,2600
 
@@ -103,6 +104,27 @@ useBulkPastePreview();
     [rowsWithRoyalty]
   );
 
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+  
+    // Basic validation
+    if (!file.name.endsWith('.csv')) {
+      alert("Please upload a CSV file.");
+      return;
+    }
+  
+    const reader = new FileReader();
+    reader.onload = () => {
+      const content = reader.result as string;
+      setText(content); // This fills your Textarea automatically!
+    };
+    reader.readAsText(file);
+    
+    // Reset the input value so the same file can be uploaded twice if needed
+    e.target.value = "";
+  };
+
   const handleClear = useCallback(() => {
     setExtraBooks([]);
     setText("");
@@ -124,31 +146,54 @@ useBulkPastePreview();
   return (
     <Card className="mb-6">
       <CardHeader>
-        <CardTitle>Bulk paste sales records</CardTitle>
-        <CardDescription>
-          Paste multiple records at once (one per line). We’ll parse and
-          validate these before adding them to Pending Records.
+        <CardTitle>Bulk Import Sales Records</CardTitle>
+        <CardDescription className="border-b pb-2">
+          Upload a CSV or paste raw data. Review the preview below before adding items to the <strong>Pending Records</strong> table.
         </CardDescription>
       </CardHeader>
 
       <CardContent className="space-y-4">
-        <div className="rounded-lg border bg-muted/30 p-4 text-sm">
-          <div className="font-medium mb-2">Expected format</div>
+        <div className="space-y-2">
+          <Label htmlFor="bulk-text">Step 1: Provide Data</Label>
+        </div>
+
+        <div className="rounded-lg border bg-muted/30 p-4 text-sm mb-6 pb-2">
+          <div className="font-medium mb-2">Required CSV Format/Headers</div>
           <pre className="whitespace-pre-wrap text-xs text-muted-foreground">
-            MM-YYYY,ISBN,Quantity,PublisherRevenue[,Source]
-            Source: D (Distributor) or H (Hand Sold). Defaults to D.
+            ISBN,Title,Author,Format,Gross Qty,Returned Qty,Net Qty,Net Compensation,Sales Market
           </pre>
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="bulk-text">Paste records</Label>
+        <div className="flex items-center gap-2">
+          <Label
+            htmlFor="csv-upload"
+            className="flex cursor-pointer items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
+          >
+            <UploadCloud className="h-4 w-4 " />
+            Upload Ingram CSV
+            <input
+              id="csv-upload"
+              type="file"
+              accept=".csv"
+              className="hidden"
+              onChange={handleFileUpload}
+            />
+          </Label>
+        </div>
+
+        <div className="space-y-2 mb-6 border-b pb-2">
+          <Label htmlFor="bulk-text">Parsed data will appear here. Feel free to edit or add any new data.</Label>
           <Textarea
             id="bulk-text"
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder={`01-2026,9781234567890,120,4125.50\n01-2026,9780987654321,80,2600`}
+            placeholder={`ISBN,Title,Author,Format,Gross Qty,Returned Qty,Net Qty,Net Compensation,Sales Market`}
             className="font-mono"
           />
+        </div>
+        
+        <div className="space-y-2">
+          <Label htmlFor="bulk-text">Step 2: Preview Data</Label>
         </div>
 
         <div className="rounded-md border border-dashed bg-muted/20 px-3 py-3 text-sm">
@@ -225,8 +270,9 @@ useBulkPastePreview();
               ))}
             </div>
           ) : (
-            <div className="text-muted-foreground">
-              Preview will appear here after you parse the pasted text.
+            <div className="flex flex-col gap-3 text-muted-foreground">
+              <p>Click the <strong>Preview</strong> button below to validate and transform your data into the format below:</p>
+              <p>Source, Date, Book Title, Qty, Revenue, Royalty, Paid (Y/N), Comment</p>
             </div>
           )}
 
