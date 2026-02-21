@@ -58,8 +58,7 @@ export default function BulkPasteSalesPanel({
   const [extraBooks, setExtraBooks] = useState<BookListItem[]>([]);
 
   // Hook
-  const { previewRows, invalidRows, handlePreview, clearPreview } =
-useBulkPastePreview();
+  const { previewRows, invalidRows, handlePreview, clearPreview } = useBulkPastePreview();
 
   // Memoization; all recomputes arrays if data changes
   const allBooks = useMemo(
@@ -88,7 +87,7 @@ useBulkPastePreview();
         ? (row.source === "HAND_SOLD" ? book.handSoldRoyaltyRate : book.distRoyaltyRate)
         : 0;
       const finalRoyalty = book
-        ? (row.revenue * rate) / 100
+        ? (row.netCompensation * rate) / 100
         : undefined;
 
       return {
@@ -208,10 +207,10 @@ useBulkPastePreview();
           </div>
 
           {previewRows.length > 0 ? (
-            <div className="space-y-1">
+            <div className="space-y-1 font-mono">
               {rowsWithRoyalty.map((row) => (
                 <div
-                  key={`${row.line}-${row.isbn}-${row.quantity}`}
+                  key={`${row.line}-${row.isbn}-${row.grossQuantity}`}
                   className={`rounded border px-3 py-2 text-xs flex flex-col gap-1 ${
                     !row.book
                       ? "bg-destructive/5 border-destructive/30"
@@ -220,33 +219,29 @@ useBulkPastePreview();
                 >
                   <div className="flex flex-wrap items-baseline gap-2">
                     <span className="font-semibold">
-                      {row.book ? row.book.title : "Unknown title"}
-                    </span>
-                    <span className="text-muted-foreground">
-                      {row.book ? row.book.author : "Unknown author"}
+                      Book: {row.title} | Author: {row.author}
                     </span>
                   </div>
-                  <div className="flex flex-wrap gap-3">
-                    <span className="font-mono text-muted-foreground">
-                      ISBN: {row.isbn}
+
+                  <div className="flex flex-wrap gap-3 font-mono">
+                    
+                    <span className="">Qty: {row.grossQuantity} |</span>
+                    <span className="text-xs">
+                      Source: {row.source === "HAND_SOLD" ? "Hand Sold" : "Distributor"} |
                     </span>
                     <span>
-                      Date: {row.month}-{row.year}
-                    </span>
-                    <span>Qty: {row.quantity}</span>
-                    <span className={`text-xs font-medium ${row.source === "HAND_SOLD" ? "text-purple-600" : "text-blue-600"}`}>
-                      {row.source === "HAND_SOLD" ? "Hand Sold" : "Distributor"}
-                    </span>
-                    <span className="font-mono">
-                      Rev:{" "}
-                      {row.revenue.toLocaleString(undefined, {
+                      Publisher Revenue ($):{" "}
+                      {row.netCompensation.toLocaleString(undefined, {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2,
-                      })}
+                      })} |
+                    </span>
+                    <span className="text-xs">
+                      Author Paid: No |
                     </span>
                     {row.finalRoyalty !== undefined && (
-                      <span className="font-mono">
-                        Royalty:{" "}
+                      <span>
+                        Author Royalty ($):{" "}
                         {row.finalRoyalty.toLocaleString(undefined, {
                           minimumFractionDigits: 2,
                           maximumFractionDigits: 2,
