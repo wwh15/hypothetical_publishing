@@ -22,7 +22,7 @@ export interface PendingSaleItem {
   bookId: number;
   title: string;
   author: string;
-  date: string; // MM-YYYY format
+  date: Date; // MM-YYYY format
   quantity: number;
   publisherRevenue: number;
   authorRoyalty: number;

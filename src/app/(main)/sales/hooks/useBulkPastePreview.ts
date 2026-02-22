@@ -4,11 +4,14 @@ import { useState } from "react";
 
 export type ParsedSaleRow = {
   line: number;
-  month: string;
-  year: string;
   isbn: string;
-  quantity: number;
-  revenue: number;
+  title: string;
+  author: string;
+  format: "Paperback" | "Hardcover";
+  grossQuantity: number;
+  netQuantity: number;
+  netCompensation: number;
+  salesMarket: string;
   source: "DISTRIBUTOR" | "HAND_SOLD";
   raw: string;
 };
@@ -19,114 +22,89 @@ export type InvalidSaleRow = {
   reason: string;
 };
 
-const MONTH_RE = /^(0[1-9]|1[0-2])-(\d{4})$/;
 const ISBN_RE = /^\d{10}(\d{3})?$/;
 
-// Expected format: MM-YYYY,ISBN,Quantity,PublisherRevenue[,Source]
-// Source is optional: D (Distributor) or H (Hand Sold), defaults to D.
+function parseLine(line: string, lineNumber: number): { valid?: ParsedSaleRow; invalid?: InvalidSaleRow } {
+  // This regex splits on commas only if they are NOT followed by an odd number of quotes
+  // (which would mean the comma is inside a quoted string).
+  const parts = line.match(/(".*?"|[^",]+)(?=\s*,|\s*$)/g)?.map(p => {
+    let trimmed = p.trim();
+    // Remove leading/trailing double quotes if they exist
+    if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
+      trimmed = trimmed.substring(1, trimmed.length - 1);
+    }
+    return trimmed;
+  }) || [];
 
-function parseLine(line: string, lineNumber: number) {
-  const parts = line.split(",").map((p) => p.trim());
-
-  if (parts.length >= 4 && parts.length <= 5) {
-    return extractFields(parts, line, lineNumber);
-  } else {
+  // 1. Check field count (9 fields per requirements)
+  if (parts.length !== 9) {
     return {
       invalid: {
         line: lineNumber,
         raw: line,
-        reason: "Expected 4-5 comma-separated fields (date,isbn,qty,revenue[,source]).",
-      } satisfies InvalidSaleRow,
+        reason: `Expected 9 fields, found ${parts.length}.`,
+      },
     };
   }
+
+  return extractFields(parts, line, lineNumber);
 }
 
-function extractFields(parts: string[], line: string, lineNumber: number) {
-  const [monthYear, isbnRaw, quantityRaw, revenueRaw, sourceRaw] = parts;
+function extractFields(parts: string[], line: string, lineNumber: number): { valid?: ParsedSaleRow; invalid?: InvalidSaleRow } {
+  const [
+    isbnRaw, 
+    title, 
+    author, 
+    formatRaw, 
+    grossRaw, 
+    returnedRaw, 
+    netRaw, 
+    compensationRaw, 
+    salesMarket
+  ] = parts;
 
-  // Normalize ISBN: remove all non-digits (spaces, dashes, etc.)
+  // 2. ISBN Validation
   const isbnDigits = isbnRaw.replace(/\D/g, "");
-
-  if (!MONTH_RE.test(monthYear)) {
-    return {
-      invalid: {
-        line: lineNumber,
-        raw: line,
-        reason: "Month must match MM-YYYY (01-12 and 4-digit year)",
-      } satisfies InvalidSaleRow,
-    };
-  }
-
   if (!ISBN_RE.test(isbnDigits)) {
-    return {
-      invalid: {
-        line: lineNumber,
-        raw: line,
-        reason: "ISBN must have 10 or 13 digits",
-      } satisfies InvalidSaleRow,
-    };
+    return { invalid: { line: lineNumber, raw: line, reason: "ISBN must be 10 or 13 digits" } };
   }
 
-  const quantity = Number(quantityRaw);
-  if (!Number.isInteger(quantity) || quantity <= 0) {
-    return {
-      invalid: {
-        line: lineNumber,
-        raw: line,
-        reason: "Quantity must be a positive integer",
-      } satisfies InvalidSaleRow,
-    };
+  // 3. Format Validation
+  if (formatRaw !== "Paperback" && formatRaw !== "Hardcover") {
+    return { invalid: { line: lineNumber, raw: line, reason: "Format must be 'Paperback' or 'Hardcover'" } };
   }
 
-  const revenue = Number.parseFloat(revenueRaw);
-  if (Number.isNaN(revenue)) {
-    return {
-      invalid: {
-        line: lineNumber,
-        raw: line,
-        reason: "PublisherRevenue must be a number",
-      } satisfies InvalidSaleRow,
-    };
+  // 4. Quantity & Return Validation (Zero Returns Rule)
+  const grossQuantity = Number(grossRaw);
+  const returnedQuantity = Number(returnedRaw);
+  const netQuantity = Number(netRaw);
+  const netCompensation = Number(compensationRaw);
+
+  if (isNaN(grossQuantity) || isNaN(returnedQuantity) || isNaN(netQuantity) || isNaN(netCompensation)) {
+    return { invalid: { line: lineNumber, raw: line, reason: "Quantities and Compensation must be numbers" } };
   }
 
-  const [month, yearStr] = monthYear.split("-");
-  const year = parseInt(yearStr, 10);
-  if (!Number.isInteger(year) || year < 2000 || year > 2100) {
-    return {
-      invalid: {
-        line: lineNumber,
-        raw: line,
-        reason: "Year must be between 2000 and 2100",
-      } satisfies InvalidSaleRow,
-    };
+  if (returnedQuantity !== 0) {
+    return { invalid: { line: lineNumber, raw: line, reason: "Returned Qty must be zero" } };
   }
 
-  // Parse source (D = DISTRIBUTOR, H = HAND_SOLD, default DISTRIBUTOR)
-  let source: "DISTRIBUTOR" | "HAND_SOLD" = "DISTRIBUTOR";
-  if (sourceRaw !== undefined && sourceRaw.trim() !== "") {
-    const s = sourceRaw.trim().toUpperCase();
-    if (s === "H") {
-      source = "HAND_SOLD";
-    } else if (s !== "D") {
-      return {
-        invalid: {
-          line: lineNumber,
-          raw: line,
-          reason: "Source must be 'D' (Distributor) or 'H' (Hand Sold)",
-        } satisfies InvalidSaleRow,
-      };
-    }
+  if (netQuantity !== grossQuantity) {
+    return { invalid: { line: lineNumber, raw: line, reason: "Net Qty must equal Gross Qty" } };
   }
 
+  // 5. Construct Valid Object (Matches ParsedSaleRow type)
   return {
     valid: {
       line: lineNumber,
-      month,
-      year: yearStr,
       isbn: isbnDigits,
-      quantity,
-      revenue,
-      source,
+      title,
+      author,
+      format: formatRaw as "Paperback" | "Hardcover",
+      grossQuantity,
+      netQuantity,
+      netCompensation,
+      salesMarket,
+      source: "DISTRIBUTOR", // Ingram Spark imports are always Distributor
       raw: line,
     } satisfies ParsedSaleRow,
   };
@@ -144,14 +122,15 @@ export function useBulkPastePreview() {
     lines.forEach((rawLine, idx) => {
       const lineNumber = idx + 1;
       const trimmed = rawLine.trim();
+      
       if (!trimmed) return;
 
+      // Skip header row if it starts with "ISBN"
+      if (idx === 0 && trimmed.toUpperCase().startsWith("ISBN")) return;
+
       const result = parseLine(trimmed, lineNumber);
-      if (result.valid) {
-        valids.push(result.valid);
-      } else if (result.invalid) {
-        invalids.push(result.invalid);
-      }
+      if (result.valid) valids.push(result.valid);
+      else if (result.invalid) invalids.push(result.invalid);
     });
 
     setPreviewRows(valids);
@@ -163,10 +142,5 @@ export function useBulkPastePreview() {
     setInvalidRows([]);
   }
 
-  return {
-    previewRows,
-    invalidRows,
-    handlePreview,
-    clearPreview,
-  };
+  return { previewRows, invalidRows, handlePreview, clearPreview };
 }
