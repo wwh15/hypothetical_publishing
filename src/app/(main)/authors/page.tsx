@@ -32,9 +32,7 @@ export default async function AuthorsPage({ searchParams }: AuthorsPageProps) {
 
   // Default sort for Authors is usually by name
   const sortBy = params?.sortBy ?? "name";
-  const sortDir = (params?.sortDir === "asc" ? "asc" : "desc") as
-    | "asc"
-    | "desc";
+  const sortDir = params?.sortDir === "desc" ? "desc" : "asc";
 
   // 2. Fetch the data using our optimized Prisma logic
   // This handles the Decimal conversions and _count subqueries.
