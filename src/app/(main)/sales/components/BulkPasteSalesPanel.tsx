@@ -17,7 +17,7 @@ import { useBulkPasteSubmit } from "../hooks/useBulkPasteSubmit";
 import { PendingSaleItem } from "@/lib/data/records";
 import { BookListItem } from "@/lib/data/books";
 import AddBookModal from "./AddBookModal";
-import { AlertCircle, UploadCloud } from "lucide-react";
+import { AlertCircle, UploadCloud, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import MonthYearSelector from "@/components/MonthYearSelector";
 
@@ -61,23 +61,12 @@ export function normalizeName(name: string | null | undefined): string {
   return (
     name
       .toLowerCase()
-      // 1. Remove common titles and academic suffixes (including those with dots)
-      .replace(/\b(phd|dr|md|jr|sr|iii|ii|mfa|prof)\b\.?/g, "")
-
-      // 2. Remove all non-alphanumeric characters except spaces
-      .replace(/[^a-z0-9\s]/g, "")
-
-      // 3. Split into individual words
-      .split(/\s+/)
-
-      // 4. Remove empty strings (caused by double spaces or trailing punctuation)
-      .filter((word) => word.length > 0)
-
-      // 5. Sort alphabetically so word order doesn't matter
-      .sort()
-
-      // 6. Join back into a single string
-      .join(" ")
+      .replace(/\b(phd|dr|md|jr|sr|iii|ii|mfa|prof|mr|ms|mrs)\b\.?/g, "") // 1. Remove common titles and academic suffixes (including those with dots)
+      .replace(/[^a-z0-9\s]/g, "")  // 2. Remove all non-alphanumeric characters except spaces
+      .split(/\s+/) // 3. Split into individual words
+      .filter((word) => word.length > 0) // 4. Remove empty strings (caused by double spaces or trailing punctuation)
+      .sort() // 5. Sort alphabetically so word order doesn't matter
+      .join(" ") // 6. Join back into a single string
   );
 }
 
@@ -88,7 +77,7 @@ export default function BulkPasteSalesPanel({
   // Local useState
   const [text, setText] = useState("");
   const [extraBooks, setExtraBooks] = useState<BookListItem[]>([]);
-
+  const [submissionErrors, setSubmissionErrors] = useState<Array<{ line: number; errors: Record<string, string> }>>([]);
   const [selectedDate, setSelectedDate] = useState({ year: "", month: "" });
   const [dateError, setDateError] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
@@ -117,6 +106,7 @@ export default function BulkPasteSalesPanel({
     [booksData, extraBooks]
   );
 
+  // Add final royalty and book to preview rows
   const rowsWithRoyalty = useMemo(() => {
     return previewRows.map((row) => {
       const book = isbnLookup.get(row.isbn);
@@ -146,7 +136,7 @@ export default function BulkPasteSalesPanel({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Basic validation
+    // Basic file validation
     if (!file.name.endsWith(".csv")) {
       alert("Please upload a CSV file.");
       return;
@@ -174,20 +164,24 @@ export default function BulkPasteSalesPanel({
     // 1. Check for missing books
     if (missingBookRows.length > 0) {
       alert(
-        `Cannot submit: ${missingBookRows.length} book(s) not found. Please add the missing books to the database first.`
+        `Cannot add records: ${missingBookRows.length} book(s) not found. Please add the missing books to the database first.`
       );
       return;
     }
 
-    // 2. Properly validate the date object properties
+    // 2. Check that a date is selected
     if (!selectedDate.year || !selectedDate.month) {
-      alert("Please select a sales month and year before adding records.");
+      alert("Please select a sales month and year before attempting to add records.");
       return;
     }
 
-    // 3. Execute submission
-    // Pass previewRows and the validated selectedDate
-    submitFromRows(previewRows, selectedDate, fileName ?? undefined);
+    // 3. Pass previewRows and capture errors if any
+    const errors = submitFromRows(previewRows, selectedDate, fileName ?? undefined);
+
+    if (errors.length > 0) {
+      setSubmissionErrors(errors);
+      return;
+    }
 
     // 4. Reset UI state
     clearPreview();
@@ -281,7 +275,7 @@ export default function BulkPasteSalesPanel({
             id="bulk-text"
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder={`ISBN,Title,Author,Format,Gross Qty,Returned Qty,Net Qty,Net Compensation,Sales Market (Uploaded data will appear here)`}
+            placeholder={`Uploaded data will appear here`}
             className="font-mono"
           />
         </div>
@@ -303,7 +297,8 @@ export default function BulkPasteSalesPanel({
               {invalidRows.length} invalid
             </span>
           </div>
-
+          
+          {/* Preview Rows */}
           {previewRows.length > 0 ? (
             <div className="space-y-2 font-mono">
               {rowsWithRoyalty.map((row) => {
@@ -356,7 +351,7 @@ export default function BulkPasteSalesPanel({
                           {normalizeName(row.book?.author ?? "") !==
                               normalizeName(row.author) && (
                               <span className="text-[10px] text-muted-foreground italic">
-                                ⚠️ (Database author &quot;{row.book?.author}&quot; overrides CSV
+                                ⚠️ (Database detected existing author for ISBN: Database author &quot;{row.book?.author}&quot; overrides CSV
                                   &quot;{row.author}&quot;)
                               </span>
                             )}
@@ -365,7 +360,7 @@ export default function BulkPasteSalesPanel({
                           {row.book?.title.toLowerCase() !==
                             row.title.toLowerCase() && (
                             <span className="text-[10px] text-muted-foreground italic">
-                              ⚠️ (Database title &quot;{row.book?.title}&quot; overrides CSV
+                              ⚠️ (Database detected existing title for ISBN: Database title &quot;{row.book?.title}&quot; overrides CSV
                                 &quot;{row.title}&quot;)
                             </span>
                           )}
@@ -374,13 +369,10 @@ export default function BulkPasteSalesPanel({
                             <span className="font-semibold text-sm">
                               Book: {row.book?.title} |
                             </span>
-
                             <span className="font-semibold text-sm">
                               Author: {row.book?.author}
                             </span>
                           </div>
-
-                          
                         </div>
 
                         <div className="flex flex-wrap gap-3 font-mono">
@@ -442,6 +434,24 @@ export default function BulkPasteSalesPanel({
             </div>
           )}
 
+          {/* Final Submission Errors */}
+          {submissionErrors.length > 0 && (
+            <div className="mt-4 p-4 rounded-md border-2 border-destructive bg-destructive/5 space-y-2">
+              <div className="flex items-center gap-2 text-destructive font-bold text-sm">
+                <XCircle className="h-4 w-4" />
+                Validation failed for {submissionErrors.length} row(s)
+              </div>
+              <ul className="space-y-1 list-disc list-inside">
+                {submissionErrors.map((err, idx) => (
+                  <li key={idx} className="text-xs text-destructive">
+                    <strong>Line {err.line}:</strong> {Object.values(err.errors).join(", ")}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Invalid Row Errors Display */}
           {invalidRows.length > 0 && (
             <div className="mt-3 space-y-1 rounded border border-destructive/40 bg-destructive/5 px-3 py-2 text-destructive text-xs">
               {invalidRows.map((err) => (

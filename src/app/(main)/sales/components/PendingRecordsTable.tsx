@@ -1,7 +1,6 @@
 "use client";
 
-import { DataTable } from "@/components/DataTable";
-import { ColumnDef } from "@/components/DataTable";
+import { BaseDataTable, ColumnDef } from "@/components/BaseDataTable";
 import { PendingSaleItem } from "@/lib/data/records";
 import { salesCellRenderers } from "@/lib/table-configs/sales-columns";
 import { X } from "lucide-react";
@@ -22,20 +21,20 @@ export default function PendingRecordsTable({
     {
       key: "title",
       header: "Title",
-      accessor: "title",
-      sortable: true,
+      render: (row) => row.title,
     },
     {
       key: "date",
       header: "Date",
-      accessor: "date",
-      sortable: true,
+      render: (row) =>
+        new Intl.DateTimeFormat("en-US", {
+          month: "short",
+          year: "numeric",
+        }).format(row.date),
     },
     {
       key: "author",
       header: "Author",
-      accessor: "author",
-      sortable: true,
       render: (row) => (
         <span>
           {row.author}
@@ -45,15 +44,11 @@ export default function PendingRecordsTable({
     {
       key: "quantity",
       header: "Quantity",
-      accessor: "quantity",
-      sortable: true,
       render: (row) => <span>{row.quantity}</span>,
     },
     {
       key: "publisherRevenue",
       header: "Publisher Revenue",
-      accessor: "publisherRevenue",
-      sortable: true,
       render: (row) => (
         <span className="font-medium">${row.publisherRevenue.toFixed(2)}</span>
       ),
@@ -61,8 +56,6 @@ export default function PendingRecordsTable({
     {
       key: "authorRoyalty",
       header: "Author Royalty",
-      accessor: "authorRoyalty",
-      sortable: true,
       render: (row) => (
         <span className="font-medium">${row.authorRoyalty.toFixed(2)}</span>
       ),
@@ -70,8 +63,6 @@ export default function PendingRecordsTable({
     {
       key: "source",
       header: "Source",
-      accessor: "source",
-      sortable: true,
       render: (row) => (
         <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${row.source === "HAND_SOLD" ? "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200" : "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"}`}>
           {row.source === "HAND_SOLD" ? "Hand Sold" : "Distributor"}
@@ -79,21 +70,8 @@ export default function PendingRecordsTable({
       ),
     },
     {
-      key: "comment",
-      header: "Comment",
-      accessor: "comment",
-      sortable: true,
-      render: (row) => (
-        <span className="text-muted-foreground text-sm">
-          {row.comment != null && row.comment !== "" ? row.comment : "—"}
-        </span>
-      ),
-    },
-    {
       key: "paid",
-      header: "Royalty Status",
-      accessor: "paid",
-      sortable: true,
+      header: "Royalty Status (Toggable)",
       render: (row) => (
         <button
           type="button"
@@ -109,9 +87,17 @@ export default function PendingRecordsTable({
       ),
     },
     {
+      key: "comment",
+      header: "Comment",
+      render: (row) => (
+        <span className="text-muted-foreground text-sm">
+          {row.comment != null && row.comment !== "" ? row.comment : "—"}
+        </span>
+      ),
+    },
+    {
       key: "actions",
       header: "Actions",
-      sortable: false,
       render: (row) => (
         <button
           onClick={(e) => {
@@ -133,12 +119,10 @@ export default function PendingRecordsTable({
         Pending Records ({pendingRecords.length})
       </h2>
       {pendingRecords.length > 0 ? (
-        <DataTable<PendingSaleItem>
+        <BaseDataTable<PendingSaleItem>
           columns={pendingColumns}
           data={pendingRecords}
           emptyMessage="No pending records"
-          showPagination={false}
-          showDateFilter={false}
         />
       ) : (
         <div className="text-center py-8 text-muted-foreground">
