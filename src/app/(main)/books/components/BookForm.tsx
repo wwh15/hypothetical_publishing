@@ -533,6 +533,10 @@ export default function BookForm({
             selectedAuthorId={selectedAuthorId}
             onSelect={(authorId) => {
               setSelectedAuthorId(authorId);
+              const foundAuthor = authors.find((a) => a.id === authorId);
+              if (foundAuthor) {
+                handleInputChange("author", foundAuthor.name);
+              }
             }}
           />
           )}
