@@ -14,9 +14,10 @@ import { cn } from "@/lib/utils";
 import { Search, Loader2, ListOrdered } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SeriesSelectBox } from "@/components/SeriesSelectBox";
-import SeriesOrderModal, {
-  CURRENT_BOOK_SENTINEL,
-} from "./SeriesOrderModal";
+import SeriesOrderModal, { CURRENT_BOOK_SENTINEL } from "./SeriesOrderModal";
+import { AuthorSelectBox } from "../../authors/components/AuthorSelectBox";
+import { getAllAuthors } from "../../authors/actions";
+import { Author } from "@prisma/client";
 
 interface BookFormProps {
   bookId?: number;
@@ -45,6 +46,9 @@ export default function BookForm({
   const [error, setError] = useState<string | null>(null);
   const [isbnLookup, setIsbnLookup] = useState("");
   const [isImported, setIsImported] = useState(false);
+  const [authors, setAuthors] = useState<Author[]>([]);
+  const [isLoadingAuthors, setIsLoadingAuthors] = useState(true);
+  const [selectedAuthorId, setSelectedAuthorId] = useState<number | null>(null);
   const [series, setSeries] = useState<SeriesListItem[]>([]);
   const [isLoadingSeries, setIsLoadingSeries] = useState(true);
   const [selectedSeriesId, setSelectedSeriesId] = useState<number | null>(null);
@@ -105,7 +109,14 @@ export default function BookForm({
         setSelectedSeriesId(null);
       }
       setSeriesOrderOverride(null);
-      
+
+      // Set author information only on initial load
+      if (initialData.authorId !== null && initialData.authorId !== undefined) {
+        setSelectedAuthorId(initialData.authorId);
+      } else {
+        setSelectedAuthorId(null);
+      }
+
       formInitializedRef.current = true;
     }
   }, [initialData, mode, bookId]);
@@ -130,6 +141,22 @@ export default function BookForm({
       }
     }
     loadSeries();
+  }, []);
+
+  // Fetch authors on mount
+  useEffect(() => {
+    async function loadAuthors() {
+      try {
+        setIsLoadingAuthors(true);
+        const authorsList = await getAllAuthors();
+        setAuthors(authorsList);
+      } catch (err) {
+        console.error("Failed to load authors:", err);
+      } finally {
+        setIsLoadingAuthors(false);
+      }
+    }
+    loadAuthors();
   }, []);
 
   const handleInputChange = (field: string, value: string) => {
@@ -207,9 +234,8 @@ export default function BookForm({
       return;
     }
 
-    if (!formData.email.trim()) {
-      setError("Author email is requied")
-      setIsSubmitting(false);
+    if (!selectedAuthorId) {
+      setError("Please select an author before saving.");
       return;
     }
 
@@ -290,6 +316,7 @@ export default function BookForm({
       const bookData = {
         title: formData.title.trim(),
         author: formData.author.trim(),
+        authorId: selectedAuthorId,
         email: formData.email.trim(),
         isbn13: isbn13 || undefined,
         isbn10: isbn10 || undefined,
@@ -496,49 +523,20 @@ export default function BookForm({
             className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
           >
             Author <span className="text-red-500">*</span>
-          </label>
-          <input
-            id="author"
-            type="text"
-            value={formData.author}
-            onChange={(e) => handleInputChange("author", e.target.value)}
-            className={cn(
-              "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background",
-              "file:border-0 file:bg-transparent file:text-sm file:font-medium",
-              "placeholder:text-muted-foreground",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-              "disabled:cursor-not-allowed disabled:opacity-50",
-              "dark:bg-gray-700",
-            )}
-            placeholder="Enter author name"
-            required
+            {isLoadingAuthors ? (
+            <div className="flex h-10 items-center justify-start rounded-md border border-input bg-background px-3 py-2 text-sm text-muted-foreground">
+              Loading authors...
+            </div>
+          ) : (
+            <AuthorSelectBox
+            authors={authors}
+            selectedAuthorId={selectedAuthorId}
+            onSelect={(authorId) => {
+              setSelectedAuthorId(authorId);
+            }}
           />
-        </div>
-
-        {/* Author Email */}
-        <div className="md:col-span-2 space-y-2">
-          <label
-            htmlFor="email"
-            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-          >
-            Email <span className="text-red-500">*</span>
+          )}
           </label>
-          <input
-            id="email"
-            type="text"
-            value={formData.email}
-            onChange={(e) => handleInputChange("email", e.target.value)}
-            className={cn(
-              "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background",
-              "file:border-0 file:bg-transparent file:text-sm file:font-medium",
-              "placeholder:text-muted-foreground",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-              "disabled:cursor-not-allowed disabled:opacity-50",
-              "dark:bg-gray-700",
-            )}
-            placeholder="Enter author email"
-            required
-          />
         </div>
 
         {/* ISBN-13 */}

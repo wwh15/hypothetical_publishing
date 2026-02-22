@@ -1,7 +1,7 @@
 "use server";
 
-import { asyncAddAuthor, asyncDeleteAuthor, asyncGetAuthorBooks, asyncGetAuthorById, asyncUpdateAuthor, DeleteAuthorResponse, GetAuthorBooksResponse, GetAuthorByIdResponse, UpdateAuthorRequest, UpdateAuthorResponse } from "@/lib/data/author";
-import { Prisma } from "@prisma/client";
+import { asyncAddAuthor, asyncDeleteAuthor, asyncGetAllAuthors, asyncGetAuthorBooks, asyncGetAuthorById, asyncGetAuthorsData, asyncUpdateAuthor, DeleteAuthorResponse, GetAuthorBooksResponse, GetAuthorByIdResponse, GetAuthorDataParams, GetAuthorsDataResult, UpdateAuthorRequest, UpdateAuthorResponse } from "@/lib/data/author";
+import { Author, Prisma } from "@prisma/client";
 
 export async function addAuthor(data: Prisma.AuthorUncheckedCreateInput) {
     return await asyncAddAuthor(data);
@@ -9,6 +9,14 @@ export async function addAuthor(data: Prisma.AuthorUncheckedCreateInput) {
 
 export async function getAuthorById(id: number): Promise<GetAuthorByIdResponse> {
     return await asyncGetAuthorById(id)
+}
+
+export async function getAuthorsData(data: GetAuthorDataParams): Promise<GetAuthorsDataResult> {
+    return await asyncGetAuthorsData(data);
+}
+
+export async function getAllAuthors(): Promise<Author[]> {
+    return await asyncGetAllAuthors();
 }
 
 export async function getAuthorBooks(id: number): Promise<GetAuthorBooksResponse> {
