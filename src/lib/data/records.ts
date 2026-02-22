@@ -255,16 +255,23 @@ export async function asyncGetSaleById(
 
   if (!sale) return null;
 
+  // Build plain object so Client Components never receive Prisma Decimal or other non-serializable values
   return {
-    ...sale,
+    id: sale.id,
+    date: sale.date,
+    quantity: sale.quantity,
     publisherRevenue: sale.publisherRevenue.toNumber(),
     authorRoyalty: sale.authorRoyalty.toNumber(),
+    royaltyOverridden: sale.royaltyOverridden,
+    paid: sale.paid,
     comment: sale.comment ?? null,
     source: sale.source,
     book: {
-      ...sale.book,
+      id: sale.book.id,
+      title: sale.book.title,
       author: {
-        ...sale.book.author,
+        id: sale.book.author.id,
+        name: sale.book.author.name,
       },
     },
   };
