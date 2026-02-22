@@ -273,6 +273,15 @@ export async function getBooksData({
           },
         },
       },
+      // Series name match (case-insensitive)
+      {
+        series: {
+          name: {
+            contains: query,
+            mode: "insensitive",
+          },
+        },
+      },
     ];
 
     // Only add ISBN conditions if we have a normalized ISBN (not empty after removing dashes/spaces)

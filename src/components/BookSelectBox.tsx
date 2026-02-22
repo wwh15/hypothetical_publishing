@@ -68,7 +68,7 @@ export function BookSelectBox({
       <PopoverContent id={contentId} className="w-[--radix-popover-trigger-width] p-0">
         <Command shouldFilter={false}>
           <CommandInput
-            placeholder="Search by title, author, or ISBN..."
+            placeholder="Search by title, author, series, or ISBN..."
             value={searchQuery}
             onValueChange={setSearchQuery}
           />
