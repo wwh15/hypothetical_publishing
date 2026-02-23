@@ -153,6 +153,9 @@ export default function InputRecordForm({
             min="0.00"
             step="0.01"
             required
+            readOnly={formData.source === "HAND_SOLD"}
+            className={formData.source === "HAND_SOLD" ? "bg-gray-100 dark:bg-gray-700 cursor-not-allowed" : ""}
+            tabIndex={formData.source === "HAND_SOLD" ? -1 : undefined}
           />
         </FormField>
 

@@ -28,6 +28,14 @@ function getRateForSource(book: BookListItem, source: "DISTRIBUTOR" | "HAND_SOLD
   return source === "HAND_SOLD" ? book.handSoldRoyaltyRate : book.distRoyaltyRate;
 }
 
+/** Auto-calculate revenue for hand-sold: (coverPrice - printCost) * quantity */
+function calcHandSoldRevenue(book: BookListItem, quantity: number): number | null {
+  if (book.coverPrice != null && book.printCost != null && quantity > 0) {
+    return (book.coverPrice - book.printCost) * quantity;
+  }
+  return null;
+}
+
 interface EditFormProps {
   books: BookListItem[];
   sale: SaleDetailPayload;
@@ -256,10 +264,18 @@ export default function EditForm({ sale, books }: EditFormProps) {
             selectedBookId={String(formData.bookId)}
             onSelect={(bookId) => {
               const book = books.find((b) => b.id === Number(bookId));
+              let revenue = formData.publisherRevenue;
+              if (formData.source === "HAND_SOLD" && book) {
+                const autoRev = calcHandSoldRevenue(book, formData.quantity);
+                if (autoRev != null) {
+                  revenue = normalizeCurrency(autoRev);
+                  setDisplayRevenue(revenue.toFixed(2));
+                }
+              }
               const rate = book ? getRateForSource(book, formData.source) : null;
-              const newRoyalty = rate != null ? formData.publisherRevenue * (rate / 100) : formData.authorRoyalty;
+              const newRoyalty = rate != null ? revenue * (rate / 100) : formData.authorRoyalty;
               setDisplayRoyalty(newRoyalty.toFixed(2));
-              setFormData({ ...formData, bookId: Number(bookId), authorRoyalty: normalizeCurrency(newRoyalty) });
+              setFormData({ ...formData, bookId: Number(bookId), publisherRevenue: revenue, authorRoyalty: normalizeCurrency(newRoyalty) });
             }}
           />
         </div>
@@ -304,7 +320,24 @@ export default function EditForm({ sale, books }: EditFormProps) {
               if (isValidQuantityInput(val)) {
                 setDisplayQuantity(val);
                 const numericQty = parseInt(val, 10) || 0;
-                setFormData((prev) => ({ ...prev, quantity: Math.max(0, numericQty) }));
+                const qty = Math.max(0, numericQty);
+                setFormData((prev) => {
+                  const next = { ...prev, quantity: qty };
+                  if (prev.source === "HAND_SOLD") {
+                    const book = books.find((b) => b.id === prev.bookId);
+                    if (book) {
+                      const autoRev = calcHandSoldRevenue(book, qty);
+                      if (autoRev != null) {
+                        next.publisherRevenue = normalizeCurrency(autoRev);
+                        setDisplayRevenue(next.publisherRevenue.toFixed(2));
+                        const rate = getRateForSource(book, prev.source);
+                        next.authorRoyalty = normalizeCurrency(next.publisherRevenue * (rate / 100));
+                        setDisplayRoyalty(next.authorRoyalty.toFixed(2));
+                      }
+                    }
+                  }
+                  return next;
+                });
                 if (errors.quantity) setErrors(prev => ({ ...prev, quantity: "" }));
               }
             }}
@@ -324,8 +357,15 @@ export default function EditForm({ sale, books }: EditFormProps) {
             inputMode="decimal"
             placeholder="0.00"
             value={displayRevenue}
-            className={cn("w-full px-3 py-2 border rounded-md transition-colors", errors.publisherRevenue ? "border-red-500" : "border-gray-300")}
+            readOnly={formData.source === "HAND_SOLD"}
+            className={cn(
+              "w-full px-3 py-2 border rounded-md transition-colors",
+              errors.publisherRevenue ? "border-red-500" : "border-gray-300",
+              formData.source === "HAND_SOLD" && "bg-gray-100 dark:bg-gray-700 cursor-not-allowed"
+            )}
+            tabIndex={formData.source === "HAND_SOLD" ? -1 : undefined}
             onChange={(e) => {
+              if (formData.source === "HAND_SOLD") return;
               const val = e.target.value;
               if (isValidCurrencyInput(val)) {
                 setDisplayRevenue(val);
@@ -339,6 +379,7 @@ export default function EditForm({ sale, books }: EditFormProps) {
               }
             }}
             onBlur={() => {
+              if (formData.source === "HAND_SOLD") return;
               const numericValue = parseFloat(displayRevenue) || 0;
               setDisplayRevenue(numericValue !== 0 ? numericValue.toFixed(2) : "");
             }}
