@@ -40,6 +40,12 @@ export default async function Navbar() {
                 >
                   Author Payments
                 </Link>
+                <Link
+                  href="/reports"
+                  className="text-sm text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                >
+                  Reports
+                </Link>
               </nav>
               <div className="group relative pb-1">
                 <span className="text-sm text-gray-600 dark:text-gray-400 cursor-pointer">
