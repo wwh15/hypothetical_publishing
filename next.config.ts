@@ -10,6 +10,7 @@ module.exports = {
 const nextConfig: NextConfig = {
   /* config options here */
   reactCompiler: true,
+  serverExternalPackages: ["@react-pdf/renderer"],
 };
 
 export default nextConfig;
