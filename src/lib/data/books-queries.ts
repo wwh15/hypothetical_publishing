@@ -39,6 +39,11 @@ function buildSearchWhereClause(
     params.push(`%${query}%`);
     paramIndex++;
 
+    // Series name match (case-insensitive) - parameterized
+    whereConditions.push(`ser.name ILIKE $${paramIndex}`);
+    params.push(`%${query}%`);
+    paramIndex++;
+
     // ISBN conditions - parameterized
     if (normalizedIsbn) {
       whereConditions.push(`b.isbn13 LIKE $${paramIndex}`);
@@ -123,10 +128,12 @@ export async function getBooksSortedByTotalSales(
   const allParams = [...searchParams, limit, (currentPage - 1) * limit];
 
   // Query to get total count (for pagination) - reuse same WHERE clause
+  // Join series when searching so WHERE can reference ser.name
   const countQuery = `
     SELECT COUNT(DISTINCT b.id) AS total
     FROM books b
     INNER JOIN authors a ON a.id = b."authorId"
+    LEFT JOIN series ser ON ser.id = b.series_id
     ${whereClause}
   `;
 

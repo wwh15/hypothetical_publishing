@@ -157,6 +157,13 @@ export async function getSalesData({
           author: { name: { contains: trimmedSearch, mode: "insensitive" } },
         },
       },
+      {
+        book: {
+          series: {
+            name: { contains: trimmedSearch, mode: "insensitive" },
+          },
+        },
+      },
     ];
   }
 
