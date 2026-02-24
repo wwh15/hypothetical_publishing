@@ -34,10 +34,22 @@ export function AuthorRoyaltyReportForm({
   const [endYear, setEndYear] = useState(initialEndYear);
 
   const years = useMemo(() => getReportYears(), []);
+  const [error, setError] = useState<string | null>(null);
 
-  // TODO: wire to server action that generates PDF (authorId, startQuarter, startYear, endQuarter, endYear)
   function handleGenerate() {
-    // No-op until PDF generation is implemented
+    setError(null);
+    if (authorId == null) {
+      setError("Please select an author.");
+      return;
+    }
+    const params = new URLSearchParams({
+      authorId: String(authorId),
+      startQ: String(startQuarter),
+      startY: String(startYear),
+      endQ: String(endQuarter),
+      endY: String(endYear),
+    });
+    window.open(`/api/reports/author-royalty?${params.toString()}`, "_blank", "noopener,noreferrer");
   }
 
   return (
@@ -112,6 +124,11 @@ export function AuthorRoyaltyReportForm({
         </div>
       </div>
 
+      {error && (
+        <p className="text-sm text-destructive" role="alert">
+          {error}
+        </p>
+      )}
       <Button type="button" onClick={handleGenerate}>
         Generate report
       </Button>
