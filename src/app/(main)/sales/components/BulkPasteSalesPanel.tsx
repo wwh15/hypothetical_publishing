@@ -1,5 +1,6 @@
 "use client";
 
+import Papa from "papaparse";
 import { useCallback, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -135,22 +136,149 @@ export default function BulkPasteSalesPanel({
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    // Basic file validation
+  
+    // 1. File Type Check
     if (!file.name.endsWith(".csv")) {
       alert("Please upload a CSV file.");
       return;
     }
-
+  
     const reader = new FileReader();
     reader.onload = () => {
-      const content = reader.result as string;
-      setText(content); // This fills your Textarea automatically!
-    };
-    reader.readAsText(file);
-    setFileName(file.name);
+      let content = reader.result as string;
 
-    // Reset the input value so the same file can be uploaded twice if needed
+      // REMOVE THE BOM: This regex identifies the hidden BOM character 
+      // at the very beginning of the string and removes it.
+      content = content.replace(/^\uFEFF/, "");
+      
+      // Use PapaParse to split rows correctly (handles commas inside quotes)
+      const parseResult = Papa.parse(content, {
+        skipEmptyLines: true, // Replaces your .filter check
+      });
+  
+      const dataRows = parseResult.data as string[][];
+      if (dataRows.length === 0) return;
+  
+      const headers = dataRows[0].map((h) => h.trim());
+  
+      // 2. Validate Headers
+      const expectedHeaders = ["ISBN", "Title", "Author", "Format", "Gross Qty", "Returned Qty", "Net Qty", "Net Compensation", "Sales Market"];
+      const hasValidHeaders = expectedHeaders.every((h, i) => headers[i] === h);
+  
+      if (!hasValidHeaders) {
+        alert("CSV Error: Invalid headers or incorrect column order. Required format is: ISBN,Title,Author,Format,Gross Qty,Returned Qty,Net Qty,Net Compensation,Sales Market");
+        return;
+      }
+  
+      // Process Data Rows (starting from index 1)
+      for (let i = 1; i < dataRows.length; i++) {
+        const row = dataRows[i];
+        const rowNum = i + 1;
+  
+        // Now "author" will correctly contain "Alice Johnson, Bob Smith" as one piece!
+        const [isbn, title, author, format, grossStr, returnedStr, netStr, netCompStr, market] = row;
+  
+        // 3. Type Validation (Number conversion)
+        const gross = Number(grossStr);
+        const returned = Number(returnedStr);
+        const net = Number(netStr);
+        const netComp = Number(netCompStr);
+  
+        if (isNaN(gross)) {
+          alert(`Error Row ${rowNum}: Gross Qty must be a number. Found: "${grossStr}"`);
+          return;
+        }
+  
+        if (isNaN(returned)) {
+          alert(`Error Row ${rowNum}: Returned Qty must be a number. Found: "${returnedStr}"`);
+          return;
+        }
+  
+        if (isNaN(net)) {
+          alert(`Error Row ${rowNum}: Net Qty must be a number. Found: "${netStr}"`);
+          return;
+        }
+  
+        if (isNaN(netComp)) {
+          alert(`Error Row ${rowNum}: Net Compensation must be a number. Found: "${netCompStr}"`);
+          return;
+        }
+  
+        // 5. Validate value is non-negative
+        if (gross <= 0) {
+          alert(`Error Row ${rowNum}: Gross Qty must be greater than 0.`);
+          return;
+        }
+  
+        if (net <= 0) {
+          alert(`Error Row ${rowNum}: Net Qty must be greater than  0.`);
+          return;
+        }
+  
+        if (netComp <= 0) {
+          alert(`Error Row ${rowNum}: Net Compensation must be greater than 0.`);
+          return;
+        }
+  
+        // Validate that Net Qty is a whole number
+        if (!Number.isInteger(net)) {
+          alert(`Row ${rowNum}: Net Qty must be a whole number (no decimals).`);
+          return;
+        }
+  
+        // 6. Validate Returned Qty is 0
+        if (returned !== 0) {
+          alert(`Error Row ${rowNum}: Returned Qty must be 0.`);
+          return;
+        }
+  
+        // 7. Validate Net Qty must equal Gross Qty
+        if (net !== gross) {
+          alert(`Error Row ${rowNum}: Net Qty (${net}) must equal Gross Qty (${gross}).`);
+          return;
+        }
+  
+        // 8. ISBN Validation
+        const cleanISBN = isbn?.trim().replace(/[-\s]/g, "");
+        if (!cleanISBN) {
+          alert(`Error Row ${rowNum}: Missing ISBN.`);
+          return;
+        }
+  
+        if (cleanISBN.length !== 10 && cleanISBN.length !== 13) {
+          alert(`Error Row ${rowNum}: Invalid ISBN format. ISBN must be 10 digits or 13 digits.`);
+          return;
+        }
+  
+        // 9. Type Validate (Strings and Enums)
+        const cleanFormat = format?.trim();
+        if (cleanFormat !== "Paperback" && cleanFormat !== "Hardcover") {
+          alert(`Error Row ${rowNum}: Format must be 'Paperback' or 'Hardcover'. Found: '${cleanFormat}'`);
+          return;
+        }
+  
+        if (!title || title.trim() === "") {
+          alert(`Error Row ${rowNum}: Title is required.`);
+          return;
+        }
+  
+        if (!author || author.trim() === "") {
+          alert(`Error Row ${rowNum}: Author is required.`);
+          return;
+        }
+  
+        if (!market || market.trim() === "") {
+          alert(`Error Row ${rowNum}: Sales Market is required.`);
+          return;
+        }
+      }
+  
+      // Success!
+      setText(content);
+      setFileName(file.name);
+    };
+  
+    reader.readAsText(file);
     e.target.value = "";
   };
 
@@ -248,8 +376,7 @@ export default function BulkPasteSalesPanel({
         <div className="rounded-lg border bg-muted/30 p-4 text-sm mb-6 pb-2">
           <div className="font-medium mb-2">Required CSV Format/Headers</div>
           <pre className="whitespace-pre-wrap text-xs text-muted-foreground">
-            ISBN,Title,Author,Format,Gross Qty,Returned Qty,Net Qty,Net
-            Compensation,Sales Market
+            ISBN,Title,Author,Format,Gross Qty,Returned Qty,Net Qty,Net Compensation,Sales Market
           </pre>
         </div>
 
