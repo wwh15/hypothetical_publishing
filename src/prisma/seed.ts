@@ -31,6 +31,9 @@ async function main() {
   const orphanAuthor = await prisma.author.create({
     data: { name: "Orphan Author", email: "orphan.author@example.com" },
   });
+  const george = await prisma.author.create({
+    data: { name: "George R. R. Martin", email: "george.martin@example.com" },
+  });
   const alice = await prisma.author.create({
     data: { name: "Alice Johnson", email: "alice.johnson@example.com" },
   });

@@ -180,18 +180,19 @@ After seeding you will have:
 
 ### 3.5 Import from Ingram CSV (Req 3.5)
 
-Use **Ingram Test Book** (ISBN-13 **9780599999999**). Valid file: `docs/sample_ingram_valid.csv`. Invalid returns file: `docs/sample_ingram_invalid_returns.csv`.
+Sample files live in **`docs/ingram/`**; see **`docs/ingram/README.md`** for the full list. Use **Ingram Test Book** (ISBN 9780599999999) for valid rows.
 
 | ID   | Scenario | Steps | Expected |
 |------|----------|--------|----------|
-| 3.5.P | Valid file | Upload `docs/sample_ingram_valid.csv`; enter month/year (e.g. Jan 2026). | Validation passes; preview: source distributor, quantity 10, revenue 125.50, royalty computed; comment with Format, Market, filename, timestamp. |
+| 3.5.P | Valid file | Upload `docs/ingram/sample_ingram_valid.csv`; enter month/year (e.g. Jan 2026). | Validation passes; preview: source distributor, quantity 10, revenue 125.50, royalty computed; comment with Format, Market, filename, timestamp. |
 | 3.5.P2 | Commit import | After preview, approve and commit. | Records created; comment like `Ingram: Format='Paperback' Market='United States' File='...' (YYYY-MM-DD HH:MM:SS)`. |
-| 3.5.N | Wrong columns | Upload CSV with wrong headers or column count. | Validation errors; line numbers when possible. |
-| 3.5.N2 | Returned Qty ≠ 0 | Upload `docs/sample_ingram_invalid_returns.csv`. | Error: Returned Qty must be zero. |
-| 3.5.N3 | Net Qty ≠ Gross Qty | Use a CSV row with Net Qty ≠ Gross Qty. | Error: Net Qty must equal Gross Qty. |
-| 3.5.N4 | ISBN not in system | Use CSV with ISBN that does not match any book (e.g. 9780000000000). | Error: book not found (with line). |
-| 3.5.N5 | Invalid format | Format other than Paperback/Hardcover. | Validation error. |
-| 3.5.N6 | BOM | Upload CSV with BOM (e.g. from Excel). | File accepted; BOM ignored. |
+| 3.5.N | Wrong columns | Upload `docs/ingram/sample_ingram_invalid_wrong_columns.csv`. | Error: expected 9 fields, found 7 (with line number). |
+| 3.5.N2 | Returned Qty ≠ 0 | Upload `docs/ingram/sample_ingram_invalid_returns.csv`. | Error: Returned Qty is expected to be set to 0. |
+| 3.5.N3 | Net Qty ≠ Gross Qty | Upload `docs/ingram/sample_ingram_invalid_net_not_gross.csv`. | Error: Net Qty must equal Gross Qty. |
+| 3.5.N4 | ISBN not in system | Upload `docs/ingram/sample_ingram_invalid_unknown_isbn.csv`. | Error: Book not found in library (with line). |
+| 3.5.N5 | Invalid format | Upload `docs/ingram/sample_ingram_invalid_format.csv` (eBook) or `sample_ingram_invalid_format_hardback.csv`. | Error: Format must be "Paperback" or "Hardcover". |
+| 3.5.N6 | BOM | Upload `docs/ingram/sample_ingram_valid_with_bom.csv`. | File accepted; BOM ignored. |
+| 3.5.N7 | Non-numeric quantity | Upload `docs/ingram/sample_ingram_invalid_non_numeric.csv`. | Error: Not a valid number (Gross Qty). |
 
 ---
 
