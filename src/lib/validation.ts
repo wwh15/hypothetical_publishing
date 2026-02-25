@@ -10,7 +10,7 @@ const cleanNumericString = (val: string | number): string =>
 
 export const validateRequiredString = (val: string | null | undefined, label: string): ValidationResult<string> => {
   const trimmed = val?.trim();
-  return trimmed ? { success: true, data: trimmed } : { success: false, error: `Field [${label}] is missing a value.` };
+  return trimmed ? { success: true, data: trimmed } : { success: false, error: `Field [${label}] is missing a value` };
 };
 
 export const validateSaleFormat = (format: string): ValidationResult<string> => {
@@ -19,7 +19,7 @@ export const validateSaleFormat = (format: string): ValidationResult<string> => 
   if (!trimmed) return { success: false, error: "Field [Format] is missing" };
   return valid.includes(trimmed) 
     ? { success: true, data: trimmed } 
-    : { success: false, error: `Field [Format] expected "Paperback" or "Hardcover", but received "${trimmed}"` };
+    : { success: false, error: `Field [Format] expected "Paperback" or "Hardcover" (received "${trimmed}")` };
 };
 
 export const validateEmail = (email: string): ValidationResult<string> => {
@@ -37,11 +37,18 @@ export const normalizeCurrency = (val: string | number): number => {
   return isNaN(num) ? 0 : Math.round((num + Number.EPSILON) * 100) / 100;
 };
 
-export const validateCurrency = (val: string): ValidationResult<number> => {
-  const num = Number(val.trim().replace(/,/g, ""));
-  if (val.trim() === "" || isNaN(num)) return { success: false, error: "is either misisng or not a valid number" };
-  if (num <= 0) return { success: false, error: "must be greater than 0" };
-  return { success: true, data: normalizeCurrency(num) };
+export const validateCurrency = (val: string | number, label: string="Field"): ValidationResult<number> => {
+  const normalized = normalizeCurrency(val);
+  const rawString = String(val).trim();
+  if (rawString === "" || isNaN(Number(cleanNumericString(val)))) {
+    return { success: false, error: `Missing or not a valid number (received "${val}").` };
+  }
+  
+  if (normalized <= 0) {
+    return { success: false, error: `Must be greater than 0 (received "${val}")` };
+  }
+
+  return { success: true, data: normalized };
 };
 
 export const validateRoyaltyLimit = (royalty: number, revenue: number): ValidationResult<{royalty: number, revenue: number}> => {
@@ -54,12 +61,6 @@ export const validateRoyaltyLimit = (royalty: number, revenue: number): Validati
 
 export const isValidCurrencyInput = (value: string): boolean => /^\d*\.?\d{0,2}$/.test(value) || value === "";
 
-export const validatePositiveNumber = (value: number | string, field: string): ValidationResult<number> => {
-  const num = typeof value === "string" ? parseFloat(value) : value;
-  if (isNaN(num) || value === "" || value === null) return { success: false, error: `${field} is required` };
-  return num < 0 ? { success: false, error: `${field} cannot be negative` } : { success: true, data: num };
-};
-
 /** * Quantity & Integer Logic 
  */
 
@@ -68,12 +69,15 @@ export const normalizeQuantity = (val: string | number): number => {
   return isNaN(num) ? 0 : Math.round(num);
 };
 
-export const validateQuantity = (val: string): ValidationResult<number> => {
-  const cleaned = val.trim().replace(/,/g, "");
-  const num = Number(cleaned);
-  if (cleaned === "" || isNaN(num)) return { success: false, error: "is not a valid number" };
-  if (!Number.isInteger(num)) return { success: false, error: "must be a whole number" };
-  return num <= 0 ? { success: false, error: "must be greater than 0" } : { success: true, data: num };
+export const validateQuantity = (val: string | number): ValidationResult<number> => {
+  const cleanStr = cleanNumericString(val);
+  const num = Number(cleanStr);
+  if (cleanStr === "" || isNaN(num)) {
+    return { success: false, error: `Not a valid number (received "${val}").` };
+  }
+
+  if (!Number.isInteger(num)) return { success: false, error: `Must be a whole number (received "${val}")` };
+  return num <= 0 ? { success: false, error: `Must be greater than 0 (received "${val}")` } : { success: true, data: num };
 };
 
 export const isValidQuantityInput = (value: string): boolean => /^\d*$/.test(value) || value === "";
@@ -106,7 +110,7 @@ export const validateEquals = (v1: number, v2: number): boolean => v1 === v2;
 export const validateReturnedQuantity = (val: string): ValidationResult<number> => {
   const cleaned = val.trim().replace(/,/g, "");
   const num = Number(cleaned);
-  if (cleaned === "" || isNaN(num)) return { success: false, error: "is not a valid number" };
-  if (!Number.isInteger(num)) return { success: false, error: "must be a whole number" };
-  return num !== 0 ? { success: false, error: "Field [Returned Qty] expected to be set to 0" } : { success: true, data: num };
+  if (cleaned === "" || isNaN(num)) return { success: false, error: `Not a valid number (received "${val}").` };
+  if (!Number.isInteger(num)) return { success: false, error: `Must be a whole number (received "${val}").` };
+  return num !== 0 ? { success: false, error: `Field [Returned Qty] expected to be set to 0 (received "${val}")` } : { success: true, data: num };
 };

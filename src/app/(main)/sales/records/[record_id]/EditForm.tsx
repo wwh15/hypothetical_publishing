@@ -16,8 +16,9 @@ import {
   isValidCurrencyInput, 
   isValidQuantityInput, 
   normalizeCurrency, 
+  validateCurrency, 
   validateDatePeriod, 
-  validatePositiveNumber, 
+  validateQuantity, 
   validateRoyaltyLimit
 } from "@/lib/validation";
 import { cn } from "@/lib/utils";
@@ -96,9 +97,9 @@ export default function EditForm({ sale, books }: EditFormProps) {
 
     // 1. Run the base validations first
     const dateCheck = validateDatePeriod(formData.dateYear, formData.dateMonth);
-    const revenueCheck = validatePositiveNumber(formData.publisherRevenue, "Publisher Revenue");
-    const royaltyCheck = validatePositiveNumber(formData.authorRoyalty, "Author Royalty");
-    const qtyCheck = validatePositiveNumber(formData.quantity, "Quantity");
+    const revenueCheck = validateCurrency(formData.publisherRevenue);
+    const royaltyCheck = validateCurrency(formData.authorRoyalty);
+    const qtyCheck = validateQuantity(formData.quantity);
 
     if (!dateCheck.success) {
       setDateError(dateCheck.error);
