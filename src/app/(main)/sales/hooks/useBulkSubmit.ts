@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo } from "react";
-import type { ParsedSaleRow } from "./useBulkPastePreview";
 import type { PendingSaleItem } from "@/lib/data/records";
 import { BookListItem } from "@/lib/data/books";
 import { 
@@ -11,6 +10,20 @@ import {
   validateDatePeriod, 
   validatePositiveNumber 
 } from "@/lib/validation";
+
+export type ParsedSaleRow = {
+  line: number;
+  isbn: string;
+  title: string;
+  author: string;
+  format: "Paperback" | "Hardcover";
+  grossQuantity: number;
+  netQuantity: number;
+  netCompensation: number;
+  salesMarket: string;
+  source: "DISTRIBUTOR" | "HAND_SOLD";
+  raw: string;
+};
 
 export function useBulkPasteSubmit(
   booksData: BookListItem[],
