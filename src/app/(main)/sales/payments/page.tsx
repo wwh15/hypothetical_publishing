@@ -33,11 +33,6 @@ export default async function AuthorPaymentsPage({
     <div className="container mx-auto py-10">
       <div className="mb-6 space-y-6">
         <div className="flex flex-col gap-3">
-          <Link href="/sales" className="w-fit">
-            <Button variant="outline" size="sm">
-              ← Back to Sales
-            </Button>
-          </Link>
           <Link href="/sales/add-record" className="w-fit">
             <Button size="sm">Add New Sale Record</Button>
           </Link>

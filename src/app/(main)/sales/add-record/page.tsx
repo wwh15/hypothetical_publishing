@@ -31,7 +31,7 @@ export default async function SalesInputPage({ searchParams }: PageProps) {
       <div className="mb-6">
         <div className="flex flex-wrap items-center gap-2 mb-2">
           <Link
-            href="/sales"
+            href="/sales/records"
             className="text-blue-600 hover:underline text-sm"
           >
             ← Back to Sales
