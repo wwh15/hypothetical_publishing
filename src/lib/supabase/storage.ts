@@ -14,7 +14,7 @@ import { supabaseAdmin } from "./admin";
  * upload via server createClient() (RLS applies). Signed URLs for display are
  * created with supabaseAdmin so any logged-in user can view covers.
  */
-export const COVER_ART_BUCKET = "Cover-Art";
+const COVER_ART_BUCKET = "Cover-Art";
 
 const COVER_ART_ALLOWED_TYPES = [
   "image/jpeg",
@@ -166,7 +166,7 @@ export async function uploadCoverArt(
 /** Create a signed URL for a cover art path (private bucket). Use supabaseAdmin so it works regardless of Storage RLS. */
 export async function getCoverArtSignedUrl(
   path: string,
-  expiresIn: number = 3600
+  expiresIn: number = 360000
 ): Promise<{ url: string | null; error: string | null }> {
   const { data, error } = await supabaseAdmin.storage
     .from(COVER_ART_BUCKET)
