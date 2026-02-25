@@ -8,6 +8,8 @@ import {
   reorderSeriesBooks,
   fetchBookFromOpenLibrary,
   getAllSeries,
+  uploadCoverArt,
+  removeCoverArt,
 } from "../action";
 import { BookDetail, BookListItem, SeriesListItem } from "@/lib/data/books";
 import { cn } from "@/lib/utils";
@@ -57,6 +59,8 @@ export default function BookForm({
   const [seriesOrderOverride, setSeriesOrderOverride] = useState<
     number[] | null
   >(null);
+  const [isUploadingCover, setIsUploadingCover] = useState(false);
+  const [coverError, setCoverError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     title: "",
     author: "",
@@ -391,6 +395,7 @@ export default function BookForm({
             totalSales: 0,
             seriesName: null,
             seriesOrder: null,
+            coverArtPath: null,
           };
 
           onBookCreated?.(book);
@@ -861,6 +866,75 @@ export default function BookForm({
           )}
         </div>
       </div>
+
+      {/* Cover art (edit mode only) */}
+      {mode === "edit" && bookId && (
+        <div className="mt-6 p-4 border border-gray-200 dark:border-gray-700 rounded-lg space-y-4">
+          <h3 className="text-sm font-semibold">Cover art</h3>
+          {coverError && (
+            <p className="text-sm text-red-600 dark:text-red-400">{coverError}</p>
+          )}
+          {initialData?.coverArtPath ? (
+            <div className="flex flex-wrap items-start gap-4">
+              <img
+                src={`/api/books/cover?path=${encodeURIComponent(initialData.coverArtPath)}`}
+                alt="Cover"
+                className="h-40 w-28 object-cover rounded border border-gray-200 dark:border-gray-600"
+              />
+              <div className="flex flex-col gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={isUploadingCover}
+                  onClick={async () => {
+                    setCoverError(null);
+                    const result = await removeCoverArt(bookId);
+                    if (result.success) {
+                      router.refresh();
+                    } else {
+                      setCoverError(result.error ?? "Failed to remove cover");
+                    }
+                  }}
+                >
+                  Remove cover
+                </Button>
+              </div>
+            </div>
+          ) : null}
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/gif,image/webp"
+              className="text-sm text-muted-foreground file:mr-2 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 dark:file:bg-blue-900/30 dark:file:text-blue-300"
+              id="cover-upload"
+              disabled={isUploadingCover}
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                setCoverError(null);
+                setIsUploadingCover(true);
+                const formData = new FormData();
+                formData.set("cover", file);
+                const result = await uploadCoverArt(bookId, formData);
+                setIsUploadingCover(false);
+                e.target.value = "";
+                if (result.success) {
+                  router.refresh();
+                } else {
+                  setCoverError(result.error ?? "Upload failed");
+                }
+              }}
+            />
+            {isUploadingCover && (
+              <span className="text-sm text-muted-foreground">Uploading...</span>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            JPEG, PNG, GIF, or WebP. Max 5MB.
+          </p>
+        </div>
+      )}
 
       <div className="mt-6 flex justify-end gap-4">
         <button
