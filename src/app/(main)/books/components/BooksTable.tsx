@@ -78,7 +78,7 @@ export default function BooksTable({
       header: "ISBN-13",
       accessor: "isbn13",
       sortable: true,
-      render: (row) => <span>{row.isbn13 || "-"}</span>,
+      render: (row) => <span>{row.isbn13}</span>,
     },
     {
       key: "isbn10",
@@ -92,19 +92,14 @@ export default function BooksTable({
       header: "Publication",
       accessor: "publicationSortKey",
       sortable: true,
-      render: (row) => {
-        if (row.publicationDate) {
-          return (
-            <span>
-              {new Intl.DateTimeFormat("en-US", {
-                month: "short",
-                year: "numeric",
-              }).format(row.publicationDate)}
-            </span>
-          );
-        }
-        return <span>-</span>;
-      },
+      render: (row) => (
+        <span>
+          {new Intl.DateTimeFormat("en-US", {
+            month: "short",
+            year: "numeric",
+          }).format(row.publicationDate)}
+        </span>
+      ),
     },
     {
       key: "distRoyaltyRate",

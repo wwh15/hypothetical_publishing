@@ -30,7 +30,7 @@ function getRateForSource(book: BookListItem, source: "DISTRIBUTOR" | "HAND_SOLD
 
 /** Auto-calculate revenue for hand-sold: (coverPrice - printCost) * quantity */
 function calcHandSoldRevenue(book: BookListItem, quantity: number): number | null {
-  if (book.coverPrice != null && book.printCost != null && quantity > 0) {
+  if (quantity > 0) {
     return (book.coverPrice - book.printCost) * quantity;
   }
   return null;

@@ -258,12 +258,8 @@ export async function asyncGetAuthorBooks(
         seriesId: book.seriesId ?? undefined,
         seriesOrder: book.seriesOrder ?? undefined,
         ISBN13: Number(book.isbn13) || 0, // Ensure numeric for your interface
-        publicationMonth: book.publicationDate
-          ? book.publicationDate.toLocaleString("default", { month: "long" })
-          : "N/A",
-        publicationYear: book.publicationDate
-          ? book.publicationDate.getFullYear().toString()
-          : "N/A",
+        publicationMonth: book.publicationDate.toLocaleString("default", { month: "long" }),
+        publicationYear: book.publicationDate.getFullYear().toString(),
         authorRoyaltyRate: Number(book.distAuthorRoyaltyRate) * 100, // Display as %
         totalSales,
         totalAuthorRoyalty: totalAuthorRoyalty.toNumber(),

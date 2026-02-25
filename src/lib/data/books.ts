@@ -2,9 +2,8 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "../prisma";
 import { getBooksSortedByTotalSales } from "./books-queries";
 
-/** Build YYYY-MM sort key from publication date; nulls become 9999-99 so they sort last */
-export function publicationSortKeyFromDate(d: Date | null): string {
-  if (!d) return "9999-99";
+/** Build YYYY-MM sort key from publication date */
+export function publicationSortKeyFromDate(d: Date): string {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
   return `${y}-${m}`;
@@ -15,17 +14,17 @@ export interface BookListItem {
   id: number;
   title: string;
   author: string;
-  isbn13: string | null;
+  isbn13: string;
   isbn10: string | null;
-  /** First day of publication month (e.g. 2024-01-01); null if unknown */
-  publicationDate: Date | null;
-  /** YYYY-MM string for sorting; nulls become 9999-99 so they sort last */
+  /** First day of publication month (e.g. 2024-01-01) */
+  publicationDate: Date;
+  /** YYYY-MM string for sorting */
   publicationSortKey: string;
   distRoyaltyRate: number; // Distributor royalty as percentage (e.g., 50 for 50%)
   handSoldRoyaltyRate: number; // Hand-sold royalty as percentage (e.g., 20 for 20%)
-  coverPrice: number | null; // Retail cover price
-  printCost: number | null; // Cost to print one copy
-  totalSales: number; // Total sales to date
+  coverPrice: number; // Retail cover price
+  printCost: number; // Cost to print one copy
+  totalSales: number;
   seriesName: string | null;
   seriesOrder: number | null;
 }
@@ -44,14 +43,14 @@ export interface CreateBookInput {
   authorId?: number | null;
   author: string; // name of author
   email: string; // email of author
-  isbn13?: string;
+  isbn13: string;
   isbn10?: string;
   /** First day of publication month (e.g. new Date(2024, 0, 1) for Jan 2024) */
-  publicationDate?: Date | null;
+  publicationDate: Date;
   distRoyaltyRate?: number; // Distributor royalty percentage (e.g., 50), default handled by server
   handSoldRoyaltyRate?: number; // Hand-sold royalty percentage (e.g., 20), default handled by server
-  coverPrice?: number | null; // Retail cover price
-  printCost?: number | null; // Cost to print one copy
+  coverPrice: number; // Retail cover price
+  printCost: number; // Cost to print one copy
   seriesId?: number | null; // Existing series ID, or null for no series
   seriesOrder?: number | null; // Position in series (1, 2, 3, ...)
   newSeriesName?: string; // Name for new series (if creating new series)
@@ -72,14 +71,14 @@ export interface BookDetail {
   author: string;
   authorId: number;
   email: string;
-  isbn13: string | null;
+  isbn13: string;
   isbn10: string | null;
-  /** First day of publication month; null if unknown */
-  publicationDate: Date | null;
+  /** First day of publication month */
+  publicationDate: Date;
   distRoyaltyRate: number;
   handSoldRoyaltyRate: number;
-  coverPrice: number | null;
-  printCost: number | null;
+  coverPrice: number;
+  printCost: number;
   createdAt: Date;
   updatedAt: Date;
   totalSales: number;
@@ -208,19 +207,19 @@ export async function getAllBooks(): Promise<BookListItem[]> {
     const totalSales = book.sales.reduce((sum, sale) => sum + sale.quantity, 0);
     const distRoyaltyRate = Math.round(book.distAuthorRoyaltyRate * 100);
     const handSoldRoyaltyRate = Math.round(book.handSoldAuthorRoyaltyRate * 100);
-    const publicationSortKey = publicationSortKeyFromDate(book.publicationDate);
+    const publicationSortKey = publicationSortKeyFromDate(book.publicationDate as Date);
     return {
       id: book.id,
       title: book.title,
       author: book.author.name,
-      isbn13: book.isbn13,
+      isbn13: book.isbn13 as string,
       isbn10: book.isbn10,
-      publicationDate: book.publicationDate,
+      publicationDate: book.publicationDate as Date,
       publicationSortKey,
       distRoyaltyRate,
       handSoldRoyaltyRate,
-      coverPrice: book.coverPrice ? Number(book.coverPrice) : null,
-      printCost: book.printCost ? Number(book.printCost) : null,
+      coverPrice: Number(book.coverPrice),
+      printCost: Number(book.printCost),
       totalSales,
       seriesName: book.series?.name ?? null,
       seriesOrder: book.seriesOrder ?? null,
@@ -339,19 +338,19 @@ export async function getBooksData({
     const totalSales = book.sales.reduce((sum, sale) => sum + sale.quantity, 0);
     const distRoyaltyRate = Math.round(book.distAuthorRoyaltyRate * 100);
     const handSoldRoyaltyRate = Math.round(book.handSoldAuthorRoyaltyRate * 100);
-    const publicationSortKey = publicationSortKeyFromDate(book.publicationDate);
+    const publicationSortKey = publicationSortKeyFromDate(book.publicationDate as Date);
     return {
       id: book.id,
       title: book.title,
       author: book.author.name,
-      isbn13: book.isbn13,
+      isbn13: book.isbn13 as string,
       isbn10: book.isbn10,
-      publicationDate: book.publicationDate,
+      publicationDate: book.publicationDate as Date,
       publicationSortKey,
       distRoyaltyRate,
       handSoldRoyaltyRate,
-      coverPrice: book.coverPrice ? Number(book.coverPrice) : null,
-      printCost: book.printCost ? Number(book.printCost) : null,
+      coverPrice: Number(book.coverPrice),
+      printCost: Number(book.printCost),
       totalSales,
       seriesName: book.series?.name ?? null,
       seriesOrder: book.seriesOrder ?? null,
@@ -409,13 +408,13 @@ export async function getBookById(id: number): Promise<BookDetail | null> {
     author: book.author.name,
     authorId: book.author.id,
     email: book.author.email,
-    isbn13: book.isbn13,
+    isbn13: book.isbn13 as string,
     isbn10: book.isbn10,
-    publicationDate: book.publicationDate,
+    publicationDate: book.publicationDate as Date,
     distRoyaltyRate,
     handSoldRoyaltyRate,
-    coverPrice: book.coverPrice ? Number(book.coverPrice) : null,
-    printCost: book.printCost ? Number(book.printCost) : null,
+    coverPrice: Number(book.coverPrice),
+    printCost: Number(book.printCost),
     createdAt: book.createdAt,
     updatedAt: book.updatedAt,
     totalSales,
@@ -495,13 +494,13 @@ export async function createBook(
       return tx.book.create({
         data: {
           title: input.title,
-          isbn13: input.isbn13 || null,
+          isbn13: input.isbn13,
           isbn10: input.isbn10 || null,
           distAuthorRoyaltyRate,
           handSoldAuthorRoyaltyRate,
-          coverPrice: input.coverPrice ?? null,
-          printCost: input.printCost ?? null,
-          publicationDate: input.publicationDate ?? null,
+          coverPrice: input.coverPrice,
+          printCost: input.printCost,
+          publicationDate: input.publicationDate,
           seriesId: seriesId,
           seriesOrder: seriesOrderVal,
           // Fixed: Use 'author' (singular) and connect to one ID
@@ -580,7 +579,7 @@ export async function updateBook(
 
       if (input.title !== undefined) updateData.title = input.title;
       if (input.isbn13 !== undefined)
-        updateData.isbn13 = input.isbn13 || null;
+        updateData.isbn13 = input.isbn13;
       if (input.isbn10 !== undefined)
         updateData.isbn10 = input.isbn10 || null;
       if (input.distRoyaltyRate !== undefined) {
@@ -590,13 +589,13 @@ export async function updateBook(
         updateData.handSoldAuthorRoyaltyRate = input.handSoldRoyaltyRate / 100;
       }
       if (input.coverPrice !== undefined) {
-        updateData.coverPrice = input.coverPrice ?? null;
+        updateData.coverPrice = input.coverPrice;
       }
       if (input.printCost !== undefined) {
-        updateData.printCost = input.printCost ?? null;
+        updateData.printCost = input.printCost;
       }
       if (input.publicationDate !== undefined)
-        updateData.publicationDate = input.publicationDate ?? null;
+        updateData.publicationDate = input.publicationDate;
       if (input.seriesId !== undefined) {
         updateData.series =
           input.seriesId == null
