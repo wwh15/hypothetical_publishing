@@ -1,5 +1,6 @@
 "use client";
 
+import Papa from "papaparse";
 import { useCallback, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,6 +21,7 @@ import AddBookModal from "./AddBookModal";
 import { AlertCircle, UploadCloud, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import MonthYearSelector from "@/components/MonthYearSelector";
+import { normalizeISBN, validateCurrency, validateEquals, validateISBN, validateQuantity, validateRequiredString, validateReturnedQuantity, validateSaleFormat } from "@/lib/validation";
 
 // Examples: 01-2026,9781234567890,120,4125.50 | 01-2026,9780987654321,80,2600
 
@@ -35,13 +37,9 @@ function buildIsbnLookup(
 ): Map<string, BookListItem> {
   const map = new Map<string, BookListItem>();
 
-  // Removes all characters that are NOT digits from ISBN
-  const normalize = (isbn?: string | null) =>
-    isbn ? isbn.replace(/\D/g, "") : null;
-
   for (const book of [...booksData, ...extraBooks]) {
-    const isbn13 = normalize(book.isbn13);
-    const isbn10 = normalize(book.isbn10);
+    const isbn13 = normalizeISBN(book.isbn13 ?? null);
+    const isbn10 = normalizeISBN(book.isbn10 ?? null);
     if (isbn13) map.set(isbn13, book);
     if (isbn10) map.set(isbn10, book);
   }
@@ -82,10 +80,6 @@ export default function BulkPasteSalesPanel({
   const [dateError, setDateError] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
 
-  // Hook
-  const { previewRows, invalidRows, handlePreview, clearPreview } =
-    useBulkPastePreview();
-
   // Memoization; all recomputes arrays if data changes
   const allBooks = useMemo(
     () => [...booksData, ...extraBooks],
@@ -105,6 +99,12 @@ export default function BulkPasteSalesPanel({
     () => buildIsbnLookup(booksData, extraBooks),
     [booksData, extraBooks]
   );
+
+  // Hook
+  const { previewRows, invalidRows, handlePreview, clearPreview } =
+  useBulkPastePreview(isbnLookup);
+
+  const canAddDataToTable = previewRows.length > 0 && invalidRows.length === 0;
 
   // Add final royalty and book to preview rows
   const rowsWithRoyalty = useMemo(() => {
@@ -135,22 +135,94 @@ export default function BulkPasteSalesPanel({
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    // Basic file validation
+    
+    // File Type Check
     if (!file.name.endsWith(".csv")) {
       alert("Please upload a CSV file.");
       return;
     }
-
+  
     const reader = new FileReader();
     reader.onload = () => {
-      const content = reader.result as string;
-      setText(content); // This fills your Textarea automatically!
+      // Account for Byte Order Mark
+      const content = (reader.result as string).replace(/^\uFEFF/, "");
+      
+      const parseResult = Papa.parse(content, { skipEmptyLines: true });
+      const dataRows = parseResult.data as string[][];
+      if (dataRows.length === 0) return;
+  
+      // 1. Validate Headers
+      const headers = dataRows[0].map((h) => h.trim());
+      const expectedHeaders = ["ISBN", "Title", "Author", "Format", "Gross Qty", "Returned Qty", "Net Qty", "Net Compensation", "Sales Market"];
+      
+      if (!expectedHeaders.every((h, i) => headers[i] === h)) {
+        alert("CSV Error: Invalid headers or incorrect column order.");
+        return;
+      }
+  
+      // ERROR COLLECTION
+      const errors: string[] = [];
+      const validRowsForState: string[][] = [];
+  
+      for (let i = 1; i < dataRows.length; i++) {
+        const row = dataRows[i];
+        const rowNum = i + 1;
+  
+        // 2. IGNORE BLANK & TOTAL ROWS (Per Requirement 3.5.3.6)
+        const isBlank = row.every(cell => !cell || cell.trim() === "");
+        const isTotalRow = !row[0] || row[0].trim() === ""; 
+        if (isBlank || isTotalRow) continue;
+  
+        const [isbn, title, author, format, gross, returned, net, comp, market] = row;
+  
+        // 3. RUN VALIDATIONS
+        const vISBN = validateISBN(isbn);
+        const vTitle = validateRequiredString(title, "Title");
+        const vAuthor = validateRequiredString(author, "Author");
+        const vFormat = validateSaleFormat(format);
+        const vGross = validateQuantity(gross);
+        const vReturned = validateReturnedQuantity(returned);
+        const vNet = validateQuantity(net);
+        const vComp = validateCurrency(comp);
+        const vMarket = validateRequiredString(market, "Market");
+  
+        // 4. COLLECT ERRORS (Instead of Alerting)
+        const rowErrors: string[] = [];
+        if (!vISBN.success) rowErrors.push(vISBN.error);
+        if (!vTitle.success) rowErrors.push(vTitle.error);
+        if (!vAuthor.success) rowErrors.push(vAuthor.error);
+        if (!vFormat.success) rowErrors.push(vFormat.error);
+        if (!vGross.success) rowErrors.push(`(Gross Qty) ${vGross.error}`);
+        if (!vReturned.success) rowErrors.push(vReturned.error);
+        if (!vNet.success) rowErrors.push(`(Net Qty) ${vNet.error}`);
+        if (!vComp.success) rowErrors.push(`(Net Compensation) ${vComp.error}`);
+        if (!vMarket.success) rowErrors.push(vMarket.error);
+  
+        // Math Logic Checks (Only if quantities parsed correctly)
+        if (vGross.success && vNet.success) {
+          if (!validateEquals(vNet.data, vGross.data)) rowErrors.push(`Net Qty (${vNet.data}) must equal Gross Qty (${vGross.data})`);
+        }
+  
+        if (rowErrors.length > 0) {
+          errors.push(`Line ${rowNum}: ${rowErrors.join(", ")}`);
+        } else {
+          validRowsForState.push(row);
+        }
+      }
+  
+      // 5. FINAL REPORTING
+      if (errors.length > 0) {
+        // You can either alert this join, or better yet, set it to a state variable 
+        // called 'importErrors' and display it in a Red Box in your UI.
+        alert(`Import Failed! Please fix the following errors:\n\n${errors.slice(0, 10).join("\n")}${errors.length > 10 ? `\n...and ${errors.length - 10} more` : ""}`);
+      } else {
+        // SUCCESS!
+        setText(content);
+        setFileName(file.name);
+      }
     };
+  
     reader.readAsText(file);
-    setFileName(file.name);
-
-    // Reset the input value so the same file can be uploaded twice if needed
     e.target.value = "";
   };
 
@@ -248,8 +320,7 @@ export default function BulkPasteSalesPanel({
         <div className="rounded-lg border bg-muted/30 p-4 text-sm mb-6 pb-2">
           <div className="font-medium mb-2">Required CSV Format/Headers</div>
           <pre className="whitespace-pre-wrap text-xs text-muted-foreground">
-            ISBN,Title,Author,Format,Gross Qty,Returned Qty,Net Qty,Net
-            Compensation,Sales Market
+            ISBN,Title,Author,Format,Gross Qty,Returned Qty,Net Qty,Net Compensation,Sales Market
           </pre>
         </div>
 
@@ -456,7 +527,7 @@ export default function BulkPasteSalesPanel({
             <div className="mt-3 space-y-1 rounded border border-destructive/40 bg-destructive/5 px-3 py-2 text-destructive text-xs">
               {invalidRows.map((err) => (
                 <div key={err.line}>
-                  Line {err.line}: {err.reason}
+                  Preview Line {err.line}: {err.reason}
                 </div>
               ))}
             </div>
@@ -484,11 +555,10 @@ export default function BulkPasteSalesPanel({
         <Button
           type="button"
           onClick={handleAddValidRows}
-          disabled={previewRows.length === 0 || missingBookRows.length > 0}
+          disabled={!canAddDataToTable}
         >
-          Add valid rows
+          Add valid rows {canAddDataToTable}
         </Button>
-        <AddBookModal />
       </CardFooter>
     </Card>
   );

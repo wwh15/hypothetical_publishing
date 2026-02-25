@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { BookListItem } from "@/lib/data/books";
+import { validateCurrency, validateEquals, validateISBN, validateQuantity, validateRequiredString, validateReturnedQuantity, validateSaleFormat } from "@/lib/validation";
+import { useMemo, useState } from "react";
 
 export type ParsedSaleRow = {
   line: number;
@@ -22,9 +24,7 @@ export type InvalidSaleRow = {
   reason: string;
 };
 
-const ISBN_RE = /^\d{10}(\d{3})?$/;
-
-function parseLine(line: string, lineNumber: number): { valid?: ParsedSaleRow; invalid?: InvalidSaleRow } {
+function parseLine(line: string, lineNumber: number, isbnLookup: Map<string, BookListItem>): { valid?: ParsedSaleRow; invalid?: InvalidSaleRow } {
   // This regex splits on commas only if they are NOT followed by an odd number of quotes
   // (which would mean the comma is inside a quoted string).
   const parts = line.match(/(".*?"|[^",]+)(?=\s*,|\s*$)/g)?.map(p => {
@@ -47,70 +47,84 @@ function parseLine(line: string, lineNumber: number): { valid?: ParsedSaleRow; i
     };
   }
 
-  return extractFields(parts, line, lineNumber);
+  return extractFields(parts, line, lineNumber, isbnLookup);
 }
 
-function extractFields(parts: string[], line: string, lineNumber: number): { valid?: ParsedSaleRow; invalid?: InvalidSaleRow } {
+function extractFields(parts: string[], line: string, lineNumber: number, isbnLookup: Map<string, BookListItem>): { valid?: ParsedSaleRow; invalid?: InvalidSaleRow } {
   const [
-    isbnRaw, 
-    title, 
-    author, 
-    formatRaw, 
-    grossRaw, 
-    returnedRaw, 
-    netRaw, 
-    compensationRaw, 
-    salesMarket
+    isbnRaw, titleRaw, authorRaw, formatRaw, 
+    grossRaw, returnedRaw, netRaw, compensationRaw, salesMarketRaw
   ] = parts;
 
-  // 2. ISBN Validation
-  const isbnDigits = isbnRaw.replace(/\D/g, "");
-  if (!ISBN_RE.test(isbnDigits)) {
-    return { invalid: { line: lineNumber, raw: line, reason: "ISBN must be 10 or 13 digits" } };
+  // 1. Run all validations
+  const isbnRes = validateISBN(isbnRaw); // ISBN
+  const titleRes = validateRequiredString(titleRaw, "Book Title"); // Book Title
+  const authorRes = validateRequiredString(authorRaw, "Author Name"); // Author Name
+  const formatRes = validateSaleFormat(formatRaw); // Sales Format
+  const grossRes = validateQuantity(grossRaw); // Gross Quantity
+  const returnedRes = validateReturnedQuantity(returnedRaw); // Returned Quantity
+  const netRes = validateQuantity(netRaw); // Net Quantity
+  const compRes = validateCurrency(compensationRaw); // Net Compensation
+  const marketRes = validateRequiredString(salesMarketRaw, "Sales Market"); // Market
+
+  // 2. Check for errors
+
+  // ISBN Validation
+  if (!isbnRes.success) return { invalid: { line: lineNumber, raw: line, reason: `(ISBN) ${isbnRes.error}` } };
+
+  // Requirement 3.5.3.3: ISBN must match a book in the system
+  if (!isbnLookup.has(isbnRes.data)) {
+    return { invalid: { line: lineNumber, raw: line, reason: `(ISBN) Book not found in library: ${isbnRes.data}` } };
   }
 
-  // 3. Format Validation
-  if (formatRaw !== "Paperback" && formatRaw !== "Hardcover") {
-    return { invalid: { line: lineNumber, raw: line, reason: "Format must be 'Paperback' or 'Hardcover'" } };
+  // Required Strings Validation
+  if (!titleRes.success) return { invalid: { line: lineNumber, raw: line, reason: `(Title) ${titleRes.error}` } };
+  if (!authorRes.success) return { invalid: { line: lineNumber, raw: line, reason: `(Author) ${authorRes.error}` } };
+  if (!formatRes.success) return { invalid: { line: lineNumber, raw: line, reason: `(Format) ${formatRes.error}` } };
+  if (!grossRes.success) return { invalid: { line: lineNumber, raw: line, reason: `(Gross Qty) ${grossRes.error}` } };
+
+  // Quantity Validation
+  if (!returnedRes.success) return { invalid: { line: lineNumber, raw: line, reason: `(Returned Qty) ${returnedRes.error}` } };
+  if (!netRes.success) return { invalid: { line: lineNumber, raw: line, reason: `(Net Qty) ${netRes.error}` } };
+  if (!marketRes.success) return { invalid: { line: lineNumber, raw: line, reason: `(Market) ${marketRes.error}` } };
+
+  // Currency Validation
+  if (!compRes.success) return { invalid: { line: lineNumber, raw: line, reason: compRes.error } };
+  
+  // Check Net Quantity equals Gross Quantity
+  if (!validateEquals(netRes.data, grossRes.data)) {
+    return { 
+      invalid: { 
+        line: lineNumber, 
+        raw: line, 
+        reason: `Net Qty (${netRes.data}) must equal Gross Qty (${grossRes.data})` 
+      } 
+    };
   }
 
-  // 4. Quantity & Return Validation (Zero Returns Rule)
-  const grossQuantity = Number(grossRaw);
-  const returnedQuantity = Number(returnedRaw);
-  const netQuantity = Number(netRaw);
-  const netCompensation = Number(compensationRaw);
+  // Check if ISBN exists in databse
 
-  if (isNaN(grossQuantity) || isNaN(returnedQuantity) || isNaN(netQuantity) || isNaN(netCompensation)) {
-    return { invalid: { line: lineNumber, raw: line, reason: "Quantities and Compensation must be numbers" } };
-  }
 
-  if (returnedQuantity !== 0) {
-    return { invalid: { line: lineNumber, raw: line, reason: "Returned Qty must be zero" } };
-  }
-
-  if (netQuantity !== grossQuantity) {
-    return { invalid: { line: lineNumber, raw: line, reason: "Net Qty must equal Gross Qty" } };
-  }
-
-  // 5. Construct Valid Object (Matches ParsedSaleRow type)
+  // 4. Construct Valid Object
+  // All .data access here is now perfectly type-safe.
   return {
     valid: {
       line: lineNumber,
-      isbn: isbnDigits,
-      title,
-      author,
-      format: formatRaw as "Paperback" | "Hardcover",
-      grossQuantity,
-      netQuantity,
-      netCompensation,
-      salesMarket,
-      source: "DISTRIBUTOR", // Ingram Spark imports are always Distributor
+      isbn: isbnRes.data,
+      title: titleRes.data,
+      author: authorRes.data,
+      format: formatRes.data as "Paperback" | "Hardcover",
+      grossQuantity: grossRes.data,
+      netQuantity: netRes.data,
+      netCompensation: compRes.data,
+      salesMarket: marketRes.data,
+      source: "DISTRIBUTOR",
       raw: line,
-    } satisfies ParsedSaleRow,
+    }
   };
 }
 
-export function useBulkPastePreview() {
+export function useBulkPastePreview(isbnLookup: Map<string, BookListItem>) {
   const [previewRows, setPreviewRows] = useState<ParsedSaleRow[]>([]);
   const [invalidRows, setInvalidRows] = useState<InvalidSaleRow[]>([]);
 
@@ -128,7 +142,7 @@ export function useBulkPastePreview() {
       // Skip header row if it starts with "ISBN"
       if (idx === 0 && trimmed.toUpperCase().startsWith("ISBN")) return;
 
-      const result = parseLine(trimmed, lineNumber);
+      const result = parseLine(trimmed, lineNumber, isbnLookup);
       if (result.valid) valids.push(result.valid);
       else if (result.invalid) invalids.push(result.invalid);
     });

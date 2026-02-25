@@ -1,7 +1,7 @@
 import { Author, Prisma } from "@prisma/client";
 import { prisma } from "../prisma";
 import { Decimal } from "decimal.js";
-import { validateEmail, validateName } from "../validation";
+import { validateEmail, validateRequiredString } from "../validation";
 
 export interface AuthorListItem {
   id: number;
@@ -297,7 +297,7 @@ export async function asyncAddAuthor(
   }
 
   // Validate name
-  const validatedName = validateName(data.name);
+  const validatedName = validateRequiredString(data.name, "Author Name");
   if (!validatedName.success) {
     return {
       success: validatedName.success,
@@ -367,7 +367,7 @@ export async function asyncUpdateAuthor(
 
   // 2. Validate Name if provided
   if (name) {
-    const validatedName = validateName(name);
+    const validatedName = validateRequiredString(name, "Author Name");
     if (!validatedName.success) {
       return { success: false, error: validatedName.error, data: null };
     }
