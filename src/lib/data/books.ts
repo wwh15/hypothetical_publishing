@@ -40,6 +40,8 @@ export interface SeriesListItem {
 // Form input DTOs (use these for create/update forms)
 export interface CreateBookInput {
   title: string;
+  /** Unique identifier for an existing author. If provided, used to link the book. */
+  authorId?: number | null;
   author: string; // name of author
   email: string; // email of author
   isbn13?: string;
@@ -458,21 +460,25 @@ export async function createBook(
 
     // Wrap author creation and book creation in a single transaction
     const book = await prisma.$transaction(async (tx) => {
-      // 1. Find or create the single author
-      let author = await tx.author.findUnique({
-        where: {
-          email: input.author, // Ensure this matches the field in your input
-        },
-      });
+      let author = null;
 
-      // Create if doesn't exist
-      if (!author) {
-        author = await tx.author.create({
-          data: {
-            name: input.author,
-            email: input.email,
-          },
+      // 1. Find or create the single author
+      if (input.authorId) {
+        author = await tx.author.findUnique({
+          where: { id: input.authorId },
         });
+      }
+
+      // 2. Try finding by Email (if ID failed or wasn't provided)
+      if (!author && input.email) {
+        author = await tx.author.findUnique({
+          where: { email: input.email },
+        });
+      }
+
+      // Enforce author selection: throw Error if no author found
+      if (!author) {
+        throw new Error(`Author not found. Please select or create the author first.`);
       }
 
       // When adding to a series without explicit order, assign next available
