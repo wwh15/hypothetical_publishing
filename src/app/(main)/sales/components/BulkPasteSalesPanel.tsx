@@ -18,7 +18,7 @@ import { useBulkPasteSubmit } from "../hooks/useBulkPasteSubmit";
 import { PendingSaleItem } from "@/lib/data/records";
 import { BookListItem } from "@/lib/data/books";
 import AddBookModal from "./AddBookModal";
-import { AlertCircle, UploadCloud, XCircle } from "lucide-react";
+import { AlertCircle, Import, UploadCloud, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import MonthYearSelector from "@/components/MonthYearSelector";
 import { normalizeISBN, validateCurrency, validateEquals, validateISBN, validateQuantity, validateRequiredString, validateReturnedQuantity, validateSaleFormat } from "@/lib/validation";
@@ -273,7 +273,7 @@ export default function BulkPasteSalesPanel({
       <CardHeader>
         <CardTitle>Bulk Import Sales Records</CardTitle>
         <CardDescription className="border-b pb-2">
-          Upload a CSV or paste raw data. Review the preview below before adding
+          Import a CSV or paste raw data. Review the preview below before adding
           items to the <strong>Pending Records</strong> table.
         </CardDescription>
       </CardHeader>
@@ -281,7 +281,7 @@ export default function BulkPasteSalesPanel({
       <CardContent className="space-y-4">
         {/* Step 1: Date Selection - MOVED UP for visibility */}
         <div className="space-y-3 mb-6 border-b pb-2">
-          <Label className="text-base font-bold text-blue-700 dark:text-blue-400">
+          <Label className="text-base font-bold">
             Step 1: Select Sales Reporting Period
           </Label>
           <div className="max-w-xs">
@@ -329,8 +329,8 @@ export default function BulkPasteSalesPanel({
             htmlFor="csv-upload"
             className="flex cursor-pointer items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
           >
-            <UploadCloud className="h-4 w-4 " />
-            Upload Ingram CSV
+            <Import className="h-4 w-4 " />
+            Import Ingram CSV
             <input
               id="csv-upload"
               type="file"
@@ -346,7 +346,7 @@ export default function BulkPasteSalesPanel({
             id="bulk-text"
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder={`Uploaded data will appear here`}
+            placeholder={`Imported data will appear here for viewing and modifying if needed.`}
             className="font-mono"
           />
         </div>
@@ -533,6 +533,13 @@ export default function BulkPasteSalesPanel({
             </div>
           )}
         </div>
+        <Button
+          type="button"
+          disabled={!text.trim()}
+          onClick={() => handlePreview(text)}
+        >
+          Preview
+        </Button>
       </CardContent>
 
       <CardFooter className="flex flex-wrap justify-end gap-3">
@@ -546,18 +553,10 @@ export default function BulkPasteSalesPanel({
         </Button>
         <Button
           type="button"
-          variant="secondary"
-          disabled={!text.trim()}
-          onClick={() => handlePreview(text)}
-        >
-          Preview
-        </Button>
-        <Button
-          type="button"
           onClick={handleAddValidRows}
           disabled={!canAddDataToTable}
         >
-          Add valid rows {canAddDataToTable}
+          Add to Pending Records Table {canAddDataToTable}
         </Button>
       </CardFooter>
     </Card>
