@@ -136,8 +136,8 @@ export default function BulkPasteSalesPanel({
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-  
-    // 1. File Type Check
+    
+    // File Type Check
     if (!file.name.endsWith(".csv")) {
       alert("Please upload a CSV file.");
       return;
@@ -145,137 +145,82 @@ export default function BulkPasteSalesPanel({
   
     const reader = new FileReader();
     reader.onload = () => {
-      let content = reader.result as string;
-
-      // REMOVE THE BOM: This regex identifies the hidden BOM character 
-      // at the very beginning of the string and removes it.
-      content = content.replace(/^\uFEFF/, "");
+      // Account for Byte Order Mark
+      const content = (reader.result as string).replace(/^\uFEFF/, "");
       
-      // Use PapaParse to split rows correctly (handles commas inside quotes)
-      const parseResult = Papa.parse(content, {
-        skipEmptyLines: true, // Replaces your .filter check
-      });
-  
+      const parseResult = Papa.parse(content, { skipEmptyLines: true });
       const dataRows = parseResult.data as string[][];
       if (dataRows.length === 0) return;
   
+      // 1. Validate Headers
       const headers = dataRows[0].map((h) => h.trim());
-  
-      // 2. Validate Headers
       const expectedHeaders = ["ISBN", "Title", "Author", "Format", "Gross Qty", "Returned Qty", "Net Qty", "Net Compensation", "Sales Market"];
-      const hasValidHeaders = expectedHeaders.every((h, i) => headers[i] === h);
-  
-      if (!hasValidHeaders) {
-        alert("CSV Error: Invalid headers or incorrect column order. Required format is: ISBN,Title,Author,Format,Gross Qty,Returned Qty,Net Qty,Net Compensation,Sales Market");
+      
+      if (!expectedHeaders.every((h, i) => headers[i] === h)) {
+        alert("CSV Error: Invalid headers or incorrect column order.");
         return;
       }
   
-      // Process Data Rows (starting from index 1)
+      // ERROR COLLECTION
+      const errors: string[] = [];
+      const validRowsForState: string[][] = [];
+  
       for (let i = 1; i < dataRows.length; i++) {
         const row = dataRows[i];
         const rowNum = i + 1;
   
-        // Now "author" will correctly contain "Alice Johnson, Bob Smith" as one piece!
-        const [isbn, title, author, format, grossStr, returnedStr, netStr, netCompStr, market] = row;
+        // 2. IGNORE BLANK & TOTAL ROWS (Per Requirement 3.5.3.6)
+        const isBlank = row.every(cell => !cell || cell.trim() === "");
+        const isTotalRow = !row[0] || row[0].trim() === ""; 
+        if (isBlank || isTotalRow) continue;
   
-        // 3. Type Validation (Number conversion)
-        const gross = Number(grossStr);
-        const returned = Number(returnedStr);
-        const net = Number(netStr);
-        const netComp = Number(netCompStr);
+        const [isbn, title, author, format, gross, returned, net, comp, market] = row;
   
-        if (isNaN(gross)) {
-          alert(`Error Row ${rowNum}: Gross Qty must be a number. Found: "${grossStr}"`);
-          return;
+        // 3. RUN VALIDATIONS
+        const vISBN = validateISBN(isbn);
+        const vTitle = validateRequiredString(title, "Title");
+        const vAuthor = validateRequiredString(author, "Author");
+        const vFormat = validateSaleFormat(format);
+        const vGross = validateQuantity(gross);
+        const vReturned = validateReturnedQuantity(returned);
+        const vNet = validateQuantity(net);
+        const vComp = validateCurrency(comp);
+        const vMarket = validateRequiredString(market, "Market");
+  
+        // 4. COLLECT ERRORS (Instead of Alerting)
+        const rowErrors: string[] = [];
+        if (!vISBN.success) rowErrors.push(vISBN.error);
+        if (!vTitle.success) rowErrors.push(vTitle.error);
+        if (!vAuthor.success) rowErrors.push(vAuthor.error);
+        if (!vFormat.success) rowErrors.push(vFormat.error);
+        if (!vGross.success) rowErrors.push(`(Gross Qty) ${vGross.error}`);
+        if (!vReturned.success) rowErrors.push(vReturned.error);
+        if (!vNet.success) rowErrors.push(`(Net Qty) ${vNet.error}`);
+        if (!vComp.success) rowErrors.push(`(Net Compensation) ${vComp.error}`);
+        if (!vMarket.success) rowErrors.push(vMarket.error);
+  
+        // Math Logic Checks (Only if quantities parsed correctly)
+        if (vGross.success && vNet.success) {
+          if (!validateEquals(vNet.data, vGross.data)) rowErrors.push(`Net Qty (${vNet.data}) must equal Gross Qty (${vGross.data})`);
         }
   
-        if (isNaN(returned)) {
-          alert(`Error Row ${rowNum}: Returned Qty must be a number. Found: "${returnedStr}"`);
-          return;
-        }
-  
-        if (isNaN(net)) {
-          alert(`Error Row ${rowNum}: Net Qty must be a number. Found: "${netStr}"`);
-          return;
-        }
-  
-        if (isNaN(netComp)) {
-          alert(`Error Row ${rowNum}: Net Compensation must be a number. Found: "${netCompStr}"`);
-          return;
-        }
-  
-        // 5. Validate value is non-negative
-        if (gross <= 0) {
-          alert(`Error Row ${rowNum}: Gross Qty must be greater than 0.`);
-          return;
-        }
-  
-        if (net <= 0) {
-          alert(`Error Row ${rowNum}: Net Qty must be greater than  0.`);
-          return;
-        }
-  
-        if (netComp <= 0) {
-          alert(`Error Row ${rowNum}: Net Compensation must be greater than 0.`);
-          return;
-        }
-  
-        // Validate that Net Qty is a whole number
-        if (!Number.isInteger(net)) {
-          alert(`Row ${rowNum}: Net Qty must be a whole number (no decimals).`);
-          return;
-        }
-  
-        // 6. Validate Returned Qty is 0
-        if (returned !== 0) {
-          alert(`Error Row ${rowNum}: Returned Qty must be 0.`);
-          return;
-        }
-  
-        // 7. Validate Net Qty must equal Gross Qty
-        if (net !== gross) {
-          alert(`Error Row ${rowNum}: Net Qty (${net}) must equal Gross Qty (${gross}).`);
-          return;
-        }
-  
-        // 8. ISBN Validation
-        const cleanISBN = isbn?.trim().replace(/[-\s]/g, "");
-        if (!cleanISBN) {
-          alert(`Error Row ${rowNum}: Missing ISBN.`);
-          return;
-        }
-  
-        if (cleanISBN.length !== 10 && cleanISBN.length !== 13) {
-          alert(`Error Row ${rowNum}: Invalid ISBN format. ISBN must be 10 digits or 13 digits.`);
-          return;
-        }
-  
-        // 9. Type Validate (Strings and Enums)
-        const cleanFormat = format?.trim();
-        if (cleanFormat !== "Paperback" && cleanFormat !== "Hardcover") {
-          alert(`Error Row ${rowNum}: Format must be 'Paperback' or 'Hardcover'. Found: '${cleanFormat}'`);
-          return;
-        }
-  
-        if (!title || title.trim() === "") {
-          alert(`Error Row ${rowNum}: Title is required.`);
-          return;
-        }
-  
-        if (!author || author.trim() === "") {
-          alert(`Error Row ${rowNum}: Author is required.`);
-          return;
-        }
-  
-        if (!market || market.trim() === "") {
-          alert(`Error Row ${rowNum}: Sales Market is required.`);
-          return;
+        if (rowErrors.length > 0) {
+          errors.push(`Line ${rowNum}: ${rowErrors.join(", ")}`);
+        } else {
+          validRowsForState.push(row);
         }
       }
   
-      // Success!
-      setText(content);
-      setFileName(file.name);
+      // 5. FINAL REPORTING
+      if (errors.length > 0) {
+        // You can either alert this join, or better yet, set it to a state variable 
+        // called 'importErrors' and display it in a Red Box in your UI.
+        alert(`Import Failed! Please fix the following errors:\n\n${errors.slice(0, 10).join("\n")}${errors.length > 10 ? `\n...and ${errors.length - 10} more` : ""}`);
+      } else {
+        // SUCCESS!
+        setText(content);
+        setFileName(file.name);
+      }
     };
   
     reader.readAsText(file);
