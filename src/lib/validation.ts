@@ -2,138 +2,111 @@ export type ValidationResult<T> =
   | { success: true; data: T }
   | { success: false; error: string };
 
-/**
- * String & Identity Validation
+const cleanNumericString = (val: string | number): string => 
+  String(val).trim().replace(/[,\s]/g, ""); // Fixed regex to include spaces correctly
+
+/** * Identity & String Validation 
  */
 
-export const validateName = (name: string): ValidationResult<string> => {
-  const trimmed = name.trim();
-  if (!trimmed) {
-    return { success: false, error: "Name of author is required" };
-  }
-  if (trimmed.length > 50) {
-    return { success: false, error: "Name is too long (max 50 characters)" };
-  }
-  return { success: true, data: trimmed };
+export const validateRequiredString = (val: string | null | undefined, label: string): ValidationResult<string> => {
+  const trimmed = val?.trim();
+  return trimmed ? { success: true, data: trimmed } : { success: false, error: `${label} is required` };
+};
+
+export const validateSaleFormat = (format: string): ValidationResult<string> => {
+  const trimmed = format.trim();
+  const valid = ["Paperback", "Hardcover"];
+  if (!trimmed) return { success: false, error: "Format field is required" };
+  return valid.includes(trimmed) 
+    ? { success: true, data: trimmed } 
+    : { success: false, error: `Format must be "Paperback" or "Hardcover". Found: "${trimmed}"` };
 };
 
 export const validateEmail = (email: string): ValidationResult<string> => {
   const trimmed = email.trim();
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  
-  if (!trimmed) {
-    return { success: false, error: "Email address is required" };
-  }
-  if (!emailRegex.test(trimmed)) {
-    return { success: false, error: "Please enter a valid email address" };
-  }
-  return { success: true, data: trimmed };
+  if (!trimmed) return { success: false, error: "Email is required" };
+  return emailRegex.test(trimmed) ? { success: true, data: trimmed } : { success: false, error: "Invalid email address" };
 };
 
-/**
- * Currency & Numeric Validation
+/** * Currency & Numeric Logic 
  */
 
-// Ensure author royalty is not greater than publisher revenue
-export const validateRoyaltyLimit = (
-  royalty: number,
-  revenue: number
-): ValidationResult<{royalty: number, revenue: number}> => {
-  // Use a small epsilon or round to 2 decimals to avoid floating point errors
-  // (e.g., 100.0000000001 > 100)
-  const roundedRoyalty = Math.round(royalty * 100);
-  const roundedRevenue = Math.round(revenue * 100);
+export const normalizeCurrency = (val: string | number): number => {
+  const num = Number(cleanNumericString(val));
+  return isNaN(num) ? 0 : Math.round((num + Number.EPSILON) * 100) / 100;
+};
 
-  if (roundedRoyalty > roundedRevenue) {
-    return {
-      success: false,
-      error: "Author royalty cannot exceed total publisher revenue.",
-    };
+export const validateCurrency = (val: string): ValidationResult<number> => {
+  const num = Number(val.trim().replace(/,/g, ""));
+  if (val.trim() === "" || isNaN(num)) return { success: false, error: "Not a valid amount" };
+  if (num <= 0) return { success: false, error: "Must be greater than 0" };
+  return { success: true, data: normalizeCurrency(num) };
+};
+
+export const validateRoyaltyLimit = (royalty: number, revenue: number): ValidationResult<{royalty: number, revenue: number}> => {
+  // Multiply by 100 to compare integers (cents) to avoid float jitters
+  if (Math.round(royalty * 100) > Math.round(revenue * 100)) {
+    return { success: false, error: "Author royalty cannot exceed publisher revenue" };
   }
-
-  return { success: true, data: {royalty, revenue} };
+  return { success: true, data: { royalty, revenue } };
 };
 
-// Ensures input is empty, a whole number, or has at most two decimal places
-export const isValidCurrencyInput = (value: string): boolean => {
-  return value === "" || /^\d*\.?\d{0,2}$/.test(value);
-};
+export const isValidCurrencyInput = (value: string): boolean => /^\d*\.?\d{0,2}$/.test(value) || value === "";
 
-// Rounds numeric values to the nearest cent (two decimal places)
-export const normalizeCurrency = (value: number): number => {
-  return Math.round(value * 100) / 100;
-};
-
-// Checks if a value is a valid, non-negative number
-export const validatePositiveNumber = (
-  value: number | string,
-  fieldName: string
-): ValidationResult<number> => {
+export const validatePositiveNumber = (value: number | string, field: string): ValidationResult<number> => {
   const num = typeof value === "string" ? parseFloat(value) : value;
-  // Check for empty input or non-numeric strings
-  if (isNaN(num) || value === "" || !value)
-    return { success: false, error: `${fieldName} is required.` };
-  // Check for negative values
-  if (num < 0)
-    return { success: false, error: `${fieldName} cannot be negative.` };
-  return { success: true, data: num };
+  if (isNaN(num) || value === "" || value === null) return { success: false, error: `${field} is required` };
+  return num < 0 ? { success: false, error: `${field} cannot be negative` } : { success: true, data: num };
 };
 
-// Validates cover price (must be positive if provided)
-export const validateCoverPrice = (
-  value: number | null | undefined
-): ValidationResult<number | null> => {
-  if (value == null) return { success: true, data: null };
-  if (value <= 0)
-    return { success: false, error: "Cover price must be positive." };
-  return { success: true, data: value };
-};
-
-// Validates print cost (must be positive and less than cover price if both provided)
-export const validatePrintCost = (
-  printCost: number | null | undefined,
-  coverPrice: number | null | undefined
-): ValidationResult<number | null> => {
-  if (printCost == null) return { success: true, data: null };
-  if (printCost <= 0)
-    return { success: false, error: "Print cost must be positive." };
-  if (coverPrice != null && printCost >= coverPrice)
-    return { success: false, error: "Print cost must be less than cover price." };
-  return { success: true, data: printCost };
-};
-
-/**
- * Integer Validation
+/** * Quantity & Integer Logic 
  */
 
-// Restricts input to digits only (no decimals or special characters)
-export const isValidQuantityInput = (value: string): boolean => {
-  return value === "" || /^\d*$/.test(value);
+export const normalizeQuantity = (val: string | number): number => {
+  const num = Number(cleanNumericString(val));
+  return isNaN(num) ? 0 : Math.round(num);
 };
 
-/**
- * Date & Period Validation
+export const validateQuantity = (val: string): ValidationResult<number> => {
+  const cleaned = val.trim().replace(/,/g, "");
+  const num = Number(cleaned);
+  if (cleaned === "" || isNaN(num)) return { success: false, error: "Not a valid number" };
+  if (!Number.isInteger(num)) return { success: false, error: "Must be a whole number" };
+  return num <= 0 ? { success: false, error: "Must be greater than 0" } : { success: true, data: num };
+};
+
+export const isValidQuantityInput = (value: string): boolean => /^\d*$/.test(value) || value === "";
+
+/** * Date & ISBN 
  */
 
-export const validateDatePeriod = (
-  yearStr: string,
-  monthStr: string
-): ValidationResult<Date> => {
-  // Ensure both year and month components are provided
-  if (!yearStr || !monthStr)
-    return { success: false, error: "Date is required." };
-
-  // Ensure year and month are numeric strings
+export const validateDatePeriod = (yearStr: string, monthStr: string): ValidationResult<Date> => {
   const year = parseInt(yearStr, 10);
   const month = parseInt(monthStr, 10);
-  if (isNaN(year) || isNaN(month))
-    return { success: false, error: "Invalid date format." };
-
-  // Create date and verify it didn't "roll over" (e.g., Month 13 becoming Jan of next year)
+  if (isNaN(year) || isNaN(month)) return { success: false, error: "Invalid date format" };
   const date = new Date(year, month - 1, 1);
-  if (isNaN(date.getTime()) || date.getMonth() !== month - 1) {
-    return { success: false, error: "Please select a valid month and year." };
-  }
+  return (date.getMonth() === month - 1) ? { success: true, data: date } : { success: false, error: "Invalid month/year" };
+};
 
-  return { success: true, data: date };
+export const normalizeISBN = (val: string | null | undefined): string | null => 
+  val ? val.trim().replace(/[-\s]/g, "").toUpperCase() : null;
+
+export const validateISBN = (val: string): ValidationResult<string> => {
+  const clean = normalizeISBN(val);
+  if (!clean) return { success: false, error: "ISBN is required" };
+  return /^(\d{9}[\dX]|\d{13})$/.test(clean) 
+    ? { success: true, data: clean } 
+    : { success: false, error: "Invalid ISBN: Must be 10 digits (0-9, X) or 13 digits" };
+};
+
+/** * Comparison Helpers and Business Logic
+ */
+export const validateEquals = (v1: number, v2: number): boolean => v1 === v2;
+export const validateReturnedQuantity = (val: string): ValidationResult<number> => {
+  const cleaned = val.trim().replace(/,/g, "");
+  const num = Number(cleaned);
+  if (cleaned === "" || isNaN(num)) return { success: false, error: "Not a valid number" };
+  if (!Number.isInteger(num)) return { success: false, error: "Must be a whole number" };
+  return num !== 0 ? { success: false, error: "Returned Qty is expected to be set to 0" } : { success: true, data: num };
 };

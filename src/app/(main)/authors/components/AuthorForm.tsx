@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
 // Import validation and actions
-import { validateName, validateEmail } from "@/lib/validation";
+import { validateRequiredString, validateEmail } from "@/lib/validation";
 import { addAuthor, updateAuthor } from "../actions"; // Added updateAuthor
 
 interface AuthorFormProps {
@@ -57,7 +57,7 @@ export default function AuthorForm({ mode, initialData }: AuthorFormProps) {
     e.preventDefault();
     setErrors({});
 
-    const nameCheck = validateName(formData.name);
+    const nameCheck = validateRequiredString(formData.name, "Author Name");
     const emailCheck = validateEmail(formData.email);
 
     if (!nameCheck.success || !emailCheck.success) {
