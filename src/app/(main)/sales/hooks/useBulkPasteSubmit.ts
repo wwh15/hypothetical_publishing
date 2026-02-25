@@ -4,7 +4,13 @@ import { useMemo } from "react";
 import type { ParsedSaleRow } from "./useBulkPastePreview";
 import type { PendingSaleItem } from "@/lib/data/records";
 import { BookListItem } from "@/lib/data/books";
-import { validateDatePeriod, validatePositiveNumber } from "@/lib/validation";
+import { 
+  normalizeCurrency, 
+  normalizeQuantity, 
+  normalizeISBN, // Import this!
+  validateDatePeriod, 
+  validatePositiveNumber 
+} from "@/lib/validation";
 
 export function useBulkPasteSubmit(
   booksData: BookListItem[],
@@ -12,24 +18,17 @@ export function useBulkPasteSubmit(
 ) {
   const isbnLookup = useMemo(() => {
     const map = new Map<string, BookListItem>();
-    const normalize = (isbn?: string | null) =>
-      isbn ? isbn.replace(/\D/g, "") : null;
 
     for (const book of booksData) {
-      const isbn13 = normalize(book.isbn13);
-      const isbn10 = normalize(book.isbn10);
+      // Use the helper that preserves 'X'
+      const isbn13 = normalizeISBN(book.isbn13);
+      const isbn10 = normalizeISBN(book.isbn10);
       if (isbn13) map.set(isbn13, book);
       if (isbn10) map.set(isbn10, book);
     }
     return map;
   }, [booksData]);
 
-  /**
-   * @param rows - The validated rows from the CSV
-   * @param selectedDate - The {year, month} object from the panel state
-   * @param fileName - Optional, used to build the Ingram comment
-   * @returns An array of error objects, one for each failed row
-   */
   function submitFromRows(
     rows: ParsedSaleRow[], 
     selectedDate: { year: string; month: string },
@@ -41,24 +40,27 @@ export function useBulkPasteSubmit(
     rows.forEach((row) => {
       const book = isbnLookup.get(row.isbn);
       if (!book) {
-        submissionErrors.push({ line: row.line, errors: { book: "Book not found in database." } });
+        submissionErrors.push({ 
+          line: row.line, 
+          errors: { book: `Book with ISBN ${row.isbn} not found in library.` } 
+        });
         return;
       }
 
-      // Set fields
+      // Calculate logic
       const source = row.source;
-      const quantity = row.netQuantity; // Quantity set to net quantity per Req 3.5.3.4
-      const publisherRevenue = row.netCompensation; // Publisher revenue set to net compensation per Req 3.5.3.5
+      const quantity = row.netQuantity; 
+      const publisherRevenue = row.netCompensation; 
+      
       const rate = source === "HAND_SOLD" ? book.handSoldRoyaltyRate : book.distRoyaltyRate;
-      const authorRoyalty = (publisherRevenue * rate) / 100;
+      const authorRoyalty = (publisherRevenue * (rate ?? 0)) / 100;
 
-      // Validation 
+      // Business Logic Validation
       const dateCheck = validateDatePeriod(selectedDate.year, selectedDate.month);
       const revenueCheck = validatePositiveNumber(publisherRevenue, "Publisher Revenue");
       const royaltyCheck = validatePositiveNumber(authorRoyalty, "Author Royalty");
       const qtyCheck = validatePositiveNumber(quantity, "Quantity");
       
-      // Check for errors; stop submission if errors are found
       if (!revenueCheck.success || !royaltyCheck.success || !qtyCheck.success || !dateCheck.success) {
         const rowErrors: Record<string, string> = {};
         if (!revenueCheck.success) rowErrors.publisherRevenue = revenueCheck.error;
@@ -70,17 +72,18 @@ export function useBulkPasteSubmit(
         return; 
       }
 
-      // Build the specific Ingram comment
-      const comment = `Ingram: Format='${row.format}' Market='${row.salesMarket}' File='${fileName}' (${importTimestamp})`;
+      const comment = `Ingram Import: Format='${row.format}' Market='${row.salesMarket}' File='${fileName}' (${importTimestamp})`;
 
+      // FINAL RECORD CONSTRUCTION
       const record: PendingSaleItem = {
         bookId: book.id,
         title: book.title,
         author: book.author,
         date: dateCheck.data,
-        quantity: qtyCheck.data, // Per req: Use "Net Qty"
-        publisherRevenue: revenueCheck.data,
-        authorRoyalty: royaltyCheck.data,
+        // Ensure final rounding to integers and cents
+        quantity: normalizeQuantity(qtyCheck.data), 
+        publisherRevenue: normalizeCurrency(revenueCheck.data),
+        authorRoyalty: normalizeCurrency(royaltyCheck.data),
         royaltyOverridden: false,
         paid: false,
         source: source,

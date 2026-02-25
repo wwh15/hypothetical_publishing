@@ -555,11 +555,10 @@ export default function BulkPasteSalesPanel({
         <Button
           type="button"
           onClick={handleAddValidRows}
-          disabled={previewRows.length === 0 || missingBookRows.length > 0}
+          disabled={!canAddDataToTable}
         >
-          Add valid rows
+          Add valid rows {canAddDataToTable}
         </Button>
-        <AddBookModal />
       </CardFooter>
     </Card>
   );
