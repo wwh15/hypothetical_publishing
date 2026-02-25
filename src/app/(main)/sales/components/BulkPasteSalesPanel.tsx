@@ -21,6 +21,7 @@ import AddBookModal from "./AddBookModal";
 import { AlertCircle, UploadCloud, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import MonthYearSelector from "@/components/MonthYearSelector";
+import { normalizeISBN, validateCurrency, validateEquals, validateISBN, validateQuantity, validateRequiredString, validateReturnedQuantity, validateSaleFormat } from "@/lib/validation";
 
 // Examples: 01-2026,9781234567890,120,4125.50 | 01-2026,9780987654321,80,2600
 
@@ -36,13 +37,9 @@ function buildIsbnLookup(
 ): Map<string, BookListItem> {
   const map = new Map<string, BookListItem>();
 
-  // Removes all characters that are NOT digits from ISBN
-  const normalize = (isbn?: string | null) =>
-    isbn ? isbn.replace(/\D/g, "") : null;
-
   for (const book of [...booksData, ...extraBooks]) {
-    const isbn13 = normalize(book.isbn13);
-    const isbn10 = normalize(book.isbn10);
+    const isbn13 = normalizeISBN(book.isbn13 ?? null);
+    const isbn10 = normalizeISBN(book.isbn10 ?? null);
     if (isbn13) map.set(isbn13, book);
     if (isbn10) map.set(isbn10, book);
   }
@@ -83,10 +80,6 @@ export default function BulkPasteSalesPanel({
   const [dateError, setDateError] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
 
-  // Hook
-  const { previewRows, invalidRows, handlePreview, clearPreview } =
-    useBulkPastePreview();
-
   // Memoization; all recomputes arrays if data changes
   const allBooks = useMemo(
     () => [...booksData, ...extraBooks],
@@ -106,6 +99,12 @@ export default function BulkPasteSalesPanel({
     () => buildIsbnLookup(booksData, extraBooks),
     [booksData, extraBooks]
   );
+
+  // Hook
+  const { previewRows, invalidRows, handlePreview, clearPreview } =
+  useBulkPastePreview(isbnLookup);
+
+  const canAddDataToTable = previewRows.length > 0 && invalidRows.length === 0;
 
   // Add final royalty and book to preview rows
   const rowsWithRoyalty = useMemo(() => {
@@ -528,7 +527,7 @@ export default function BulkPasteSalesPanel({
             <div className="mt-3 space-y-1 rounded border border-destructive/40 bg-destructive/5 px-3 py-2 text-destructive text-xs">
               {invalidRows.map((err) => (
                 <div key={err.line}>
-                  Line {err.line}: {err.reason}
+                  Preview Line {err.line}: {err.reason}
                 </div>
               ))}
             </div>
