@@ -30,8 +30,8 @@ describe("getBooksData", () => {
         publicationDate: new Date(2020, 5, 1), // June 2020
         distAuthorRoyaltyRate: 0.1,
         handSoldAuthorRoyaltyRate: 0.05,
-        coverPrice: null,
-        printCost: null,
+        coverPrice: 19.99,
+        printCost: 4.5,
         author: { name: "Author One" },
         sales: [{ quantity: 5 }],
       },
@@ -52,8 +52,8 @@ describe("getBooksData", () => {
       publicationSortKey: "2020-06",
       distRoyaltyRate: 10,
       handSoldRoyaltyRate: 5,
-      coverPrice: null,
-      printCost: null,
+      coverPrice: 19.99,
+      printCost: 4.5,
       totalSales: 5,
     });
     expect(result.total).toBe(1);

@@ -143,13 +143,13 @@ export async function getBooksSortedByTotalSales(
       id: number;
       title: string;
       author: string;
-      isbn13: string | null;
+      isbn13: string;
       isbn10: string | null;
-      publication_date: Date | null;
+      publication_date: Date;
       dist_author_royalty_rate: number;
       hand_sold_author_royalty_rate: number;
-      cover_price: string | null;
-      print_cost: string | null;
+      cover_price: string;
+      print_cost: string;
       series_order: number | null;
       series_name: string | null;
       cover_art_path: string | null;
@@ -180,8 +180,8 @@ export async function getBooksSortedByTotalSales(
       publicationSortKey,
       distRoyaltyRate,
       handSoldRoyaltyRate,
-      coverPrice: row.cover_price ? Number(row.cover_price) : null,
-      printCost: row.print_cost ? Number(row.print_cost) : null,
+      coverPrice: Number(row.cover_price),
+      printCost: Number(row.print_cost),
       seriesName: row.series_name,
       seriesOrder: row.series_order,
       coverArtPath: row.cover_art_path ?? null,

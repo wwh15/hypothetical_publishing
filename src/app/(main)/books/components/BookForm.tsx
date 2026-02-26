@@ -187,23 +187,26 @@ export default function BookForm({
       const result = await fetchBookFromOpenLibrary(isbnLookup.trim());
 
       if (result.success) {
-        // Pre-populate form with fetched data (Open Library returns month/year)
-        const data = result.data as {
-          publicationMonth?: string;
-          publicationYear?: number;
-        };
-        setFormData({...formData,
-          title: result.data.title || "",
-          author: result.data.author || "",
-          isbn13: result.data.isbn13 || "",
-          isbn10: result.data.isbn10 || "",
+        const data = result.data;
+        const matchedAuthor = data.matchedAuthorId != null;
+        const matchedSeries = data.matchedSeriesId != null;
+        setSelectedAuthorId(matchedAuthor ? data.matchedAuthorId : null);
+        setSelectedSeriesId(matchedSeries ? data.matchedSeriesId : null);
+        setSeriesOrderOverride(null); // Default to add-on-top; user can reorder in modal
+        setFormData((prev) => ({
+          ...prev,
+          title: data.title || "",
+          author: matchedAuthor ? data.matchedAuthorName : "",
+          email: matchedAuthor ? (data.matchedAuthorEmail ?? "") : "",
+          isbn13: data.isbn13 || "",
+          isbn10: data.isbn10 || "",
           publicationMonth: data.publicationMonth || "",
           publicationYear: data.publicationYear?.toString() || "",
-          distRoyaltyRate: "50", // Default to 50% for imported books
-          handSoldRoyaltyRate: "20", // Default to 20% for imported books
+          distRoyaltyRate: "50",
+          handSoldRoyaltyRate: "20",
           coverPrice: "",
           printCost: "",
-        });
+        }));
         setIsImported(true);
         setIsbnLookup(""); // Clear lookup input
       } else {
@@ -316,19 +319,43 @@ export default function BookForm({
         ? new Date(publicationYear, parseInt(formData.publicationMonth, 10) - 1, 1)
         : null;
 
+    // Required fields: isbn13, publicationDate, coverPrice, printCost
+    if (!isbn13?.trim()) {
+      setError("ISBN-13 is required.");
+      setIsSubmitting(false);
+      return;
+    }
+    if (!publicationDate) {
+      setError("Publication date is required.");
+      setIsSubmitting(false);
+      return;
+    }
+    const coverPriceNum = formData.coverPrice ? parseFloat(formData.coverPrice) : NaN;
+    if (Number.isNaN(coverPriceNum) || coverPriceNum < 0) {
+      setError("Cover price is required and must be 0 or greater.");
+      setIsSubmitting(false);
+      return;
+    }
+    const printCostNum = formData.printCost ? parseFloat(formData.printCost) : NaN;
+    if (Number.isNaN(printCostNum) || printCostNum < 0) {
+      setError("Print cost is required and must be 0 or greater.");
+      setIsSubmitting(false);
+      return;
+    }
+
     try {
       const bookData = {
         title: formData.title.trim(),
         author: formData.author.trim(),
         authorId: selectedAuthorId,
         email: formData.email.trim(),
-        isbn13: isbn13 || undefined,
+        isbn13: isbn13.trim(),
         isbn10: isbn10 || undefined,
         publicationDate,
         distRoyaltyRate: distRate,
         handSoldRoyaltyRate: handSoldRate,
-        coverPrice: formData.coverPrice ? parseFloat(formData.coverPrice) : null,
-        printCost: formData.printCost ? parseFloat(formData.printCost) : null,
+        coverPrice: coverPriceNum,
+        printCost: printCostNum,
         seriesId: seriesId ?? null,
         seriesOrder: undefined, // Backend auto-assigns when adding to series
       };
@@ -375,23 +402,21 @@ export default function BookForm({
         }
 
         if (inModal && onModalSuccess) {
-          const sortKey = publicationDate
-            ? `${publicationDate.getFullYear()}-${String(
-                publicationDate.getMonth() + 1,
-              ).padStart(2, "0")}`
-            : "9999-99";
+          const sortKey = `${publicationDate!.getFullYear()}-${String(
+            publicationDate!.getMonth() + 1,
+          ).padStart(2, "0")}`;
           const book: BookListItem = {
             id: result.bookId!,
             title: formData.title.trim(),
             author: formData.author.trim(),
-            isbn13: isbn13Val,
+            isbn13: isbn13Val ?? isbn13!.trim(),
             isbn10: isbn10Val,
-            publicationDate,
+            publicationDate: publicationDate!,
             publicationSortKey: sortKey,
             distRoyaltyRate: distRate ?? 50,
             handSoldRoyaltyRate: handSoldRate ?? 20,
-            coverPrice: formData.coverPrice ? parseFloat(formData.coverPrice) : null,
-            printCost: formData.printCost ? parseFloat(formData.printCost) : null,
+            coverPrice: coverPriceNum,
+            printCost: printCostNum,
             totalSales: 0,
             seriesName: null,
             seriesOrder: null,

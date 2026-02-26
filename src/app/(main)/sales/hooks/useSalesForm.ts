@@ -23,6 +23,20 @@ interface FormData {
   source: "DISTRIBUTOR" | "HAND_SOLD";
 }
 
+/** Get the royalty rate (as percentage) for a book based on sale source */
+function getRateForSource(book: BookListItem, source: "DISTRIBUTOR" | "HAND_SOLD"): number {
+  return source === "HAND_SOLD" ? book.handSoldRoyaltyRate : book.distRoyaltyRate;
+}
+
+/** Auto-calculate revenue for hand-sold: (coverPrice - printCost) * quantity */
+function calcHandSoldRevenue(book: BookListItem, quantity: number): string | null {
+  if (quantity > 0) {
+    const rev = (book.coverPrice - book.printCost) * quantity;
+    return rev.toFixed(2);
+  }
+  return null;
+}
+
 export function useSalesForm(
   books: BookListItem[],
   onAddRecord: (record: PendingSaleItem) => void,

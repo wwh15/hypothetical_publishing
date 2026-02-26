@@ -47,15 +47,11 @@ export default async function BookDetailPage({ params, searchParams }: PageProps
     }).format(date);
   };
 
-  const formatPublicationDate = () => {
-    if (book.publicationDate) {
-      return new Intl.DateTimeFormat("en-US", {
-        month: "long",
-        year: "numeric",
-      }).format(book.publicationDate);
-    }
-    return "Not specified";
-  };
+  const formatPublicationDate = () =>
+    new Intl.DateTimeFormat("en-US", {
+      month: "long",
+      year: "numeric",
+    }).format(book.publicationDate);
 
   return (
     <div className="container mx-auto py-10">
@@ -98,7 +94,7 @@ export default async function BookDetailPage({ params, searchParams }: PageProps
             </Link>
             <div>
               <label className="text-sm font-medium text-muted-foreground">ISBN-13</label>
-              <p className="text-lg">{book.isbn13 || '-'}</p>
+              <p className="text-lg">{book.isbn13}</p>
             </div>
             <div>
               <label className="text-sm font-medium text-muted-foreground">ISBN-10</label>
@@ -130,18 +126,14 @@ export default async function BookDetailPage({ params, searchParams }: PageProps
               <label className="text-sm font-medium text-muted-foreground">Hand-Sold Royalty Rate</label>
               <p className="text-lg">{book.handSoldRoyaltyRate}%</p>
             </div>
-            {book.coverPrice != null && (
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Cover Price</label>
-                <p className="text-lg">${book.coverPrice.toFixed(2)}</p>
-              </div>
-            )}
-            {book.printCost != null && (
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Print Cost</label>
-                <p className="text-lg">${book.printCost.toFixed(2)}</p>
-              </div>
-            )}
+            <div>
+              <label className="text-sm font-medium text-muted-foreground">Cover Price</label>
+              <p className="text-lg">${book.coverPrice.toFixed(2)}</p>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-muted-foreground">Print Cost</label>
+              <p className="text-lg">${book.printCost.toFixed(2)}</p>
+            </div>
             <div>
               <label className="text-sm font-medium text-muted-foreground">Created At</label>
               <p className="text-lg">{formatDate(book.createdAt)}</p>
