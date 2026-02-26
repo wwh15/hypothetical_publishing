@@ -9,7 +9,15 @@ import { PaginationControls } from "@/components/PaginationControls";
 import { TableInfo } from "@/components/TableInfo";
 import { BaseDataTable } from "@/components/BaseDataTable";
 import { getAuthorPaymentPresetColumns } from "@/lib/table-configs/author-payment-columns";
-// Added ChevronDown for the dropdown icon
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { ChevronDown, Search, X } from "lucide-react";
 
 interface AuthorPaymentsTableProps {
@@ -32,7 +40,12 @@ export default function AuthorPaymentsTable({
   search,
 }: AuthorPaymentsTableProps) {
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
+  const [confirmingAuthor, setConfirmingAuthor] = useState<{
+    id: number;
+    name: string;
+  } | null>(null);
+  const [loadingAuthorId, setLoadingAuthorId] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState(search ?? "");
 
   // Manual state to track which authors are expanded
@@ -54,14 +67,30 @@ export default function AuthorPaymentsTable({
     router.push(`/sales/payments?${params.toString()}`);
   };
 
-  const handleMarkAllPaid = async (authorId: number, authorName: string) => {
-    if (!confirm(`Mark all unpaid royalties for ${authorName} as paid?`))
-      return;
-    setLoading(true);
-    const result = await markAllPaid(authorId);
-    setLoading(false);
-    if (result.success) router.refresh();
-    else alert(result.error);
+  const openConfirm = (authorId: number, authorName: string) => {
+    setError(null);
+    setConfirmingAuthor({ id: authorId, name: authorName });
+  };
+
+  const handleConfirmMarkAllPaid = async () => {
+    if (!confirmingAuthor) return;
+    setLoadingAuthorId(confirmingAuthor.id);
+    setError(null);
+    const result = await markAllPaid(confirmingAuthor.id);
+    setLoadingAuthorId(null);
+    if (result.success) {
+      setConfirmingAuthor(null);
+      router.refresh();
+    } else {
+      setError(result.error ?? "Failed to mark as paid");
+    }
+  };
+
+  const closeDialog = () => {
+    if (loadingAuthorId === null) {
+      setConfirmingAuthor(null);
+      setError(null);
+    }
   };
 
   const handleSearchSubmit = (e: React.FormEvent) => {
@@ -187,18 +216,24 @@ export default function AuthorPaymentsTable({
 
                 <button
                   onClick={(e) => {
-                    e.stopPropagation(); // 3. IMPORTANT: Stops the dropdown from toggling when paying
-                    handleMarkAllPaid(group.authorId, group.author);
+                    e.stopPropagation();
+                    openConfirm(group.authorId, group.author);
                   }}
-                  disabled={loading || group.unpaidTotal === 0}
+                  disabled={
+                    loadingAuthorId === group.authorId ||
+                    !group.sales.some((s) => s.paid === "pending")
+                  }
                   className={cn(
                     "px-4 py-2 rounded-md text-sm font-medium transition-all shadow-sm shrink-0",
-                    group.unpaidTotal === 0 || loading
+                    !group.sales.some((s) => s.paid === "pending") ||
+                      loadingAuthorId === group.authorId
                       ? "bg-gray-100 text-gray-400 cursor-not-allowed"
                       : "bg-blue-600 text-white hover:bg-blue-700 active:scale-95"
                   )}
                 >
-                  {loading ? "..." : "Mark all as paid"}
+                  {loadingAuthorId === group.authorId
+                    ? "Processing..."
+                    : "Mark all as paid"}
                 </button>
               </div>
 
@@ -231,6 +266,52 @@ export default function AuthorPaymentsTable({
           onPageChange={handlePageChange}
         />
       )}
+
+      <Dialog
+        open={!!confirmingAuthor}
+        onOpenChange={(open) => !open && closeDialog()}
+      >
+        <DialogContent
+          className="sm:max-w-md"
+          onPointerDownOutside={(e) =>
+            loadingAuthorId !== null && e.preventDefault()
+          }
+          onEscapeKeyDown={(e) =>
+            loadingAuthorId !== null && e.preventDefault()
+          }
+        >
+          <DialogHeader>
+            <DialogTitle>Mark all as paid?</DialogTitle>
+            <DialogDescription asChild>
+              <div className="space-y-2 pt-1">
+                <p>
+                  Mark all unpaid royalties for{" "}
+                  <strong>{confirmingAuthor?.name}</strong> as paid? This cannot
+                  be undone.
+                </p>
+                {error && (
+                  <p className="text-destructive text-sm font-medium">{error}</p>
+                )}
+              </div>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 pt-4">
+            <Button
+              variant="outline"
+              onClick={closeDialog}
+              disabled={loadingAuthorId !== null}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleConfirmMarkAllPaid}
+              disabled={loadingAuthorId !== null}
+            >
+              {loadingAuthorId !== null ? "Processing..." : "Mark all as paid"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
