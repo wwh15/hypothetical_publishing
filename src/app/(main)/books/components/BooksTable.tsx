@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { DataTable, ColumnDef } from "@/components/DataTable";
-import { BookListItem } from "@/lib/data/books";
+import { BookListItem, BookSortEntry, encodeBookSortSpec } from "@/lib/data/books";
 import { cn } from "@/lib/utils";
 import { Search, X } from "lucide-react";
 import { PaginationControls } from "@/components/PaginationControls";
@@ -15,8 +15,7 @@ interface BooksTableProps {
   page: number;
   pageSize: number;
   search: string;
-  sortBy: string;
-  sortDir: "asc" | "desc";
+  sortSpec: BookSortEntry[];
   showAll?: boolean;
   normalPageSize?: number;
 }
@@ -27,8 +26,7 @@ export default function BooksTable({
   page,
   pageSize,
   search,
-  sortBy,
-  sortDir,
+  sortSpec,
   showAll = false,
   normalPageSize = 20,
 }: BooksTableProps) {
@@ -151,21 +149,18 @@ export default function BooksTable({
   const buildQueryParams = (overrides: {
     page?: number;
     q?: string;
-    sortBy?: string | null;
-    sortDir?: "asc" | "desc" | null;
+    sortSpec?: BookSortEntry[] | null;
     showAll?: boolean;
   } = {}) => {
     const params = new URLSearchParams();
     const q = overrides.q !== undefined ? overrides.q : search.trim();
     const p = overrides.page ?? page;
-    const sb = "sortBy" in overrides ? overrides.sortBy : sortBy;
-    const sd = "sortDir" in overrides ? overrides.sortDir : sortDir;
+    const spec = "sortSpec" in overrides ? overrides.sortSpec : sortSpec;
     const sa = overrides.showAll !== undefined ? overrides.showAll : showAll;
 
     if (q) params.set("q", q);
     params.set("page", String(p));
-    if (sb != null) params.set("sortBy", sb);
-    if (sd != null) params.set("sortDir", sd);
+    if (spec != null && spec.length > 0) params.set("sort", encodeBookSortSpec(spec));
     if (sa) params.set("showAll", "true");
     return params;
   };
@@ -188,11 +183,15 @@ export default function BooksTable({
   };
 
   const handleSortChange = (field: string, direction: "asc" | "desc" | null) => {
-    const params = buildQueryParams({
-      sortBy: direction === null ? null : field,
-      sortDir: direction,
-      page: 1,
-    });
+    let newSpec: BookSortEntry[];
+    if (direction === null) {
+      newSpec = sortSpec.filter((s) => s.field !== field);
+      if (newSpec.length === 0) newSpec = [{ field: "author", dir: "asc" }, { field: "series", dir: "asc" }, { field: "title", dir: "asc" }];
+    } else {
+      const rest = sortSpec.filter((s) => s.field !== field);
+      newSpec = [{ field, dir: direction }, ...rest];
+    }
+    const params = buildQueryParams({ sortSpec: newSpec, page: 1 });
     router.push(`/books?${params.toString()}`);
   };
 
@@ -257,8 +256,7 @@ export default function BooksTable({
           hasSearch ? "No books match your search" : "No books found"
         }
         onRowClick={handleRowClick}
-        sortField={sortBy}
-        sortDirection={sortDir}
+        sortSpec={sortSpec.map((s) => ({ field: s.field, direction: s.dir }))}
         onSortChange={handleSortChange}
         showPagination={false}
       />

@@ -101,8 +101,18 @@ export interface BookDetail {
   sales?: import("./records").SaleListItem[]; // Sales records for this book
 }
 
+/** Single sort key with direction for multi-column sort */
+export type BookSortEntry = { field: string; dir: "asc" | "desc" };
+
+/** Default sort: author, then series/position (non-series last), then title */
+export const DEFAULT_BOOK_SORT_SPEC: BookSortEntry[] = [
+  { field: "author", dir: "asc" },
+  { field: "series", dir: "asc" },
+  { field: "title", dir: "asc" },
+];
+
 // Column keys from BooksTable that support server-side sort.
-// Series: alphabetical by series name, then by series order (1,2,...,9,10); books with no series last.
+// Series: alphabetical by series name, then by series order (1,2,...,9,10); books with no series last (PostgreSQL ASC nulls last).
 const SORT_FIELD_MAP: Record<
   string,
   Prisma.BookOrderByWithRelationInput | Prisma.BookOrderByWithRelationInput[]
@@ -149,6 +159,19 @@ function buildOrderBy(
     return base.map(applyDir) as Prisma.BookOrderByWithRelationInput[];
   }
   return applyDir(base);
+}
+
+/** Build Prisma orderBy array from a sequence of sort entries (multi-column sort). */
+function buildOrderByMulti(
+  sortSpec: BookSortEntry[]
+): Prisma.BookOrderByWithRelationInput[] {
+  const out: Prisma.BookOrderByWithRelationInput[] = [];
+  for (const { field, dir } of sortSpec) {
+    const clause = buildOrderBy(field, dir);
+    if (Array.isArray(clause)) out.push(...clause);
+    else out.push(clause);
+  }
+  return out;
 }
 
 // Get all series
@@ -237,19 +260,46 @@ export async function getAllBooks(): Promise<BookListItem[]> {
   });
 }
 
+const SORT_FIELD_KEYS = new Set([
+  "title",
+  "author",
+  "isbn13",
+  "isbn10",
+  "publication",
+  "distRoyaltyRate",
+  "totalSales",
+  "series",
+]);
+
+/** Parse sort query string "author:asc,series:asc,title:asc" into BookSortEntry[]. */
+export function parseBookSortSpec(sortParam: string | undefined): BookSortEntry[] {
+  if (!sortParam?.trim()) return [...DEFAULT_BOOK_SORT_SPEC];
+  const entries: BookSortEntry[] = [];
+  for (const part of sortParam.split(",")) {
+    const [field, dir] = part.trim().split(":");
+    const d = dir === "desc" ? "desc" : "asc";
+    if (field && SORT_FIELD_KEYS.has(field)) entries.push({ field, dir: d });
+  }
+  return entries.length ? entries : [...DEFAULT_BOOK_SORT_SPEC];
+}
+
+/** Encode BookSortEntry[] to query string. */
+export function encodeBookSortSpec(spec: BookSortEntry[]): string {
+  return spec.map(({ field, dir }) => `${field}:${dir}`).join(",");
+}
+
 // Database functions
 export async function getBooksData({
   search,
   page = 1,
   pageSize = 20,
-  sortBy,
-  sortDir,
+  sortSpec,
 }: {
   search?: string;
   page?: number;
   pageSize?: number;
-  sortBy?: string;
-  sortDir?: "asc" | "desc";
+  /** Multi-column sort; defaults to author, series, title. */
+  sortSpec?: BookSortEntry[];
 }): Promise<{
   items: BookListItem[];
   total: number;
@@ -258,6 +308,7 @@ export async function getBooksData({
 }> {
   const currentPage = Math.max(1, page || 1);
   const limit = Math.max(1, Math.min(pageSize || 20, 100));
+  const spec = sortSpec?.length ? sortSpec : DEFAULT_BOOK_SORT_SPEC;
 
   // Build search filter
   const where: Prisma.BookWhereInput = {};
@@ -316,22 +367,19 @@ export async function getBooksData({
     where.OR = orConditions;
   }
 
-  // When sorting by totalSales, use raw SQL to compute SUM(sales.quantity) in the database
-  // This avoids loading all books and sales into memory
-  const sortByTotalSales = sortBy === "totalSales" && sortDir;
+  // When primary sort is totalSales, use raw SQL to compute SUM(sales.quantity) in the database
+  const primarySort = spec[0];
+  const sortByTotalSales = primarySort?.field === "totalSales";
 
   if (sortByTotalSales) {
     return getBooksSortedByTotalSales(
       { search: trimmedSearch },
       { page: currentPage, pageSize: limit },
-      { sortDir }
+      { sortDir: primarySort.dir }
     );
   }
 
-  const orderBy =
-    sortBy && sortDir
-      ? buildOrderBy(sortBy, sortDir)
-      : { title: "asc" as const };
+  const orderBy = buildOrderByMulti(spec);
 
   const [books, total] = await Promise.all([
     prisma.book.findMany({

@@ -1,3 +1,4 @@
+import { parseBookSortSpec } from "@/lib/data/books";
 import { getBooksData } from "./action";
 import BooksTable from "./components/BooksTable";
 import Link from "next/link";
@@ -8,8 +9,7 @@ interface BooksPageProps {
   searchParams?: Promise<{
     q?: string;
     page?: string;
-    sortBy?: string;
-    sortDir?: string;
+    sort?: string;
     showAll?: string;
   }>;
 }
@@ -22,11 +22,10 @@ export default async function BooksPage({ searchParams }: BooksPageProps) {
   const showAll = params?.showAll === "true";
   const normalPageSize = 20; // Normal pagination size
   const pageSize = showAll ? 10000 : normalPageSize;
-  const sortBy = params?.sortBy ?? "title";
-  const sortDir = (params?.sortDir === "desc" ? "desc" : "asc") as "asc" | "desc";
+  const sortSpec = parseBookSortSpec(params?.sort);
 
   const { items, total, page: currentPage, pageSize: effectivePageSize } =
-    await getBooksData({ search, page, pageSize, sortBy, sortDir });
+    await getBooksData({ search, page, pageSize, sortSpec });
 
   return (
     <div className="container mx-auto py-10">
@@ -46,14 +45,13 @@ export default async function BooksPage({ searchParams }: BooksPageProps) {
         </Link>
       </div>
       <BooksTable
-        key={`${search}-${sortBy}-${sortDir}-${currentPage}-${showAll}`}
+        key={`${search}-${params?.sort ?? ""}-${currentPage}-${showAll}`}
         books={items}
         total={total}
         page={currentPage}
         pageSize={effectivePageSize}
         search={search}
-        sortBy={sortBy}
-        sortDir={sortDir}
+        sortSpec={sortSpec}
         showAll={showAll}
         normalPageSize={normalPageSize}
       />

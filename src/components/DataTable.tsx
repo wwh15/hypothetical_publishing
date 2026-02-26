@@ -24,6 +24,12 @@ export interface ColumnDef<T> {
     sortable?: boolean;
 }
 
+/** Entry for multi-column sort (e.g. books: author, series, title) */
+export interface SortSpecEntry {
+    field: string;
+    direction: 'asc' | 'desc';
+}
+
 export interface DataTableProps<T> {
     columns: ColumnDef<T>[];
     data: T[];
@@ -34,6 +40,8 @@ export interface DataTableProps<T> {
     /** When set, sorting is server-controlled: data is pre-sorted, clicks call onSortChange */
     sortField?: string | null;
     sortDirection?: 'asc' | 'desc' | null;
+    /** Multi-column sort (takes precedence over sortField/sortDirection when both provided) */
+    sortSpec?: SortSpecEntry[] | null;
     onSortChange?: (field: string, direction: 'asc' | 'desc' | null) => void;
     itemsPerPage?: number;
     showPagination?: boolean;
@@ -50,6 +58,7 @@ export function DataTable<T extends object>({
     defaultSortDirection = 'desc',
     sortField: externalSortField,
     sortDirection: externalSortDirection,
+    sortSpec: externalSortSpec,
     onSortChange,
     itemsPerPage = 50,
     showPagination = true,
@@ -103,11 +112,14 @@ export function DataTable<T extends object>({
     const rowsToShow = serverSortMode ? data : paginatedData;
 
     const displaySortField: string | null = serverSortMode
-      ? (externalSortField ?? null)
+      ? (externalSortSpec?.length ? null : (externalSortField ?? null))
       : (sortField ?? null);
     const displaySortDirection = serverSortMode
-      ? (externalSortDirection ?? null)
+      ? (externalSortSpec?.length ? null : (externalSortDirection ?? null))
       : sortDirection;
+    const displaySortSpec = serverSortMode && externalSortSpec?.length
+      ? externalSortSpec
+      : null;
 
     const handleSortClick = (columnKey: string, direction: 'asc' | 'desc' | null) => {
         if (serverSortMode) {
@@ -169,6 +181,7 @@ export function DataTable<T extends object>({
                                 column={column}
                                 sortField={displaySortField}
                                 sortDirection={displaySortDirection}
+                                sortSpec={displaySortSpec}
                                 onSort={handleSortClick}
                             />
                         ))}

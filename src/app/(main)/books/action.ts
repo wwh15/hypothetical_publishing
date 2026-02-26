@@ -49,26 +49,26 @@ export async function createSeries(name: string, description?: string) {
   return result;
 }
 
+import type { BookSortEntry } from "@/lib/data/books";
+
 // Get books list data with server-side search, sort & pagination
 export async function getBooksData({
   search,
   page,
   pageSize,
-  sortBy,
-  sortDir,
+  sortSpec,
 }: {
   search?: string;
   page?: number;
   pageSize?: number;
-  sortBy?: string;
-  sortDir?: "asc" | "desc";
+  sortSpec?: BookSortEntry[];
 }): Promise<{
   items: BookListItem[];
   total: number;
   page: number;
   pageSize: number;
 }> {
-  return getBooksDataFromDb({ search, page, pageSize, sortBy, sortDir });
+  return getBooksDataFromDb({ search, page, pageSize, sortSpec });
 }
 
 // Get book by ID
