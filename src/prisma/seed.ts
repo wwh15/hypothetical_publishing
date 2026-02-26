@@ -5,15 +5,23 @@
  * "Click the sale for Ingram Test Book, January 2025, Distributor, Paid").
  *
  * Order: clear → authors → series → books → sales.
- * Authors use canonicalName + normalize/upsert (schema with canonicalName).
+ * Authors use canonicalName for upsert; we inline a simple canonical form so
+ * the seed has no dependency on @/lib (runs under tsx in Docker without path resolution).
  */
 import "dotenv/config";
 import { PrismaClient, Author } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
-import { getCanonicalAuthorKey } from "@/lib/data/author";
-import { normalizeEmail, normalizeString } from "@/lib/validation";
 
 const prisma = new PrismaClient();
+
+/** Simple canonical author key for seed: lowercase, alphanumeric + spaces, collapsed spaces. */
+function seedCanonicalName(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, "")
+    .trim()
+    .replace(/\s+/g, " ");
+}
 
 /** ISBN-13 for Ingram CSV import tests; book title "Ingram Test Book". */
 const INGRAM_TEST_ISBN13 = "9780599999999";
@@ -39,14 +47,14 @@ async function main() {
 
   const authorMap: Record<string, Author> = {};
   for (const author of authorsToCreate) {
-    const fingerprint = getCanonicalAuthorKey(author.name);
+    const canonicalName = seedCanonicalName(author.name);
     const savedAuthor = await prisma.author.upsert({
-      where: { canonicalName: fingerprint },
+      where: { canonicalName },
       update: {},
       create: {
-        name: normalizeString(author.name),
-        email: normalizeEmail(author.email),
-        canonicalName: fingerprint,
+        name: author.name.trim().replace(/\s+/g, " "),
+        email: author.email.trim().toLowerCase(),
+        canonicalName,
       },
     });
     authorMap[author.name] = savedAuthor;
