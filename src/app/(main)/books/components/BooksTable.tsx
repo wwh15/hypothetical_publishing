@@ -160,7 +160,8 @@ export default function BooksTable({
 
     if (q) params.set("q", q);
     params.set("page", String(p));
-    if (spec != null && spec.length > 0) params.set("sort", encodeBookSortSpec(spec));
+    // When user cleared last column (spec empty), set sort= so page knows to hide summary; otherwise encode or omit.
+    if (spec != null) params.set("sort", spec.length > 0 ? encodeBookSortSpec(spec) : "");
     if (sa) params.set("showAll", "true");
     return params;
   };

@@ -1,4 +1,4 @@
-import { parseBookSortSpec } from "@/lib/data/books";
+import { DEFAULT_BOOK_SORT_SPEC, parseBookSortSpec } from "@/lib/data/books";
 import { getBooksData } from "./action";
 import BooksTable from "./components/BooksTable";
 import Link from "next/link";
@@ -22,9 +22,13 @@ export default async function BooksPage({ searchParams }: BooksPageProps) {
   const showAll = params?.showAll === "true";
   const normalPageSize = 20; // Normal pagination size
   const pageSize = showAll ? 10000 : normalPageSize;
-  // When no sort param: pass [] so the table doesn't show the sort summary (avoids "jump to 3 columns" after user clears last column).
-  // getBooksData still applies default order when sortSpec is empty.
-  const sortSpec = params?.sort ? parseBookSortSpec(params.sort) : [];
+  // First load (no sort in URL): show default sort in UI. User cleared (sort=): show no summary; server still uses default order when sortSpec is empty.
+  const sortSpec =
+    params?.sort === undefined
+      ? DEFAULT_BOOK_SORT_SPEC
+      : params.sort === ""
+        ? []
+        : parseBookSortSpec(params.sort);
 
   const { items, total, page: currentPage, pageSize: effectivePageSize } =
     await getBooksData({ search, page, pageSize, sortSpec });
