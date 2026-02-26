@@ -22,15 +22,8 @@ export function useTableFilter<T extends object>({
   const filteredData = useMemo(() => {
     // If no date field specified or no filter set, return all data
     if (!dateField || (!dateRange.startDate && !dateRange.endDate)) {
-      console.log('No filter applied - returning all data');
       return data;
     }
-  
-    console.log('Filtering with:', { 
-      startDate: dateRange.startDate, 
-      endDate: dateRange.endDate,
-      dataLength: data.length 
-    });
   
     const filtered = data.filter((row) => {
       const rowDate = row[dateField] as string;
@@ -41,7 +34,6 @@ export function useTableFilter<T extends object>({
       // Check start date
       if (dateRange.startDate) {
         const start = convertToComparableDate(dateRange.startDate);
-        console.log('Comparing:', { rowDate, normalizedRowDate, start, passes: normalizedRowDate >= start });
         if (normalizedRowDate < start) return false;
       }
   
@@ -54,7 +46,6 @@ export function useTableFilter<T extends object>({
       return true;
     });
   
-    console.log('Filtered data length:', filtered.length);
     return filtered;
   }, [data, dateRange, dateField]);
 

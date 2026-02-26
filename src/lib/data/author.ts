@@ -323,7 +323,6 @@ export async function asyncAddAuthor(
   const cleanEmail = normalizeEmail(rawData.email);
   const cleanName = normalizeString(rawData.name); // Basic cleanup for display
   const fingerprint = getCanonicalAuthorKey(rawData.name); // The unique search key
-  console.log(fingerprint)
 
   // 2. VALIDATE: Check the standardized strings
   const validatedEmail = validateEmail(cleanEmail);
