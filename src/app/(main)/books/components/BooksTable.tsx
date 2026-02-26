@@ -164,7 +164,9 @@ export default function BooksTable({
     // Only set sort param if it differs from default
     const serialized = serializeSortParam(cols);
     const defaultSerialized = serializeSortParam(DEFAULT_BOOK_SORT);
-    if (serialized && serialized !== defaultSerialized) {
+    if (cols.length === 0) {
+      params.set("sort", "none");
+    } else if (serialized !== defaultSerialized) {
       params.set("sort", serialized);
     }
     if (sa) params.set("showAll", "true");
@@ -189,14 +191,12 @@ export default function BooksTable({
   };
 
   const handleMultiSortChange = (newSortColumns: SortColumn[]) => {
-    // If all sorts removed, fall back to default
-    const cols = newSortColumns.length > 0 ? newSortColumns : DEFAULT_BOOK_SORT;
-    const params = buildQueryParams({ sort: cols, page: 1 });
+    const params = buildQueryParams({ sort: newSortColumns, page: 1 });
     router.push(`/books?${params.toString()}`);
   };
 
   const handleClearSort = () => {
-    const params = buildQueryParams({ sort: DEFAULT_BOOK_SORT, page: 1 });
+    const params = buildQueryParams({ sort: [], page: 1 });
     router.push(`/books?${params.toString()}`);
   };
 
@@ -207,9 +207,6 @@ export default function BooksTable({
     });
     router.push(`/books?${params.toString()}`);
   };
-
-  const isDefaultSort =
-    serializeSortParam(sortColumns) === serializeSortParam(DEFAULT_BOOK_SORT);
 
   const hasSearch = search.trim().length > 0;
   const startRecord = showAll ? 1 : (page - 1) * normalPageSize + 1;
@@ -246,15 +243,6 @@ export default function BooksTable({
             </button>
           )}
         </form>
-        {!isDefaultSort && (
-          <button
-            type="button"
-            onClick={handleClearSort}
-            className="px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors whitespace-nowrap"
-          >
-            Clear Sort
-          </button>
-        )}
       </div>
 
       {total > 0 && (
@@ -278,6 +266,8 @@ export default function BooksTable({
         sortColumns={sortColumns}
         onMultiSortChange={handleMultiSortChange}
         showPagination={false}
+        columnLabels={Object.fromEntries(columns.map((c) => [c.key, c.header]))}
+        onClearSort={sortColumns.length > 0 ? handleClearSort : undefined}
       />
 
       {totalPages > 1 && !showAll && (

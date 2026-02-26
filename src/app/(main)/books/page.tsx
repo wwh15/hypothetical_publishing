@@ -28,7 +28,9 @@ export default async function BooksPage({ searchParams }: BooksPageProps) {
 
   // Parse sort columns: new `sort` param > legacy `sortBy`/`sortDir` > default
   let sortColumns: SortColumn[];
-  if (params?.sort) {
+  if (params?.sort === "none") {
+    sortColumns = [];
+  } else if (params?.sort) {
     sortColumns = parseSortParam(params.sort);
   } else if (params?.sortBy) {
     const dir = params.sortDir === "desc" ? "desc" : "asc";

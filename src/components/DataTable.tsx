@@ -44,6 +44,10 @@ export interface DataTableProps<T> {
     sortColumns?: SortColumn[];
     /** Multi-sort: called when sort columns change */
     onMultiSortChange?: (columns: SortColumn[]) => void;
+    /** Map column keys to display labels for the sort summary */
+    columnLabels?: Record<string, string>;
+    /** Called when user clicks "Clear Sort" in the sort summary */
+    onClearSort?: () => void;
 }
 
 export function DataTable<T extends object>({
@@ -62,6 +66,8 @@ export function DataTable<T extends object>({
     showDateFilter = false,
     sortColumns,
     onMultiSortChange,
+    columnLabels,
+    onClearSort,
 }: DataTableProps<T>) {
     const multiSortMode = onMultiSortChange != null && sortColumns != null;
     const serverSortMode = onSortChange != null || multiSortMode;
@@ -150,6 +156,17 @@ export function DataTable<T extends object>({
         onMultiSortChange(next);
     };
 
+    const handleDirectionToggle = (field: string) => {
+        if (!onMultiSortChange || !sortColumns) return;
+        onMultiSortChange(
+            sortColumns.map((s) =>
+                s.field === field
+                    ? { ...s, direction: s.direction === 'asc' ? 'desc' : 'asc' }
+                    : s
+            )
+        );
+    };
+
     const getCellValue = (row: T, column: ColumnDef<T>): React.ReactNode => {
         if (column.render) return column.render(row);
         if (column.accessor) return row[column.accessor] as React.ReactNode;
@@ -191,6 +208,40 @@ export function DataTable<T extends object>({
                 />
             )}
 
+            {/* Sort Summary */}
+            {multiSortMode && sortColumns.length > 0 && (
+                <div className="flex items-center gap-3">
+                    <p className="text-sm text-muted-foreground">
+                        Sorted by:{' '}
+                        {sortColumns.map((col, i) => (
+                            <span key={col.field}>
+                                {i > 0 && <span className="mx-1">&rsaquo;</span>}
+                                <span className="font-medium text-foreground">
+                                    {columnLabels?.[col.field] ?? col.field}
+                                </span>{' '}
+                                <button
+                                    type="button"
+                                    onClick={() => handleDirectionToggle(col.field)}
+                                    className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 underline decoration-dotted cursor-pointer transition-colors"
+                                    aria-label={`Toggle ${columnLabels?.[col.field] ?? col.field} to ${col.direction === 'asc' ? 'descending' : 'ascending'}`}
+                                >
+                                    ({col.direction === 'asc' ? '↑ asc' : '↓ desc'})
+                                </button>
+                            </span>
+                        ))}
+                    </p>
+                    {onClearSort && (
+                        <button
+                            type="button"
+                            onClick={onClearSort}
+                            className="px-2 py-0.5 text-xs font-medium text-red-600 hover:text-white border border-red-300 dark:border-red-700 rounded hover:bg-red-600 dark:text-red-400 dark:hover:text-white dark:hover:bg-red-600 transition-colors whitespace-nowrap"
+                        >
+                            Clear Sort
+                        </button>
+                    )}
+                </div>
+            )}
+
             {/* Table */}
             <Table>
                 <TableHeader>
@@ -226,7 +277,13 @@ export function DataTable<T extends object>({
                                 className={onRowClick ? 'cursor-pointer hover:bg-muted/50' : ''}
                             >
                                 {columns.map((column) => (
-                                    <TableCell key={column.key} className={cn(column.className)}>
+                                    <TableCell
+                                        key={column.key}
+                                        className={cn(
+                                            column.className,
+                                            multiSortMode && sortColumns.some((s) => s.field === column.key) && 'bg-blue-50 dark:bg-blue-950/30'
+                                        )}
+                                    >
                                         {getCellValue(row, column)}
                                     </TableCell>
                                 ))}

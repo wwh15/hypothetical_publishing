@@ -47,10 +47,8 @@ export function TableHeaderCell<T>({
     if (column.sortable === false || !column.accessor) return;
 
     if (multiSortMode) {
-      // Multi-sort cycle: unsorted → asc → desc → remove
-      const nextDirection: SortDirection =
-        !isMultiSorted ? 'asc' : multiSortDir === 'asc' ? 'desc' : null;
-      onMultiSort(column.key, nextDirection);
+      // Binary: off → on (asc), on → off (null)
+      onMultiSort(column.key, isMultiSorted ? null : 'asc');
     } else {
       // Legacy single-sort cycle
       const nextDirection: SortDirection =
@@ -60,10 +58,12 @@ export function TableHeaderCell<T>({
   };
 
   const canSort = column.sortable !== false && column.accessor;
-  const showBadge = multiSortMode && isMultiSorted && sortColumns.length > 1;
 
   return (
-    <TableHead className={cn(column.className)}>
+    <TableHead className={cn(
+      column.className,
+      multiSortMode && isMultiSorted && 'bg-blue-50 dark:bg-blue-950/30'
+    )}>
       <div className="flex flex-col gap-1">
         <span className="font-semibold flex items-center gap-1">
           {column.header}
@@ -72,28 +72,23 @@ export function TableHeaderCell<T>({
               type="button"
               onClick={handleClick}
               className={cn(
-                'ml-1 p-0.5 rounded hover:bg-muted transition-colors relative',
-                isSorted && 'text-blue-600'
+                'ml-1 p-0.5 rounded transition-colors',
+                isSorted
+                  ? 'text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/40'
+                  : 'text-blue-400 hover:text-blue-600 hover:bg-blue-50 dark:text-blue-500 dark:hover:text-blue-400 dark:hover:bg-blue-900/30'
               )}
               aria-label={
                 !isSorted
-                  ? `Sort by ${column.header} ascending`
-                  : currentDir === 'asc'
-                    ? `Sorted ascending, click for descending`
-                    : `Sorted descending, click to clear sort`
+                  ? `Sort by ${column.header}`
+                  : `Remove ${column.header} sort`
               }
             >
               {!isSorted ? (
-                <ArrowUpDown className="w-4 h-4 text-muted-foreground" />
+                <ArrowUpDown className="w-4 h-4" />
               ) : currentDir === 'asc' ? (
                 <ArrowUp className="w-4 h-4" />
               ) : (
                 <ArrowDown className="w-4 h-4" />
-              )}
-              {showBadge && (
-                <span className="absolute -top-2 -right-2 bg-blue-600 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center leading-none">
-                  {multiSortIndex + 1}
-                </span>
               )}
             </button>
           )}
