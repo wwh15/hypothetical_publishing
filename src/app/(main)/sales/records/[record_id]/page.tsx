@@ -1,9 +1,9 @@
 // src/app/(main)/sales/records/[record_id]/page.tsx
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { getSaleById } from "../../action";  // after you add it
+import { getSaleById } from "../../action";
 import EditForm from "./EditForm";
-import { getBooksData } from "@/app/(main)/books/action";
+import { getAllBooks } from "@/app/(main)/books/action";
 
 export default async function SalesRecordDetailPage({
   params,
@@ -17,8 +17,8 @@ export default async function SalesRecordDetailPage({
   const sale = await getSaleById(id);
   if (!sale) notFound();
 
-  const books = (await getBooksData({})).items;
-  if (!books) notFound();
+  // Load all books so the book selector can find any book (not just page 1)
+  const books = await getAllBooks();
 
   return (
     <div className="container mx-auto py-10">
