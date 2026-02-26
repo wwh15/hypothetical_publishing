@@ -56,6 +56,8 @@ describe("fetchBookFromOpenLibrary", () => {
       expect(result.data).toHaveProperty("matchedAuthorId");
       expect(result.data).toHaveProperty("matchedAuthorName");
       expect(result.data).toHaveProperty("matchedAuthorEmail");
+      expect(result.data).toHaveProperty("matchedSeriesId");
+      expect(result.data).toHaveProperty("matchedSeriesName");
     }
   });
 

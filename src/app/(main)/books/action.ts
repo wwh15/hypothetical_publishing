@@ -87,6 +87,85 @@ function matchAuthor(
   );
 }
 
+// Resolve Open Library series name to an internal series (case-insensitive, normalized whitespace).
+function matchSeries(
+  olSeriesName: string,
+  seriesList: { id: number; name: string }[]
+): { id: number; name: string } | null {
+  const normalized = olSeriesName.toLowerCase().replace(/\s+/g, " ").trim();
+  if (!normalized) return null;
+  return (
+    seriesList.find(
+      (s) =>
+        s.name.trim().toLowerCase().replace(/\s+/g, " ") === normalized
+    ) ?? null
+  );
+}
+
+// Try to get series name from Open Library: edition.works[0] -> work -> series/serial_works.
+async function fetchSeriesNameFromEdition(
+  editionData: { works?: { key: string }[]; series?: unknown }
+): Promise<string | null> {
+  // Some editions might have series directly
+  if (editionData.series != null) {
+    if (typeof editionData.series === "string" && editionData.series.trim())
+      return editionData.series.trim();
+    if (
+      Array.isArray(editionData.series) &&
+      editionData.series.length > 0 &&
+      typeof editionData.series[0] === "string"
+    )
+      return (editionData.series[0] as string).trim();
+  }
+
+  const works = editionData.works;
+  if (!works?.length || !works[0]?.key) return null;
+
+  try {
+    const workRes = await fetch(
+      `https://openlibrary.org${works[0].key}.json`,
+      { headers: { Accept: "application/json" } }
+    );
+    if (!workRes.ok) return null;
+    const work = (await workRes.json()) as Record<string, unknown>;
+
+    // serial_works: [{ series: { key: "/series/OL123S" } }] -> fetch series for name
+    const serialWorks = work.serial_works as { series?: { key?: string } }[] | undefined;
+    if (Array.isArray(serialWorks) && serialWorks.length > 0 && serialWorks[0]?.series?.key) {
+      const seriesKey = serialWorks[0].series.key as string;
+      const seriesRes = await fetch(
+        `https://openlibrary.org${seriesKey}.json`,
+        { headers: { Accept: "application/json" } }
+      );
+      if (!seriesRes.ok) return null;
+      const seriesData = (await seriesRes.json()) as { title?: string; name?: string };
+      const name = seriesData.title ?? seriesData.name;
+      return typeof name === "string" && name.trim() ? name.trim() : null;
+    }
+
+    // series: [{ key: "...", name: "..." }] or [{ title: "..." }]
+    const seriesArr = work.series as { key?: string; name?: string; title?: string }[] | undefined;
+    if (Array.isArray(seriesArr) && seriesArr.length > 0) {
+      const first = seriesArr[0];
+      const name = first?.name ?? first?.title;
+      if (typeof name === "string" && name.trim()) return name.trim();
+      if (typeof first?.key === "string") {
+        const seriesRes = await fetch(
+          `https://openlibrary.org${first.key}.json`,
+          { headers: { Accept: "application/json" } }
+        );
+        if (!seriesRes.ok) return null;
+        const seriesData = (await seriesRes.json()) as { title?: string; name?: string };
+        const n = seriesData.title ?? seriesData.name;
+        return typeof n === "string" && n.trim() ? n.trim() : null;
+      }
+    }
+  } catch {
+    // ignore fetch/parse errors
+  }
+  return null;
+}
+
 // Fetch book data from Open Library API by ISBN
 export async function fetchBookFromOpenLibrary(isbn: string): Promise<
   | {
@@ -101,6 +180,8 @@ export async function fetchBookFromOpenLibrary(isbn: string): Promise<
         matchedAuthorId: number | null;
         matchedAuthorName: string;
         matchedAuthorEmail: string | null;
+        matchedSeriesId: number | null;
+        matchedSeriesName: string;
       };
     }
   | {
@@ -259,8 +340,16 @@ export async function fetchBookFromOpenLibrary(isbn: string): Promise<
       }
     }
 
-    const internalAuthors = await asyncGetAllAuthors();
-    const matched = matchAuthor(author.trim(), internalAuthors);
+    const [internalAuthors, internalSeries] = await Promise.all([
+      asyncGetAllAuthors(),
+      getAllSeriesFromDb(),
+    ]);
+    const matchedAuthor = matchAuthor(author.trim(), internalAuthors);
+    const olSeriesName = await fetchSeriesNameFromEdition(data);
+    const matchedSeries =
+      olSeriesName != null
+        ? matchSeries(olSeriesName, internalSeries)
+        : null;
 
     return {
       success: true,
@@ -271,9 +360,11 @@ export async function fetchBookFromOpenLibrary(isbn: string): Promise<
         isbn10,
         publicationYear,
         publicationMonth,
-        matchedAuthorId: matched?.id ?? null,
-        matchedAuthorName: matched?.name ?? "",
-        matchedAuthorEmail: matched?.email ?? null,
+        matchedAuthorId: matchedAuthor?.id ?? null,
+        matchedAuthorName: matchedAuthor?.name ?? "",
+        matchedAuthorEmail: matchedAuthor?.email ?? null,
+        matchedSeriesId: matchedSeries?.id ?? null,
+        matchedSeriesName: matchedSeries?.name ?? "",
       },
     };
   } catch (error: unknown) {

@@ -184,13 +184,16 @@ export default function BookForm({
 
       if (result.success) {
         const data = result.data;
-        const matched = data.matchedAuthorId != null;
-        setSelectedAuthorId(matched ? data.matchedAuthorId : null);
+        const matchedAuthor = data.matchedAuthorId != null;
+        const matchedSeries = data.matchedSeriesId != null;
+        setSelectedAuthorId(matchedAuthor ? data.matchedAuthorId : null);
+        setSelectedSeriesId(matchedSeries ? data.matchedSeriesId : null);
+        setSeriesOrderOverride(null); // Default to add-on-top; user can reorder in modal
         setFormData((prev) => ({
           ...prev,
           title: data.title || "",
-          author: matched ? data.matchedAuthorName : "",
-          email: matched ? (data.matchedAuthorEmail ?? "") : "",
+          author: matchedAuthor ? data.matchedAuthorName : "",
+          email: matchedAuthor ? (data.matchedAuthorEmail ?? "") : "",
           isbn13: data.isbn13 || "",
           isbn10: data.isbn10 || "",
           publicationMonth: data.publicationMonth || "",
