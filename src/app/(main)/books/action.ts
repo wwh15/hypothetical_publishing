@@ -18,6 +18,8 @@ import {
   SeriesListItem,
   SeriesBook,
 } from "@/lib/data/books";
+import { prisma } from "@/lib/prisma";
+import { uploadCoverArt as uploadCoverArtToStorage, deleteCoverArt } from "@/lib/supabase/storage";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -322,4 +324,58 @@ export async function deleteBook(id: number) {
   }
 
   return result;
+}
+
+// Upload cover art for a book (edit only)
+export async function uploadCoverArt(
+  bookId: number,
+  formData: FormData
+): Promise<{ success: true } | { success: false; error: string }> {
+  const file = formData.get("cover") as File | null;
+  if (!file || !(file instanceof File) || file.size === 0) {
+    return { success: false, error: "No file selected." };
+  }
+
+  const result = await uploadCoverArtToStorage(bookId, file);
+  if ("error" in result) {
+    return { success: false, error: result.error };
+  }
+
+  await prisma.book.update({
+    where: { id: bookId },
+    data: { coverArtPath: result.path },
+  });
+
+  revalidatePath("/books");
+  revalidatePath(`/books/${bookId}`);
+  revalidatePath(`/books/${bookId}/edit`);
+  return { success: true };
+}
+
+// Remove cover art from a book
+export async function removeCoverArt(
+  bookId: number
+): Promise<{ success: true } | { success: false; error: string }> {
+  const book = await prisma.book.findUnique({
+    where: { id: bookId },
+    select: { coverArtPath: true },
+  });
+
+  if (!book) {
+    return { success: false, error: "Book not found." };
+  }
+
+  if (book.coverArtPath) {
+    await deleteCoverArt(book.coverArtPath);
+  }
+
+  await prisma.book.update({
+    where: { id: bookId },
+    data: { coverArtPath: null },
+  });
+
+  revalidatePath("/books");
+  revalidatePath(`/books/${bookId}`);
+  revalidatePath(`/books/${bookId}/edit`);
+  return { success: true };
 }
