@@ -61,6 +61,8 @@ export default function BookForm({
   >(null);
   const [isUploadingCover, setIsUploadingCover] = useState(false);
   const [coverError, setCoverError] = useState<string | null>(null);
+  const [pendingCoverFile, setPendingCoverFile] = useState<File | null>(null);
+  const [pendingCoverPreview, setPendingCoverPreview] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     title: "",
     author: "",
@@ -82,6 +84,15 @@ export default function BookForm({
   useEffect(() => {
     formInitializedRef.current = false;
   }, [bookId, mode]);
+
+  // Revoke object URL for pending cover preview on clear or unmount
+  useEffect(() => {
+    return () => {
+      if (pendingCoverPreview) {
+        URL.revokeObjectURL(pendingCoverPreview);
+      }
+    };
+  }, [pendingCoverPreview]);
 
   // Populate form with initial data if editing (only once per book/mode)
   useEffect(() => {
@@ -372,6 +383,18 @@ export default function BookForm({
 
       if (result.success) {
         const savedBookId = result.bookId!;
+
+        // Upload cover if we're creating and user selected a file
+        if (mode === "create" && pendingCoverFile) {
+          const coverFormData = new FormData();
+          coverFormData.set("cover", pendingCoverFile);
+          const uploadResult = await uploadCoverArt(savedBookId, coverFormData);
+          if (!uploadResult.success) {
+            setError(
+              "Book created, but cover upload failed. You can add a cover on the edit page."
+            );
+          }
+        }
 
         // Apply series order if user set it in the modal (with unsaved current book)
         if (
@@ -984,6 +1007,61 @@ export default function BookForm({
           </div>
           <p className="text-xs text-muted-foreground">
             JPEG, PNG, GIF, or WebP. Max 5MB.
+          </p>
+        </div>
+      )}
+
+      {/* Cover art (create mode - optional) */}
+      {mode === "create" && (
+        <div className="mt-6 p-4 border border-gray-200 dark:border-gray-700 rounded-lg space-y-4">
+          <h3 className="text-sm font-semibold">Cover art (optional)</h3>
+          {pendingCoverFile ? (
+            <div className="flex flex-wrap items-start gap-4">
+              {pendingCoverPreview && (
+                <img
+                  src={pendingCoverPreview}
+                  alt="Cover preview"
+                  className="h-40 w-28 object-cover rounded border border-gray-200 dark:border-gray-600"
+                />
+              )}
+              <div className="flex flex-col gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    if (pendingCoverPreview) {
+                      URL.revokeObjectURL(pendingCoverPreview);
+                    }
+                    setPendingCoverPreview(null);
+                    setPendingCoverFile(null);
+                  }}
+                >
+                  Clear
+                </Button>
+              </div>
+            </div>
+          ) : null}
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/gif,image/webp"
+              className="text-sm text-muted-foreground file:mr-2 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 dark:file:bg-blue-900/30 dark:file:text-blue-300"
+              id="cover-upload-create"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                if (pendingCoverPreview) {
+                  URL.revokeObjectURL(pendingCoverPreview);
+                }
+                setPendingCoverFile(file);
+                setPendingCoverPreview(URL.createObjectURL(file));
+                e.target.value = "";
+              }}
+            />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            JPEG, PNG, GIF, or WebP. Max 5MB. You can also add a cover after saving.
           </p>
         </div>
       )}
