@@ -54,21 +54,19 @@ export async function getBooksData({
   search,
   page,
   pageSize,
-  sortBy,
-  sortDir,
+  sortColumns,
 }: {
   search?: string;
   page?: number;
   pageSize?: number;
-  sortBy?: string;
-  sortDir?: "asc" | "desc";
+  sortColumns?: { field: string; direction: "asc" | "desc" }[];
 }): Promise<{
   items: BookListItem[];
   total: number;
   page: number;
   pageSize: number;
 }> {
-  return getBooksDataFromDb({ search, page, pageSize, sortBy, sortDir });
+  return getBooksDataFromDb({ search, page, pageSize, sortColumns });
 }
 
 // Get book by ID

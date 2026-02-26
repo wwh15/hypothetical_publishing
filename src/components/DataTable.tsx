@@ -14,6 +14,7 @@ import { DateRangeFilter } from './DateRangeFilter';
 import { TableHeaderCell } from './TableHeaderCell';
 import { PaginationControls } from './PaginationControls';
 import { TableInfo } from './TableInfo';
+import { SortColumn } from '@/lib/types/sort';
 
 export interface ColumnDef<T> {
     key: string;
@@ -39,6 +40,10 @@ export interface DataTableProps<T> {
     showPagination?: boolean;
     dateFilterField?: keyof T;
     showDateFilter?: boolean;
+    /** Multi-sort: current sort columns (server-controlled) */
+    sortColumns?: SortColumn[];
+    /** Multi-sort: called when sort columns change */
+    onMultiSortChange?: (columns: SortColumn[]) => void;
 }
 
 export function DataTable<T extends object>({
@@ -55,8 +60,11 @@ export function DataTable<T extends object>({
     showPagination = true,
     dateFilterField,
     showDateFilter = false,
+    sortColumns,
+    onMultiSortChange,
 }: DataTableProps<T>) {
-    const serverSortMode = onSortChange != null;
+    const multiSortMode = onMultiSortChange != null && sortColumns != null;
+    const serverSortMode = onSortChange != null || multiSortMode;
 
     // In server sort mode, skip client-side filtering/sorting/pagination
     // The data is already processed on the server (sorted, filtered, paginated)
@@ -110,12 +118,36 @@ export function DataTable<T extends object>({
       : sortDirection;
 
     const handleSortClick = (columnKey: string, direction: 'asc' | 'desc' | null) => {
-        if (serverSortMode) {
+        if (multiSortMode) {
+            // Handled by handleMultiSortClick instead
+            return;
+        }
+        if (onSortChange) {
             onSortChange(columnKey, direction);
         } else {
             handleSort(columnKey, direction);
             resetToFirstPage();
         }
+    };
+
+    const handleMultiSortClick = (columnKey: string, direction: 'asc' | 'desc' | null) => {
+        if (!onMultiSortChange || !sortColumns) return;
+        const current = sortColumns;
+        const idx = current.findIndex((s) => s.field === columnKey);
+        let next: SortColumn[];
+        if (idx === -1) {
+            // Not in sort → append as asc
+            next = [...current, { field: columnKey, direction: 'asc' }];
+        } else if (direction === null) {
+            // Remove from sort
+            next = current.filter((_, i) => i !== idx);
+        } else {
+            // Toggle direction
+            next = current.map((s, i) =>
+                i === idx ? { ...s, direction } : s
+            );
+        }
+        onMultiSortChange(next);
     };
 
     const getCellValue = (row: T, column: ColumnDef<T>): React.ReactNode => {
@@ -170,6 +202,8 @@ export function DataTable<T extends object>({
                                 sortField={displaySortField}
                                 sortDirection={displaySortDirection}
                                 onSort={handleSortClick}
+                                sortColumns={multiSortMode ? sortColumns : undefined}
+                                onMultiSort={multiSortMode ? handleMultiSortClick : undefined}
                             />
                         ))}
                     </TableRow>
