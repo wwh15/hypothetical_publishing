@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { signIn } from "@/lib/supabase/auth";
+import AuthLogo from "@/components/auth/AuthLogo";
 
 export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
@@ -21,9 +22,10 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 dark:bg-gray-900">
+      <AuthLogo />
       <div className="bg-white dark:bg-gray-800 rounded-lg border p-8 w-full max-w-md">
-        <h1 className="text-2xl font-bold mb-6 text-center">Login</h1>
+        <h2 className="text-xl font-semibold mb-6 text-center">Login</h2>
 
         {error && (
           <p className="mb-4 p-3 bg-red-100 text-red-800 rounded-md text-sm">

@@ -20,12 +20,12 @@ export interface ReportCell {
   royaltyTotal: number;
 }
 
-/** One period column: a quarter or "All-time" */
+/** One period column: a quarter or "Total" (sum of selected quarters) */
 export interface ReportPeriod {
   label: string;
-  /** "2025-Q2" or "all-time" */
+  /** "2025-Q2" or "total" */
   key: string;
-  /** For quarter periods: 1-4; for all-time: null */
+  /** For quarter periods: 1-4; for total: null */
   quarter: number | null;
   year: number | null;
 }
@@ -61,7 +61,7 @@ function quarterEndDate(quarter: number, year: number): Date {
   return new Date(year, monthAfterQuarter, 0, 23, 59, 59, 999);
 }
 
-/** List quarters from (startQ, startY) through (endQ, endY) inclusive, plus All-time */
+/** List quarters from (startQ, startY) through (endQ, endY) inclusive, plus Total (sum of those quarters) */
 function listQuarters(
   startQuarter: number,
   startYear: number,
@@ -90,8 +90,8 @@ function listQuarters(
   }
 
   periods.push({
-    label: "All-time",
-    key: "all-time",
+    label: "Total",
+    key: "total",
     quarter: null,
     year: null,
   });
@@ -108,7 +108,7 @@ function quarterFromDate(d: Date): number {
 
 /**
  * Fetch all sales for the given author's books (no date filter).
- * Quarter columns are filtered in memory to the selected range; all-time uses all sales.
+ * Quarter columns and the Total column are filtered in memory to the selected quarter range.
  */
 async function fetchSalesForReport(authorId: number) {
   const sales = await prisma.sale.findMany({
@@ -193,7 +193,7 @@ function addToCell(
 
 /**
  * Get full author royalty report data: books × periods with quantity sold,
- * quantity handsold, royalty unpaid/paid/total. Includes all-time and all-book totals.
+ * quantity handsold, royalty unpaid/paid/total. Includes a Total column (sum of selected quarters) and all-book totals.
  */
 export async function getAuthorRoyaltyReportData(
   params: AuthorRoyaltyReportParams
@@ -227,7 +227,7 @@ export async function getAuthorRoyaltyReportData(
     periods.map((p, i) => [p.key, i])
   );
   const numPeriods = periods.length;
-  const lastPeriodIndex = numPeriods - 1; // "all-time"
+  const totalPeriodIndex = numPeriods - 1; // "Total" = sum of selected quarters
   const quarterPeriodKeys = new Set(
     periods.slice(0, -1).map((p) => p.key)
   );
@@ -264,12 +264,12 @@ export async function getAuthorRoyaltyReportData(
       addToCell(cell, s.quantity, s.handsold, s.paid, s.authorRoyalty);
       const allBooksCell = cells[allBooksRowIndex][periodIdx];
       addToCell(allBooksCell, s.quantity, s.handsold, s.paid, s.authorRoyalty);
+      // Total column = sum of selected quarters only
+      const totalCell = cells[rowIdx][totalPeriodIndex];
+      addToCell(totalCell, s.quantity, s.handsold, s.paid, s.authorRoyalty);
+      const allBooksTotal = cells[allBooksRowIndex][totalPeriodIndex];
+      addToCell(allBooksTotal, s.quantity, s.handsold, s.paid, s.authorRoyalty);
     }
-
-    const allTimeCell = cells[rowIdx][lastPeriodIndex];
-    addToCell(allTimeCell, s.quantity, s.handsold, s.paid, s.authorRoyalty);
-    const allBooksAllTime = cells[allBooksRowIndex][lastPeriodIndex];
-    addToCell(allBooksAllTime, s.quantity, s.handsold, s.paid, s.authorRoyalty);
   }
 
   return {

@@ -113,13 +113,14 @@ export async function getBooksSortedByTotalSales(
       b.print_cost,
       b.series_order,
       ser.name AS series_name,
+      b.cover_art_path,
       COALESCE(SUM(s.quantity), 0)::INTEGER AS total_sales
     FROM books b
     INNER JOIN authors a ON a.id = b."authorId"
     LEFT JOIN sales s ON s.book_id = b.id
     LEFT JOIN series ser ON ser.id = b.series_id
     ${whereClause}
-    GROUP BY b.id, b.title, a.name, b.isbn13, b.isbn10, b.publication_date, b.dist_author_royalty_rate, b.hand_sold_author_royalty_rate, b.cover_price, b.print_cost, b.series_order, ser.name
+    GROUP BY b.id, b.title, a.name, b.isbn13, b.isbn10, b.publication_date, b.dist_author_royalty_rate, b.hand_sold_author_royalty_rate, b.cover_price, b.print_cost, b.series_order, ser.name, b.cover_art_path
     ORDER BY total_sales ${orderDirection}, b.title ASC
     LIMIT $${limitParamIndex}
     OFFSET $${offsetParamIndex}
@@ -151,6 +152,7 @@ export async function getBooksSortedByTotalSales(
       print_cost: string;
       series_order: number | null;
       series_name: string | null;
+      cover_art_path: string | null;
       total_sales: number;
     }>>(resultsQuery, ...allParams),
     prisma.$queryRawUnsafe<Array<{ total: bigint }>>(
@@ -182,6 +184,7 @@ export async function getBooksSortedByTotalSales(
       printCost: Number(row.print_cost),
       seriesName: row.series_name,
       seriesOrder: row.series_order,
+      coverArtPath: row.cover_art_path ?? null,
       totalSales: row.total_sales,
     };
   });

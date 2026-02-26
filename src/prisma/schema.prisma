@@ -62,6 +62,7 @@ model Book {
   publicationDate           DateTime  @map("publication_date") // First day of publication month (e.g. 2024-01-01)
   seriesId                  Int?      @map("series_id") // Optional: book can belong to at most one series
   seriesOrder               Int?      @map("series_order") // Position in series (1, 2, 3, ...) when part of a series
+  coverArtPath              String?   @map("cover_art_path") // Supabase Storage path in Cover-Art bucket
   createdAt                 DateTime  @default(now()) @map("created_at")
   updatedAt                 DateTime  @updatedAt @map("updated_at")
 

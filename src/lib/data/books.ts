@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "../prisma";
+import { deleteCoverArt } from "../supabase/storage";
 import { getBooksSortedByTotalSales } from "./books-queries";
 
 /** Build YYYY-MM sort key from publication date */
@@ -27,6 +28,7 @@ export interface BookListItem {
   totalSales: number;
   seriesName: string | null;
   seriesOrder: number | null;
+  coverArtPath: string | null;
 }
 
 // Series type for UI
@@ -54,6 +56,7 @@ export interface CreateBookInput {
   seriesId?: number | null; // Existing series ID, or null for no series
   seriesOrder?: number | null; // Position in series (1, 2, 3, ...)
   newSeriesName?: string; // Name for new series (if creating new series)
+  coverArtPath?: string | null; // Optional; cover is usually added on edit
 }
 
 export interface UpdateBookInput extends Partial<CreateBookInput> {
@@ -63,6 +66,8 @@ export interface UpdateBookInput extends Partial<CreateBookInput> {
   /** Set to null to remove book from series. */
   seriesId?: number | null;
   seriesOrder?: number | null;
+  /** Set to null to clear cover art path. */
+  coverArtPath?: string | null;
 }
 
 export interface BookDetail {
@@ -89,6 +94,7 @@ export interface BookDetail {
   seriesId: number | null;
   seriesOrder: number | null;
   seriesName: string | null;
+  coverArtPath: string | null;
   sales?: import("./records").SaleListItem[]; // Sales records for this book
 }
 
@@ -223,6 +229,7 @@ export async function getAllBooks(): Promise<BookListItem[]> {
       totalSales,
       seriesName: book.series?.name ?? null,
       seriesOrder: book.seriesOrder ?? null,
+      coverArtPath: book.coverArtPath ?? null,
     };
   });
 }
@@ -354,6 +361,7 @@ export async function getBooksData({
       totalSales,
       seriesName: book.series?.name ?? null,
       seriesOrder: book.seriesOrder ?? null,
+      coverArtPath: book.coverArtPath ?? null,
     };
   });
 
@@ -425,6 +433,7 @@ export async function getBookById(id: number): Promise<BookDetail | null> {
     seriesId: book.seriesId,
     seriesOrder: book.seriesOrder,
     seriesName: book.series?.name ?? null,
+    coverArtPath: book.coverArtPath ?? null,
     // Sales list is loaded separately via getSalesByBookId (paginated)
     sales: undefined,
   };
@@ -605,6 +614,9 @@ export async function updateBook(
       }
       if (input.seriesOrder !== undefined) {
         updateData.seriesOrder = input.seriesOrder ?? null;
+      }
+      if (input.coverArtPath !== undefined) {
+        updateData.coverArtPath = input.coverArtPath ?? null;
       } else if (
         input.seriesId != null &&
         existingBook.seriesId !== input.seriesId
@@ -761,6 +773,11 @@ export async function deleteBook(
 
     const seriesIdBeforeDelete = book.seriesId ?? null;
     const deletedSeriesOrder = book.seriesOrder ?? null;
+
+    // Remove cover art from storage if present
+    if (book.coverArtPath) {
+      await deleteCoverArt(book.coverArtPath);
+    }
 
     // Delete the book. Sales records are deleted automatically (FK onDelete: Cascade).
     await prisma.book.delete({

@@ -8,6 +8,15 @@ import {
   TableHead,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { AuthorGroup, markAllPaid } from "@/lib/data/author-payment";
 import { cn } from "@/lib/utils";
 import { SaleListItem } from "@/lib/data/records";
@@ -34,7 +43,12 @@ export default function AuthorPaymentsTable({
   showAll,
 }: AuthorPaymentsTableProps) {
   const router = useRouter();
-  const [loading, setLoading] = useState(false); // Add loading state
+  const [confirmingAuthor, setConfirmingAuthor] = useState<{
+    id: number;
+    name: string;
+  } | null>(null);
+  const [loadingAuthorId, setLoadingAuthorId] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const handleRowClick = (sale: SaleListItem) => {
     router.push(`/sales/records/${sale.id}?from=payments`);
@@ -47,24 +61,29 @@ export default function AuthorPaymentsTable({
     router.push(`/sales/payments?${params.toString()}`);
   };
 
-  const handleMarkAllPaid = async (
-    authorId: number,
-    authorName: string
-  ) => {
+  const openConfirm = (authorId: number, authorName: string) => {
+    setError(null);
+    setConfirmingAuthor({ id: authorId, name: authorName });
+  };
 
-    if (!confirm(`Mark all unpaid royalties for ${authorName} as paid?`)) {
-      return;
-    }
-
-    setLoading(true);
-    const result = await markAllPaid(authorId);
-    setLoading(false);
-
+  const handleConfirmMarkAllPaid = async () => {
+    if (!confirmingAuthor) return;
+    setLoadingAuthorId(confirmingAuthor.id);
+    setError(null);
+    const result = await markAllPaid(confirmingAuthor.id);
+    setLoadingAuthorId(null);
     if (result.success) {
-      alert(result.message); // "Marked 5 sale(s) as paid"
-      router.refresh(); // Refresh to show updated data
+      setConfirmingAuthor(null);
+      router.refresh();
     } else {
-      alert(result.error);
+      setError(result.error ?? "Failed to mark as paid");
+    }
+  };
+
+  const closeDialog = () => {
+    if (loadingAuthorId === null) {
+      setConfirmingAuthor(null);
+      setError(null);
     }
   };
 
@@ -111,17 +130,23 @@ export default function AuthorPaymentsTable({
                 <TableCell colSpan={2} className="text-right">
                   <button
                     onClick={() =>
-                      handleMarkAllPaid(group.authorId, group.author)
+                      openConfirm(group.authorId, group.author)
                     }
-                    disabled={loading || group.unpaidTotal === 0}
+                    disabled={
+                      loadingAuthorId === group.authorId ||
+                      !group.sales.some((s) => s.paid === "pending")
+                    }
                     className={cn(
                       "text-sm font-medium transition-colors px-3 py-1 rounded",
-                      group.unpaidTotal === 0 || loading
+                      !group.sales.some((s) => s.paid === "pending") ||
+                        loadingAuthorId === group.authorId
                         ? "text-gray-400 cursor-not-allowed"
                         : "text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20"
                     )}
                   >
-                    {loading ? "Processing..." : "Mark all as paid"}
+                    {loadingAuthorId === group.authorId
+                      ? "Processing..."
+                      : "Mark all as paid"}
                   </button>
                 </TableCell>
               </TableRow>
@@ -222,6 +247,45 @@ export default function AuthorPaymentsTable({
           onPageChange={handlePageChange}
         />
       )}
+
+      {/* Mark all as paid confirmation dialog */}
+      <Dialog open={!!confirmingAuthor} onOpenChange={(open) => !open && closeDialog()}>
+        <DialogContent
+          className="sm:max-w-md"
+          onPointerDownOutside={(e) => loadingAuthorId !== null && e.preventDefault()}
+          onEscapeKeyDown={(e) => loadingAuthorId !== null && e.preventDefault()}
+        >
+          <DialogHeader>
+            <DialogTitle>Mark all as paid?</DialogTitle>
+            <DialogDescription asChild>
+              <div className="space-y-2 pt-1">
+                <p>
+                  Mark all unpaid royalties for <strong>{confirmingAuthor?.name}</strong> as
+                  paid? This cannot be undone.
+                </p>
+                {error && (
+                  <p className="text-destructive text-sm font-medium">{error}</p>
+                )}
+              </div>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 pt-4">
+            <Button
+              variant="outline"
+              onClick={closeDialog}
+              disabled={loadingAuthorId !== null}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleConfirmMarkAllPaid}
+              disabled={loadingAuthorId !== null}
+            >
+              {loadingAuthorId !== null ? "Processing..." : "Mark all as paid"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

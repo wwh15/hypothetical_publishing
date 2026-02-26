@@ -73,6 +73,16 @@ export default async function BookDetailPage({ params, searchParams }: PageProps
         <section>
           <h2 className="text-xl font-semibold mb-4">Basic Information</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {book.coverArtPath && (
+              <div className="md:col-span-2">
+                <label className="text-sm font-medium text-muted-foreground block mb-2">Cover</label>
+                <img
+                  src={`/api/books/cover?path=${encodeURIComponent(book.coverArtPath)}`}
+                  alt={`Cover for ${book.title}`}
+                  className="max-h-80 w-auto object-contain rounded border border-gray-200 dark:border-gray-600"
+                />
+              </div>
+            )}
             <div>
               <label className="text-sm font-medium text-muted-foreground">Title</label>
               <p className="text-lg">{book.title}</p>

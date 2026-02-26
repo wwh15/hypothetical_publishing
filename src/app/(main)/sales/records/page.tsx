@@ -65,11 +65,6 @@ export default async function SalesRecordsPage({
       <div className="mb-8 space-y-6">
         {/* Navigation Actions */}
         <div className="flex flex-col sm:flex-row gap-3">
-          <Link href="/sales">
-            <Button variant="outline" size="sm" className="w-full sm:w-auto">
-              ← Back to Sales Dashboard
-            </Button>
-          </Link>
           <Link href="/sales/add-record">
             <Button size="sm" className="w-full sm:w-auto">
               Add New Sale Record

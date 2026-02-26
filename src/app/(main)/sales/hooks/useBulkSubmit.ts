@@ -1,16 +1,30 @@
 "use client";
 
 import { useMemo } from "react";
-import type { ParsedSaleRow } from "./useBulkPastePreview";
 import type { PendingSaleItem } from "@/lib/data/records";
 import { BookListItem } from "@/lib/data/books";
 import { 
   normalizeCurrency, 
   normalizeQuantity, 
   normalizeISBN, // Import this!
-  validateDatePeriod, 
-  validatePositiveNumber 
+  validateDatePeriod,
+  validateCurrency,
+  validateQuantity, 
 } from "@/lib/validation";
+
+export type ParsedSaleRow = {
+  line: number;
+  isbn: string;
+  title: string;
+  author: string;
+  format: "Paperback" | "Hardcover";
+  grossQuantity: number;
+  netQuantity: number;
+  netCompensation: number;
+  salesMarket: string;
+  source: "DISTRIBUTOR" | "HAND_SOLD";
+  raw: string;
+};
 
 export function useBulkPasteSubmit(
   booksData: BookListItem[],
@@ -57,9 +71,9 @@ export function useBulkPasteSubmit(
 
       // Business Logic Validation
       const dateCheck = validateDatePeriod(selectedDate.year, selectedDate.month);
-      const revenueCheck = validatePositiveNumber(publisherRevenue, "Publisher Revenue");
-      const royaltyCheck = validatePositiveNumber(authorRoyalty, "Author Royalty");
-      const qtyCheck = validatePositiveNumber(quantity, "Quantity");
+      const revenueCheck = validateCurrency(publisherRevenue);
+      const royaltyCheck = validateCurrency(authorRoyalty);
+      const qtyCheck = validateQuantity(quantity);
       
       if (!revenueCheck.success || !royaltyCheck.success || !qtyCheck.success || !dateCheck.success) {
         const rowErrors: Record<string, string> = {};
