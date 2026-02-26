@@ -91,37 +91,66 @@ function matchAuthor(
   );
 }
 
+// Open Library often appends volume number, e.g. "Song of Ice and Fire (3)". Strip that for matching.
+function normalizeSeriesNameForMatch(name: string): string {
+  return name
+    .trim()
+    .replace(/\s*\(\s*#?\d+\s*\)\s*$/, "") // trailing "(3)" or "(#3)"
+    .trim();
+}
+
 // Resolve Open Library series name to an internal series (case-insensitive, normalized whitespace).
 function matchSeries(
   olSeriesName: string,
   seriesList: { id: number; name: string }[]
 ): { id: number; name: string } | null {
-  const normalized = olSeriesName.toLowerCase().replace(/\s+/g, " ").trim();
+  const normalized = normalizeSeriesNameForMatch(olSeriesName)
+    .toLowerCase()
+    .replace(/\s+/g, " ");
   if (!normalized) return null;
   return (
     seriesList.find(
       (s) =>
-        s.name.trim().toLowerCase().replace(/\s+/g, " ") === normalized
+        normalizeSeriesNameForMatch(s.name).toLowerCase().replace(/\s+/g, " ") ===
+        normalized
     ) ?? null
   );
 }
 
-// Try to get series name from Open Library: edition.works[0] -> work -> series/serial_works.
+// Get series name from Open Library so we can string-match to our internal series.
+// Prefer the edition's "series" field when present (some books have it); otherwise
+// try work.series / work.serial_works.
 async function fetchSeriesNameFromEdition(
   editionData: { works?: { key: string }[]; series?: unknown }
 ): Promise<string | null> {
-  // Some editions might have series directly
+  // 1. Edition series field (string, string[], or objects with name/title/key)
   if (editionData.series != null) {
-    if (typeof editionData.series === "string" && editionData.series.trim())
-      return editionData.series.trim();
-    if (
-      Array.isArray(editionData.series) &&
-      editionData.series.length > 0 &&
-      typeof editionData.series[0] === "string"
-    )
-      return (editionData.series[0] as string).trim();
+    const raw = editionData.series;
+    if (typeof raw === "string" && raw.trim()) return raw.trim();
+    if (Array.isArray(raw) && raw.length > 0) {
+      const first = raw[0];
+      if (typeof first === "string" && first.trim()) return first.trim();
+      const obj = first as { name?: string; title?: string; key?: string } | undefined;
+      if (obj?.name?.trim()) return obj.name.trim();
+      if (obj?.title?.trim()) return obj.title.trim();
+      if (typeof obj?.key === "string") {
+        try {
+          const res = await fetch(
+            `https://openlibrary.org${obj.key}.json`,
+            { headers: { Accept: "application/json" } }
+          );
+          if (!res.ok) return null;
+          const data = (await res.json()) as { title?: string; name?: string };
+          const n = data.title ?? data.name;
+          return typeof n === "string" && n.trim() ? n.trim() : null;
+        } catch {
+          return null;
+        }
+      }
+    }
   }
 
+  // 2. Fallback: fetch work and read series/serial_works
   const works = editionData.works;
   if (!works?.length || !works[0]?.key) return null;
 
@@ -133,7 +162,6 @@ async function fetchSeriesNameFromEdition(
     if (!workRes.ok) return null;
     const work = (await workRes.json()) as Record<string, unknown>;
 
-    // serial_works: [{ series: { key: "/series/OL123S" } }] -> fetch series for name
     const serialWorks = work.serial_works as { series?: { key?: string } }[] | undefined;
     if (Array.isArray(serialWorks) && serialWorks.length > 0 && serialWorks[0]?.series?.key) {
       const seriesKey = serialWorks[0].series.key as string;
@@ -147,7 +175,6 @@ async function fetchSeriesNameFromEdition(
       return typeof name === "string" && name.trim() ? name.trim() : null;
     }
 
-    // series: [{ key: "...", name: "..." }] or [{ title: "..." }]
     const seriesArr = work.series as { key?: string; name?: string; title?: string }[] | undefined;
     if (Array.isArray(seriesArr) && seriesArr.length > 0) {
       const first = seriesArr[0];
