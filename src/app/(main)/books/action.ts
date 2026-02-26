@@ -19,6 +19,10 @@ import {
   SeriesBook,
 } from "@/lib/data/books";
 import { asyncGetAllAuthors } from "@/lib/data/author";
+import {
+  uploadBookCoverArt,
+  removeBookCoverArt,
+} from "@/lib/data/books";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -438,4 +442,40 @@ export async function deleteBook(id: number) {
   }
 
   return result;
+}
+
+// Upload cover art for a book (edit only)
+export async function uploadCoverArt(
+  bookId: number,
+  formData: FormData
+): Promise<{ success: true } | { success: false; error: string }> {
+  const file = formData.get("cover") as File | null;
+  if (!file || !(file instanceof File) || file.size === 0) {
+    return { success: false, error: "No file selected." };
+  }
+
+  const result = await uploadBookCoverArt(bookId, file);
+  if (!result.success) {
+    return result;
+  }
+
+  revalidatePath("/books");
+  revalidatePath(`/books/${bookId}`);
+  revalidatePath(`/books/${bookId}/edit`);
+  return { success: true };
+}
+
+// Remove cover art from a book
+export async function removeCoverArt(
+  bookId: number
+): Promise<{ success: true } | { success: false; error: string }> {
+  const result = await removeBookCoverArt(bookId);
+  if (!result.success) {
+    return result;
+  }
+
+  revalidatePath("/books");
+  revalidatePath(`/books/${bookId}`);
+  revalidatePath(`/books/${bookId}/edit`);
+  return { success: true };
 }

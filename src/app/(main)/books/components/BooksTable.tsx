@@ -46,6 +46,24 @@ export default function BooksTable({
 
   const columns: ColumnDef<BookListItem>[] = [
     {
+      key: "cover",
+      header: "Cover",
+      accessor: "coverArtPath",
+      sortable: false,
+      render: (row) => {
+        if (row.coverArtPath) {
+          return (
+            <img
+              src={`/api/books/cover?path=${encodeURIComponent(row.coverArtPath)}`}
+              alt=""
+              className="h-10 w-7 object-cover rounded border border-gray-200 dark:border-gray-600"
+            />
+          );
+        }
+        return <span className="text-muted-foreground text-xs">No cover</span>;
+      },
+    },
+    {
       key: "title",
       header: "Title",
       accessor: "title",
