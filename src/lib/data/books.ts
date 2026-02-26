@@ -5,6 +5,7 @@ import {
   deleteCoverArt,
 } from "../supabase/storage";
 import { getBooksSortedByTotalSales } from "./books-queries";
+import { SortColumn } from "../types/sort";
 
 /** Build YYYY-MM sort key from publication date */
 export function publicationSortKeyFromDate(d: Date): string {
@@ -133,22 +134,28 @@ function flipOrderDir(
   return result as Prisma.BookOrderByWithRelationInput;
 }
 
-function buildOrderBy(
-  sortBy: string,
-  sortDir: "asc" | "desc"
-): Prisma.BookOrderByWithRelationInput | Prisma.BookOrderByWithRelationInput[] {
-  const base = SORT_FIELD_MAP[sortBy];
-  if (!base) return { title: "asc" };
-
-  const applyDir = (
-    o: Prisma.BookOrderByWithRelationInput
-  ): Prisma.BookOrderByWithRelationInput =>
-    sortDir === "desc" ? flipOrderDir(o) : o;
-
-  if (Array.isArray(base)) {
-    return base.map(applyDir) as Prisma.BookOrderByWithRelationInput[];
+/** Build Prisma multi-column orderBy from SortColumn[] */
+function buildMultiOrderBy(
+  sortColumns: SortColumn[]
+): Prisma.BookOrderByWithRelationInput[] {
+  const result: Prisma.BookOrderByWithRelationInput[] = [];
+  for (const col of sortColumns) {
+    const base = SORT_FIELD_MAP[col.field];
+    if (!base) continue;
+    const applyDir = (
+      o: Prisma.BookOrderByWithRelationInput
+    ): Prisma.BookOrderByWithRelationInput =>
+      col.direction === "desc" ? flipOrderDir(o) : o;
+    if (Array.isArray(base)) {
+      result.push(...base.map(applyDir));
+    } else {
+      result.push(applyDir(base));
+    }
   }
-  return applyDir(base);
+  if (result.length === 0) {
+    result.push({ title: "asc" });
+  }
+  return result;
 }
 
 // Get all series
@@ -242,14 +249,12 @@ export async function getBooksData({
   search,
   page = 1,
   pageSize = 20,
-  sortBy,
-  sortDir,
+  sortColumns,
 }: {
   search?: string;
   page?: number;
   pageSize?: number;
-  sortBy?: string;
-  sortDir?: "asc" | "desc";
+  sortColumns?: SortColumn[];
 }): Promise<{
   items: BookListItem[];
   total: number;
@@ -316,22 +321,22 @@ export async function getBooksData({
     where.OR = orConditions;
   }
 
-  // When sorting by totalSales, use raw SQL to compute SUM(sales.quantity) in the database
-  // This avoids loading all books and sales into memory
-  const sortByTotalSales = sortBy === "totalSales" && sortDir;
+  const cols = sortColumns ?? [];
 
-  if (sortByTotalSales) {
+  // When any sort column is totalSales, use raw SQL to compute SUM(sales.quantity)
+  const hasTotalSales = cols.some((c) => c.field === "totalSales");
+
+  if (hasTotalSales) {
     return getBooksSortedByTotalSales(
       { search: trimmedSearch },
       { page: currentPage, pageSize: limit },
-      { sortDir }
+      cols
     );
   }
 
-  const orderBy =
-    sortBy && sortDir
-      ? buildOrderBy(sortBy, sortDir)
-      : { title: "asc" as const };
+  const orderBy = cols.length > 0
+    ? buildMultiOrderBy(cols)
+    : [{ title: "asc" as const }];
 
   const [books, total] = await Promise.all([
     prisma.book.findMany({

@@ -1,5 +1,6 @@
 import { prisma } from "../prisma";
 import { BookListItem, publicationSortKeyFromDate } from "./books";
+import { SortColumn } from "../types/sort";
 
 interface SearchFilters {
   search?: string;
@@ -10,8 +11,40 @@ interface PaginationParams {
   pageSize: number;
 }
 
-interface SortParams {
-  sortDir: "asc" | "desc";
+/**
+ * Whitelist mapping column keys to SQL column references.
+ * "series" expands to two terms: ser.name, then b.series_order.
+ */
+const SQL_SORT_FIELD_MAP: Record<string, string[]> = {
+  title: ["b.title"],
+  author: ["a.name"],
+  isbn13: ["b.isbn13"],
+  isbn10: ["b.isbn10"],
+  publication: ["b.publication_date"],
+  distRoyaltyRate: ["b.dist_author_royalty_rate"],
+  totalSales: ["total_sales"],
+  series: ["ser.name", "b.series_order"],
+};
+
+/**
+ * Build a multi-column ORDER BY clause from SortColumn[].
+ * Whitelist-based — only known fields are emitted; unknown fields are skipped.
+ */
+export function buildSqlOrderBy(sortColumns: SortColumn[]): string {
+  const terms: string[] = [];
+  for (const col of sortColumns) {
+    const sqlCols = SQL_SORT_FIELD_MAP[col.field];
+    if (!sqlCols) continue;
+    const dir = col.direction === "desc" ? "DESC" : "ASC";
+    for (const sqlCol of sqlCols) {
+      terms.push(`${sqlCol} ${dir}`);
+    }
+  }
+  // Fallback: if no valid columns, default to title ASC
+  if (terms.length === 0) {
+    terms.push("b.title ASC");
+  }
+  return terms.join(", ");
 }
 
 /**
@@ -65,13 +98,13 @@ function buildSearchWhereClause(
 }
 
 /**
- * Fetches books sorted by total sales using raw SQL aggregation.
- * This is more efficient than loading all books and computing totals in memory.
+ * Fetches books using raw SQL when any sort column is totalSales.
+ * Supports multi-column ORDER BY via buildSqlOrderBy.
  */
 export async function getBooksSortedByTotalSales(
   filters: SearchFilters,
   pagination: PaginationParams,
-  sort: SortParams
+  sortColumns: SortColumn[]
 ): Promise<{
   items: BookListItem[];
   total: number;
@@ -80,7 +113,6 @@ export async function getBooksSortedByTotalSales(
 }> {
   const { search } = filters;
   const { page, pageSize } = pagination;
-  const { sortDir } = sort;
 
   const trimmedSearch = search?.trim();
   const currentPage = Math.max(1, page || 1);
@@ -90,8 +122,8 @@ export async function getBooksSortedByTotalSales(
   const { whereClause, params: searchParams } =
     buildSearchWhereClause(trimmedSearch);
 
-  // Build ORDER BY clause
-  const orderDirection = sortDir === "desc" ? "DESC" : "ASC";
+  // Build multi-column ORDER BY clause
+  const orderByClause = buildSqlOrderBy(sortColumns);
 
   // Calculate parameter indices for LIMIT and OFFSET
   const limitParamIndex = searchParams.length + 1;
@@ -100,7 +132,7 @@ export async function getBooksSortedByTotalSales(
   // Query to get paginated results with total sales computed in DB
   // Note: Column name is "authorId" (camelCase) as created in migration
   const resultsQuery = `
-    SELECT 
+    SELECT
       b.id,
       b.title,
       a.name AS author,
@@ -121,7 +153,7 @@ export async function getBooksSortedByTotalSales(
     LEFT JOIN series ser ON ser.id = b.series_id
     ${whereClause}
     GROUP BY b.id, b.title, a.name, b.isbn13, b.isbn10, b.publication_date, b.dist_author_royalty_rate, b.hand_sold_author_royalty_rate, b.cover_price, b.print_cost, b.series_order, ser.name, b.cover_art_path
-    ORDER BY total_sales ${orderDirection}, b.title ASC
+    ORDER BY ${orderByClause}
     LIMIT $${limitParamIndex}
     OFFSET $${offsetParamIndex}
   `;
