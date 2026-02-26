@@ -3,7 +3,13 @@
 import { useState } from "react";
 import { PendingSaleItem } from "@/lib/data/records";
 import { BookListItem } from "@/lib/data/books";
-import { validateDatePeriod, validatePositiveNumber } from "@/lib/validation";
+import {
+  validateDatePeriod,
+  normalizeCurrency,
+  normalizeQuantity,
+  validateRoyaltyLimit,
+  validateQuantity,
+} from "@/lib/validation";
 
 interface FormData {
   month: string;
@@ -17,20 +23,6 @@ interface FormData {
   source: "DISTRIBUTOR" | "HAND_SOLD";
 }
 
-/** Get the royalty rate (as percentage) for a book based on sale source */
-function getRateForSource(book: BookListItem, source: "DISTRIBUTOR" | "HAND_SOLD"): number {
-  return source === "HAND_SOLD" ? book.handSoldRoyaltyRate : book.distRoyaltyRate;
-}
-
-/** Auto-calculate revenue for hand-sold: (coverPrice - printCost) * quantity */
-function calcHandSoldRevenue(book: BookListItem, quantity: number): string | null {
-  if (book.coverPrice != null && book.printCost != null && quantity > 0) {
-    const rev = (book.coverPrice - book.printCost) * quantity;
-    return rev.toFixed(2);
-  }
-  return null;
-}
-
 export function useSalesForm(
   books: BookListItem[],
   onAddRecord: (record: PendingSaleItem) => void,
@@ -39,10 +31,7 @@ export function useSalesForm(
   const [formData, setFormData] = useState<FormData>({
     month: "",
     year: new Date().getFullYear().toString(),
-    bookId:
-      initialBookId != null && Number.isFinite(initialBookId)
-        ? String(initialBookId)
-        : "",
+    bookId: initialBookId ? String(initialBookId) : "",
     quantity: "",
     publisherRevenue: "",
     authorRoyalty: "",
@@ -53,115 +42,125 @@ export function useSalesForm(
 
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
-  const handleInputChange = (field: string, value: string | boolean) => {
-    setFormData((prev) => {
-      const next = {
-        ...prev,
-        [field]: value,
-      } as FormData;
+  const calculateDerivedValues = (next: FormData) => {
+    const book = books.find((b) => b.id === parseInt(next.bookId));
+    if (!book) return next;
 
-      const book = books.find((b) => b.id === parseInt(next.bookId));
-      const qty = parseInt(next.quantity) || 0;
-
-      // Auto-calculate revenue for hand-sold
-      if (next.source === "HAND_SOLD" && book && (field === "quantity" || field === "bookId" || field === "source")) {
-        const autoRevenue = calcHandSoldRevenue(book, qty);
-        if (autoRevenue) {
-          next.publisherRevenue = autoRevenue;
-        }
-      }
-
-      // Derive author royalty
-      if (field === "publisherRevenue" || field === "bookId" || field === "source" || field === "quantity") {
-        const rev = parseFloat(next.publisherRevenue);
-        const rate = book ? getRateForSource(book, next.source) : 0;
-        next.authorRoyalty =
-          book && !isNaN(rev)
-            ? ((rev * rate) / 100).toFixed(2)
-            : "";
-      }
-      return next;
-    });
-    
-    // Clear error for this field when user starts typing again
-    if (formErrors[field]) {
-      setFormErrors(prev => {
-        const { [field]: _, ...rest } = prev;
-        return rest;
-      });
+    // Hand-Sold Auto-Revenue
+    if (
+      next.source === "HAND_SOLD" &&
+      book.coverPrice != null &&
+      book.printCost != null
+    ) {
+      const qty = normalizeQuantity(next.quantity);
+      const rev = (book.coverPrice - book.printCost) * qty;
+      next.publisherRevenue = normalizeCurrency(rev).toFixed(2);
     }
+
+    // Royalty Calculation
+    const rev = normalizeCurrency(next.publisherRevenue);
+    const rate =
+      next.source === "HAND_SOLD"
+        ? book.handSoldRoyaltyRate
+        : book.distRoyaltyRate;
+    const royalty = normalizeCurrency((rev * (rate ?? 0)) / 100);
+    next.authorRoyalty = next.publisherRevenue !== "" ? royalty.toFixed(2) : "";
+
+    return next;
+  };
+
+  // Inside useSalesForm.ts
+
+  const handleInputChange = (field: string, value: string | boolean | { month: string, year: string}) => {
+    setFormData((prev) => {
+      let next = { ...prev };
+
+      // Handle the special "date" object from MonthYearSelector
+      if (field === "date" && typeof value === "object") {
+        next.month = value.month;
+        next.year = value.year;
+      } else {
+        // Standard string/boolean updates
+        next = { ...next, [field]: value };
+      }
+
+      // Recalculate derived values (Hand-Sold Revenue, Royalties)
+      return calculateDerivedValues(next);
+    });
+
+    // Clear errors for date when updated
+    if (field === "date" && formErrors.date) {
+      setFormErrors(({ date: _, ...rest }) => rest);
+    } else if (formErrors[field]) {
+      setFormErrors(({ [field]: _, ...rest }) => rest);
+    }
+  };
+
+  const handleBlur = (field: "publisherRevenue") => {
+    setFormData((prev) => {
+      const rawValue = prev[field];
+      if (!rawValue || isNaN(Number(rawValue.replace(/[,\s]/g, "")))) {
+        return prev; 
+      }
+  
+      const next = { ...prev };
+      if (field === "publisherRevenue") next.publisherRevenue = normalizeCurrency(prev.publisherRevenue).toFixed(2);
+      
+      return calculateDerivedValues(next);
+    });
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setFormErrors({});
 
-    const selectedBook = books.find((b) => b.id === parseInt(formData.bookId));
-    if (!selectedBook) {
-      setFormErrors({ bookId: "Please select a valid book" });
-      return;
-    }
+    // 1. Context Checks
+    const book = books.find((b) => b.id === parseInt(formData.bookId));
+    if (!book) return setFormErrors({ bookId: "Please select a book" });
 
-    // Parse numeric values for validation
-    const revenue = parseFloat(formData.publisherRevenue);
-    const royalty = parseFloat(formData.authorRoyalty);
-    const quantity = parseInt(formData.quantity, 10);
-
-    // Run structured validations (Matches Bulk Flow)
     const dateCheck = validateDatePeriod(formData.year, formData.month);
-    const revenueCheck = validatePositiveNumber(revenue, "Publisher Revenue");
-    const royaltyCheck = validatePositiveNumber(royalty, "Author Royalty");
-    const qtyCheck = validatePositiveNumber(quantity, "Quantity");
+    if (!dateCheck.success) return setFormErrors({ date: dateCheck.error });
 
-    // Collect Errors
-    if (!revenueCheck.success || !royaltyCheck.success || !qtyCheck.success || !dateCheck.success) {
-      const errors: Record<string, string> = {};
-      if (!revenueCheck.success) errors.publisherRevenue = revenueCheck.error;
-      if (!royaltyCheck.success) errors.authorRoyalty = royaltyCheck.error;
-      if (!qtyCheck.success) errors.quantity = qtyCheck.error;
-      if (!dateCheck.success) errors.date = dateCheck.error;
-      
-      setFormErrors(errors);
-      return;
+    // 3. Validation Rules
+    const qtyCheck = validateQuantity(formData.quantity);
+    const revCheck = validateQuantity(formData.publisherRevenue);
+
+    if (!qtyCheck.success || !revCheck.success) {
+      return setFormErrors({
+        quantity: qtyCheck.success ? "" : qtyCheck.error,
+        publisherRevenue: revCheck.success ? "" : revCheck.error,
+      });
     }
 
-    const trimmedComment = formData.comment.trim();
+    const royaltyAmount = normalizeCurrency(formData.authorRoyalty);
+    const limitCheck = validateRoyaltyLimit(royaltyAmount, revCheck.data);
+    if (!limitCheck.success)
+      return setFormErrors({ authorRoyalty: limitCheck.error });
 
-    // Map to PendingSaleItem
-    const newRecord: PendingSaleItem = {
-      bookId: selectedBook.id,
-      title: selectedBook.title,
-      author: selectedBook.author,
-      date: dateCheck.data, // Using validated date string
+    // 4. Submit
+    onAddRecord({
+      bookId: book.id,
+      title: book.title,
+      author: book.author,
+      date: dateCheck.data,
       quantity: qtyCheck.data,
-      publisherRevenue: revenueCheck.data,
-      authorRoyalty: royaltyCheck.data,
+      publisherRevenue: revCheck.data,
+      authorRoyalty: royaltyAmount,
       royaltyOverridden: formData.royaltyOverridden,
       paid: false,
-      comment: trimmedComment || undefined,
+      comment: formData.comment.trim() || undefined,
       source: formData.source,
-    };
+    });
 
-    onAddRecord(newRecord);
-
-    // Reset Form
+    // Reset keeping month/year/book context
     setFormData((prev) => ({
-      month: prev.month,
-      year: prev.year,
-      bookId: prev.bookId,
+      ...prev,
       quantity: "",
       publisherRevenue: "",
       authorRoyalty: "",
-      royaltyOverridden: false,
       comment: "",
-      source: prev.source,
     }));
   };
 
-  return {
-    formData,
-    formErrors,
-    handleInputChange,
-    handleSubmit,
-  };
+  return { formData, formErrors, handleInputChange, handleBlur, handleSubmit };
 }
