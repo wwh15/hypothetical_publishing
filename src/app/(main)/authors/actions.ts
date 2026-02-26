@@ -1,9 +1,9 @@
 "use server";
 
-import { asyncAddAuthor, asyncDeleteAuthor, asyncGetAllAuthors, asyncGetAuthorBooks, asyncGetAuthorById, asyncGetAuthorsData, asyncUpdateAuthor, DeleteAuthorResponse, GetAuthorBooksResponse, GetAuthorByIdResponse, GetAuthorDataParams, GetAuthorsDataResult, UpdateAuthorRequest, UpdateAuthorResponse } from "@/lib/data/author";
+import { asyncAddAuthor, asyncDeleteAuthor, asyncGetAllAuthors, asyncGetAuthorBooks, asyncGetAuthorById, asyncGetAuthorsData, asyncUpdateAuthor, DeleteAuthorResponse, GetAuthorBooksResponse, GetAuthorByIdResponse, GetAuthorDataParams, GetAuthorsDataResult, NewAuthorInput, UpdateAuthorRequest, UpdateAuthorResponse } from "@/lib/data/author";
 import { Author, Prisma } from "@prisma/client";
 
-export async function addAuthor(data: Prisma.AuthorUncheckedCreateInput) {
+export async function addAuthor(data: NewAuthorInput) {
     return await asyncAddAuthor(data);
 }
 

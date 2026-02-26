@@ -47,26 +47,6 @@ function buildIsbnLookup(booksData: BookListItem[]): Map<string, BookListItem> {
   return map;
 }
 
-/**
- * Normalizes an author name to a canonical string for comparison.
- * - Lowercases everything
- * - Removes common titles/suffixes (PhD, Dr, etc.)
- * - Removes all punctuation
- * - Sorts name parts alphabetically (handles "Last, First" vs "First Last")
- */
-export function normalizeName(name: string | null | undefined): string {
-  if (!name) return "";
-
-  return name
-    .toLowerCase()
-    .replace(/\b(phd|dr|md|jr|sr|iii|ii|mfa|prof|mr|ms|mrs)\b\.?/g, "") // 1. Remove common titles and academic suffixes (including those with dots)
-    .replace(/[^a-z0-9\s]/g, "") // 2. Remove all non-alphanumeric characters except spaces
-    .split(/\s+/) // 3. Split into individual words
-    .filter((word) => word.length > 0) // 4. Remove empty strings (caused by double spaces or trailing punctuation)
-    .sort() // 5. Sort alphabetically so word order doesn't matter
-    .join(" "); // 6. Join back into a single string
-}
-
 export default function BulkPasteSalesPanel({
   onAddRecord,
   booksData,

@@ -8,6 +8,13 @@ const cleanNumericString = (val: string | number): string =>
 /** * Identity & String Validation 
  */
 
+export const normalizeString = (input: string | null | undefined): string => {
+  if (!input) return "";
+  
+  return input
+    .trim()
+    .replace(/\s+/g, " "); // Replaces any sequence of whitespace with a single space
+};
 export const validateRequiredString = (val: string | null | undefined, label: string): ValidationResult<string> => {
   const trimmed = val?.trim();
   return trimmed ? { success: true, data: trimmed } : { success: false, error: `Field [${label}] is missing a value` };
@@ -27,6 +34,11 @@ export const validateEmail = (email: string): ValidationResult<string> => {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!trimmed) return { success: false, error: "Email is required" };
   return emailRegex.test(trimmed) ? { success: true, data: trimmed } : { success: false, error: "Invalid email address" };
+};
+
+export const normalizeEmail = (email: string | null | undefined): string => {
+  if (!email) return "";
+  return email.trim().toLowerCase();
 };
 
 /** * Currency & Numeric Logic 

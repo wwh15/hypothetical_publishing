@@ -141,6 +141,9 @@ export default function AuthorForm({ mode, initialData }: AuthorFormProps) {
             ? "Update the details for this author. Changes will reflect across all associated books."
             : "Enter the details for the new author to link them to books and royalties."}
         </p>
+        <p className="text-sm text-muted-foreground">
+          Please use <strong>FirstName LastName</strong> format for <strong>Full Name</strong> field (e.g., John Smith or Jane Doe, John Doe).
+        </p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -154,6 +157,7 @@ export default function AuthorForm({ mode, initialData }: AuthorFormProps) {
             value={formData.name}
             onChange={handleChange}
             className={cn(errors.name && "border-red-500")}
+            placeholder="John Doe"
           />
           {errors.name && <p className="text-xs text-red-500">{errors.name}</p>}
         </div>
@@ -169,6 +173,7 @@ export default function AuthorForm({ mode, initialData }: AuthorFormProps) {
             value={formData.email}
             onChange={handleChange}
             className={cn(errors.email && "border-red-500")}
+            placeholder="name@example.com"
           />
           {errors.email && (
             <p className="text-xs text-red-500">{errors.email}</p>

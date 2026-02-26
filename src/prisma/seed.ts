@@ -5,11 +5,13 @@
  * "Click the sale for Ingram Test Book, January 2025, Distributor, Paid").
  *
  * Order: clear → authors → series → books → sales.
+ * Authors use canonicalName + normalize/upsert (schema with canonicalName).
  */
-
 import "dotenv/config";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Author } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
+import { getCanonicalAuthorKey } from "@/lib/data/author";
+import { normalizeEmail, normalizeString } from "@/lib/validation";
 
 const prisma = new PrismaClient();
 
@@ -23,26 +25,32 @@ async function main() {
   await prisma.book.deleteMany();
   await prisma.series.deleteMany();
   await prisma.author.deleteMany();
+  await prisma.user.deleteMany();
 
-  // ─── AUTHORS ─────────────────────────────────────────────────────────────
-  const testAuthor = await prisma.author.create({
-    data: { name: "Test Author", email: "test.author@example.com" },
-  });
-  const orphanAuthor = await prisma.author.create({
-    data: { name: "Orphan Author", email: "orphan.author@example.com" },
-  });
-  const george = await prisma.author.create({
-    data: { name: "George R. R. Martin", email: "george.martin@example.com" },
-  });
-  const alice = await prisma.author.create({
-    data: { name: "Alice Johnson", email: "alice.johnson@example.com" },
-  });
-  const bob = await prisma.author.create({
-    data: { name: "Bob Smith", email: "bob.smith@example.com" },
-  });
-  const carol = await prisma.author.create({
-    data: { name: "Carol Williams", email: "carol.williams@example.com" },
-  });
+  // ─── AUTHORS (test plan: Test Author, Orphan Author, Alice Johnson, Bob Smith, Carol Williams; qa also had George) ───
+  const authorsToCreate = [
+    { name: "Test Author", email: "test.author@example.com" },
+    { name: "Orphan Author", email: "orphan.author@example.com" },
+    { name: "George R. R. Martin", email: "george.martin@example.com" },
+    { name: "Alice Johnson", email: "alice.johnson@example.com" },
+    { name: "Bob Smith", email: "bob.smith@example.com" },
+    { name: "Carol Williams", email: "carol.williams@example.com" },
+  ];
+
+  const authorMap: Record<string, Author> = {};
+  for (const author of authorsToCreate) {
+    const fingerprint = getCanonicalAuthorKey(author.name);
+    const savedAuthor = await prisma.author.upsert({
+      where: { canonicalName: fingerprint },
+      update: {},
+      create: {
+        name: normalizeString(author.name),
+        email: normalizeEmail(author.email),
+        canonicalName: fingerprint,
+      },
+    });
+    authorMap[author.name] = savedAuthor;
+  }
   console.log("✅ Authors: Test Author, Orphan Author, Alice Johnson, Bob Smith, Carol Williams.");
 
   // ─── SERIES ──────────────────────────────────────────────────────────────
@@ -58,7 +66,7 @@ async function main() {
   const ingramTestBook = await prisma.book.create({
     data: {
       title: "Ingram Test Book",
-      authorId: testAuthor.id,
+      authorId: authorMap["Test Author"].id,
       isbn13: INGRAM_TEST_ISBN13,
       isbn10: "0599999999",
       distAuthorRoyaltyRate: 0.5,
@@ -74,7 +82,7 @@ async function main() {
   const noSalesBook = await prisma.book.create({
     data: {
       title: "No-Sales Book",
-      authorId: testAuthor.id,
+      authorId: authorMap["Test Author"].id,
       isbn13: "9780599888888",
       distAuthorRoyaltyRate: 0.5,
       handSoldAuthorRoyaltyRate: 0.2,
@@ -89,7 +97,7 @@ async function main() {
   const starshipDawn = await prisma.book.create({
     data: {
       title: "Starship Dawn",
-      authorId: testAuthor.id,
+      authorId: authorMap["Test Author"].id,
       isbn13: "9781111111111",
       distAuthorRoyaltyRate: 0.5,
       handSoldAuthorRoyaltyRate: 0.2,
@@ -104,7 +112,7 @@ async function main() {
   const starshipExodus = await prisma.book.create({
     data: {
       title: "Starship Exodus",
-      authorId: testAuthor.id,
+      authorId: authorMap["Test Author"].id,
       isbn13: "9781111111112",
       distAuthorRoyaltyRate: 0.5,
       handSoldAuthorRoyaltyRate: 0.2,
@@ -119,7 +127,7 @@ async function main() {
   const mysteryAtHollow = await prisma.book.create({
     data: {
       title: "Mystery at the Hollow",
-      authorId: alice.id,
+      authorId: authorMap["Alice Johnson"].id,
       isbn13: "9782222222221",
       distAuthorRoyaltyRate: 0.5,
       handSoldAuthorRoyaltyRate: 0.2,
@@ -134,7 +142,7 @@ async function main() {
   const standaloneOne = await prisma.book.create({
     data: {
       title: "Standalone One",
-      authorId: bob.id,
+      authorId: authorMap["Bob Smith"].id,
       isbn13: "9783333333331",
       distAuthorRoyaltyRate: 0.5,
       handSoldAuthorRoyaltyRate: 0.2,
@@ -149,7 +157,7 @@ async function main() {
   const archiveVol1 = await prisma.book.create({
     data: {
       title: "Archive Vol 1",
-      authorId: carol.id,
+      authorId: authorMap["Carol Williams"].id,
       isbn13: "9784444444441",
       distAuthorRoyaltyRate: 0.5,
       handSoldAuthorRoyaltyRate: 0.2,
@@ -164,7 +172,7 @@ async function main() {
   const legacyVol1 = await prisma.book.create({
     data: {
       title: "Legacy Vol 1",
-      authorId: alice.id,
+      authorId: authorMap["Alice Johnson"].id,
       isbn13: "9785555555551",
       distAuthorRoyaltyRate: 0.5,
       handSoldAuthorRoyaltyRate: 0.2,
@@ -179,7 +187,7 @@ async function main() {
   const perspectiveVol1 = await prisma.book.create({
     data: {
       title: "Perspective Vol 1",
-      authorId: bob.id,
+      authorId: authorMap["Bob Smith"].id,
       isbn13: "9786666666661",
       distAuthorRoyaltyRate: 0.5,
       handSoldAuthorRoyaltyRate: 0.2,
@@ -194,7 +202,7 @@ async function main() {
   const chronicleVol1 = await prisma.book.create({
     data: {
       title: "Chronicle Vol 1",
-      authorId: carol.id,
+      authorId: authorMap["Carol Williams"].id,
       isbn13: "9787777777771",
       distAuthorRoyaltyRate: 0.5,
       handSoldAuthorRoyaltyRate: 0.2,
@@ -208,17 +216,17 @@ async function main() {
 
   // Extra books for pagination testing (21 total; default page size often 20)
   const paginationBooks = [
-    { title: "Pagination Book 11", isbn: "978888880001", authorId: testAuthor.id, year: 2023, month: 0 },
-    { title: "Pagination Book 12", isbn: "978888880002", authorId: alice.id, year: 2023, month: 1 },
-    { title: "Pagination Book 13", isbn: "978888880003", authorId: bob.id, year: 2023, month: 2 },
-    { title: "Pagination Book 14", isbn: "978888880004", authorId: carol.id, year: 2023, month: 3 },
-    { title: "Pagination Book 15", isbn: "978888880005", authorId: testAuthor.id, year: 2023, month: 4 },
-    { title: "Pagination Book 16", isbn: "978888880006", authorId: alice.id, year: 2023, month: 5 },
-    { title: "Pagination Book 17", isbn: "978888880007", authorId: bob.id, year: 2023, month: 6 },
-    { title: "Pagination Book 18", isbn: "978888880008", authorId: carol.id, year: 2023, month: 7 },
-    { title: "Pagination Book 19", isbn: "978888880009", authorId: testAuthor.id, year: 2023, month: 8 },
-    { title: "Pagination Book 20", isbn: "978888880010", authorId: alice.id, year: 2023, month: 9 },
-    { title: "Pagination Book 21", isbn: "978888880011", authorId: bob.id, year: 2023, month: 10 },
+    { title: "Pagination Book 11", isbn: "978888880001", authorId: authorMap["Test Author"].id, year: 2023, month: 0 },
+    { title: "Pagination Book 12", isbn: "978888880002", authorId: authorMap["Alice Johnson"].id, year: 2023, month: 1 },
+    { title: "Pagination Book 13", isbn: "978888880003", authorId: authorMap["Bob Smith"].id, year: 2023, month: 2 },
+    { title: "Pagination Book 14", isbn: "978888880004", authorId: authorMap["Carol Williams"].id, year: 2023, month: 3 },
+    { title: "Pagination Book 15", isbn: "978888880005", authorId: authorMap["Test Author"].id, year: 2023, month: 4 },
+    { title: "Pagination Book 16", isbn: "978888880006", authorId: authorMap["Alice Johnson"].id, year: 2023, month: 5 },
+    { title: "Pagination Book 17", isbn: "978888880007", authorId: authorMap["Bob Smith"].id, year: 2023, month: 6 },
+    { title: "Pagination Book 18", isbn: "978888880008", authorId: authorMap["Carol Williams"].id, year: 2023, month: 7 },
+    { title: "Pagination Book 19", isbn: "978888880009", authorId: authorMap["Test Author"].id, year: 2023, month: 8 },
+    { title: "Pagination Book 20", isbn: "978888880010", authorId: authorMap["Alice Johnson"].id, year: 2023, month: 9 },
+    { title: "Pagination Book 21", isbn: "978888880011", authorId: authorMap["Bob Smith"].id, year: 2023, month: 10 },
   ];
   for (const b of paginationBooks) {
     await prisma.book.create({
