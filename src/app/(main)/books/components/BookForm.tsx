@@ -61,6 +61,8 @@ export default function BookForm({
   >(null);
   const [isUploadingCover, setIsUploadingCover] = useState(false);
   const [coverError, setCoverError] = useState<string | null>(null);
+  const [pendingCoverFile, setPendingCoverFile] = useState<File | null>(null);
+  const [pendingCoverPreview, setPendingCoverPreview] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     title: "",
     author: "",
@@ -82,6 +84,15 @@ export default function BookForm({
   useEffect(() => {
     formInitializedRef.current = false;
   }, [bookId, mode]);
+
+  // Revoke object URL for pending cover preview on clear or unmount
+  useEffect(() => {
+    return () => {
+      if (pendingCoverPreview) {
+        URL.revokeObjectURL(pendingCoverPreview);
+      }
+    };
+  }, [pendingCoverPreview]);
 
   // Populate form with initial data if editing (only once per book/mode)
   useEffect(() => {
@@ -372,6 +383,18 @@ export default function BookForm({
 
       if (result.success) {
         const savedBookId = result.bookId!;
+
+        // Upload cover if we're creating and user selected a file
+        if (mode === "create" && pendingCoverFile) {
+          const coverFormData = new FormData();
+          coverFormData.set("cover", pendingCoverFile);
+          const uploadResult = await uploadCoverArt(savedBookId, coverFormData);
+          if (!uploadResult.success) {
+            setError(
+              "Book created, but cover upload failed. You can add a cover on the edit page."
+            );
+          }
+        }
 
         // Apply series order if user set it in the modal (with unsaved current book)
         if (
@@ -919,14 +942,17 @@ export default function BookForm({
         </div>
       </div>
 
-      {/* Cover art (edit mode only) */}
-      {mode === "edit" && bookId && (
+      {/* Cover art (edit and create - same UI) */}
+      {((mode === "edit" && bookId) || mode === "create") && (
         <div className="mt-6 p-4 border border-gray-200 dark:border-gray-700 rounded-lg space-y-4">
-          <h3 className="text-sm font-semibold">Cover art</h3>
+          <h3 className="text-sm font-semibold">
+            {mode === "create" ? "Cover art (optional)" : "Cover art"}
+          </h3>
           {coverError && (
             <p className="text-sm text-red-600 dark:text-red-400">{coverError}</p>
           )}
-          {initialData?.coverArtPath ? (
+          {/* Saved cover (edit) or pending preview (create) */}
+          {mode === "edit" && initialData?.coverArtPath ? (
             <div className="flex flex-wrap items-start gap-4">
               <img
                 src={`/api/books/cover?path=${encodeURIComponent(initialData.coverArtPath)}`}
@@ -941,7 +967,7 @@ export default function BookForm({
                   disabled={isUploadingCover}
                   onClick={async () => {
                     setCoverError(null);
-                    const result = await removeCoverArt(bookId);
+                    const result = await removeCoverArt(bookId!);
                     if (result.success) {
                       router.refresh();
                     } else {
@@ -950,6 +976,33 @@ export default function BookForm({
                   }}
                 >
                   Remove cover
+                </Button>
+              </div>
+            </div>
+          ) : null}
+          {mode === "create" && pendingCoverFile ? (
+            <div className="flex flex-wrap items-start gap-4">
+              {pendingCoverPreview && (
+                <img
+                  src={pendingCoverPreview}
+                  alt="Cover preview"
+                  className="h-40 w-28 object-cover rounded border border-gray-200 dark:border-gray-600"
+                />
+              )}
+              <div className="flex flex-col gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    if (pendingCoverPreview) {
+                      URL.revokeObjectURL(pendingCoverPreview);
+                    }
+                    setPendingCoverPreview(null);
+                    setPendingCoverFile(null);
+                  }}
+                >
+                  Clear
                 </Button>
               </div>
             </div>
@@ -965,16 +1018,25 @@ export default function BookForm({
                 const file = e.target.files?.[0];
                 if (!file) return;
                 setCoverError(null);
-                setIsUploadingCover(true);
-                const formData = new FormData();
-                formData.set("cover", file);
-                const result = await uploadCoverArt(bookId, formData);
-                setIsUploadingCover(false);
-                e.target.value = "";
-                if (result.success) {
-                  router.refresh();
+                if (mode === "edit" && bookId) {
+                  setIsUploadingCover(true);
+                  const formData = new FormData();
+                  formData.set("cover", file);
+                  const result = await uploadCoverArt(bookId, formData);
+                  setIsUploadingCover(false);
+                  e.target.value = "";
+                  if (result.success) {
+                    router.refresh();
+                  } else {
+                    setCoverError(result.error ?? "Upload failed");
+                  }
                 } else {
-                  setCoverError(result.error ?? "Upload failed");
+                  if (pendingCoverPreview) {
+                    URL.revokeObjectURL(pendingCoverPreview);
+                  }
+                  setPendingCoverFile(file);
+                  setPendingCoverPreview(URL.createObjectURL(file));
+                  e.target.value = "";
                 }
               }}
             />
@@ -984,6 +1046,7 @@ export default function BookForm({
           </div>
           <p className="text-xs text-muted-foreground">
             JPEG, PNG, GIF, or WebP. Max 5MB.
+            {mode === "create" && " You can also add a cover after saving."}
           </p>
         </div>
       )}
