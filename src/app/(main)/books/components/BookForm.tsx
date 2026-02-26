@@ -316,19 +316,43 @@ export default function BookForm({
         ? new Date(publicationYear, parseInt(formData.publicationMonth, 10) - 1, 1)
         : null;
 
+    // Required fields: isbn13, publicationDate, coverPrice, printCost
+    if (!isbn13?.trim()) {
+      setError("ISBN-13 is required.");
+      setIsSubmitting(false);
+      return;
+    }
+    if (!publicationDate) {
+      setError("Publication date is required.");
+      setIsSubmitting(false);
+      return;
+    }
+    const coverPriceNum = formData.coverPrice ? parseFloat(formData.coverPrice) : NaN;
+    if (Number.isNaN(coverPriceNum) || coverPriceNum < 0) {
+      setError("Cover price is required and must be 0 or greater.");
+      setIsSubmitting(false);
+      return;
+    }
+    const printCostNum = formData.printCost ? parseFloat(formData.printCost) : NaN;
+    if (Number.isNaN(printCostNum) || printCostNum < 0) {
+      setError("Print cost is required and must be 0 or greater.");
+      setIsSubmitting(false);
+      return;
+    }
+
     try {
       const bookData = {
         title: formData.title.trim(),
         author: formData.author.trim(),
         authorId: selectedAuthorId,
         email: formData.email.trim(),
-        isbn13: isbn13 || undefined,
+        isbn13: isbn13.trim(),
         isbn10: isbn10 || undefined,
         publicationDate,
         distRoyaltyRate: distRate,
         handSoldRoyaltyRate: handSoldRate,
-        coverPrice: formData.coverPrice ? parseFloat(formData.coverPrice) : null,
-        printCost: formData.printCost ? parseFloat(formData.printCost) : null,
+        coverPrice: coverPriceNum,
+        printCost: printCostNum,
         seriesId: seriesId ?? null,
         seriesOrder: undefined, // Backend auto-assigns when adding to series
       };
@@ -375,23 +399,21 @@ export default function BookForm({
         }
 
         if (inModal && onModalSuccess) {
-          const sortKey = publicationDate
-            ? `${publicationDate.getFullYear()}-${String(
-                publicationDate.getMonth() + 1,
-              ).padStart(2, "0")}`
-            : "9999-99";
+          const sortKey = `${publicationDate!.getFullYear()}-${String(
+            publicationDate!.getMonth() + 1,
+          ).padStart(2, "0")}`;
           const book: BookListItem = {
             id: result.bookId!,
             title: formData.title.trim(),
             author: formData.author.trim(),
-            isbn13: isbn13Val,
+            isbn13: isbn13Val ?? isbn13!.trim(),
             isbn10: isbn10Val,
-            publicationDate,
+            publicationDate: publicationDate!,
             publicationSortKey: sortKey,
             distRoyaltyRate: distRate ?? 50,
             handSoldRoyaltyRate: handSoldRate ?? 20,
-            coverPrice: formData.coverPrice ? parseFloat(formData.coverPrice) : null,
-            printCost: formData.printCost ? parseFloat(formData.printCost) : null,
+            coverPrice: coverPriceNum,
+            printCost: printCostNum,
             totalSales: 0,
             seriesName: null,
             seriesOrder: null,
