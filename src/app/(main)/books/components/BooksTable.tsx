@@ -186,7 +186,8 @@ export default function BooksTable({
     let newSpec: BookSortEntry[];
     if (direction === null) {
       newSpec = sortSpec.filter((s) => s.field !== field);
-      if (newSpec.length === 0) newSpec = [{ field: "author", dir: "asc" }, { field: "series", dir: "asc" }, { field: "title", dir: "asc" }];
+      // When user clears the last column, leave spec empty so URL has no sort param;
+      // server will apply default (author, series, title) without jumping the UI state.
     } else {
       const rest = sortSpec.filter((s) => s.field !== field);
       newSpec = [{ field, dir: direction }, ...rest];
@@ -247,6 +248,45 @@ export default function BooksTable({
           itemsPerPage={normalPageSize}
           onToggleShowAll={handleToggleShowAll}
         />
+      )}
+
+      {/* Sort order summary so users see the full sequence at a glance */}
+      {sortSpec.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+          <span className="font-medium text-foreground">Sorted by:</span>
+          <ol className="flex flex-wrap items-center gap-1.5 list-none">
+            {sortSpec.map((entry, i) => {
+              const header = columns.find((c) => c.key === entry.field)?.header ?? entry.field;
+              const dir = entry.dir === "asc" ? "A→Z" : "Z→A";
+              return (
+                <li key={`${entry.field}-${i}`} className="flex items-center gap-1">
+                  {i > 0 && <span aria-hidden className="text-muted-foreground/70">then</span>}
+                  <span>
+                    {header} {dir}
+                  </span>
+                  {i < sortSpec.length - 1 && (
+                    <span aria-hidden className="text-muted-foreground/50">,</span>
+                  )}
+                </li>
+              );
+            })}
+          </ol>
+          <button
+            type="button"
+            onClick={() => {
+              const defaultSpec: BookSortEntry[] = [
+                { field: "author", dir: "asc" },
+                { field: "series", dir: "asc" },
+                { field: "title", dir: "asc" },
+              ];
+              const params = buildQueryParams({ sortSpec: defaultSpec, page: 1 });
+              router.push(`/books?${params.toString()}`);
+            }}
+            className="text-blue-600 hover:underline dark:text-blue-400"
+          >
+            Reset to default
+          </button>
+        </div>
       )}
 
       <DataTable<BookListItem>

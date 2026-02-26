@@ -22,7 +22,9 @@ export default async function BooksPage({ searchParams }: BooksPageProps) {
   const showAll = params?.showAll === "true";
   const normalPageSize = 20; // Normal pagination size
   const pageSize = showAll ? 10000 : normalPageSize;
-  const sortSpec = parseBookSortSpec(params?.sort);
+  // When no sort param: pass [] so the table doesn't show the sort summary (avoids "jump to 3 columns" after user clears last column).
+  // getBooksData still applies default order when sortSpec is empty.
+  const sortSpec = params?.sort ? parseBookSortSpec(params.sort) : [];
 
   const { items, total, page: currentPage, pageSize: effectivePageSize } =
     await getBooksData({ search, page, pageSize, sortSpec });

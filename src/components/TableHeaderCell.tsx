@@ -28,6 +28,17 @@ export function TableHeaderCell<T>({
   const sortPriority = specEntry ? sortSpec!.indexOf(specEntry) + 1 : null;
   const effectiveDirection: SortDirection = multiSort && specEntry ? specEntry.direction : sortDirection;
 
+  const priorityLabel =
+    sortPriority === 1
+      ? "1st"
+      : sortPriority === 2
+        ? "2nd"
+        : sortPriority === 3
+          ? "3rd"
+          : sortPriority != null
+            ? `${sortPriority}th`
+            : null;
+
   const handleClick = () => {
     if (column.sortable === false || !column.accessor) return;
     const nextDirection: SortDirection =
@@ -36,6 +47,14 @@ export function TableHeaderCell<T>({
   };
 
   const canSort = column.sortable !== false && column.accessor;
+
+  const sortHint = !isSorted
+    ? `Sort by ${column.header} first (then keep current order as tie-breakers)`
+    : effectiveDirection === 'asc'
+      ? `${column.header} ascending (${priorityLabel ?? ""}). Click for descending, or again to remove.`
+      : effectiveDirection === 'desc'
+        ? `${column.header} descending (${priorityLabel ?? ""}). Click to remove from sort.`
+        : '';
 
   return (
     <TableHead className={cn(column.className)}>
@@ -46,24 +65,21 @@ export function TableHeaderCell<T>({
             <button
               type="button"
               onClick={handleClick}
+              title={sortHint}
               className={cn(
                 'ml-1 p-0.5 rounded hover:bg-muted transition-colors',
                 isSorted && 'text-blue-600'
               )}
-              aria-label={
-                !isSorted
-                  ? `Sort by ${column.header} ascending`
-                  : effectiveDirection === 'asc'
-                    ? `Sorted ascending (${sortPriority ?? ''}), click for descending`
-                    : `Sorted descending (${sortPriority ?? ''}), click to clear sort`
-              }
+              aria-label={sortHint || `Sort by ${column.header}`}
             >
               {!isSorted ? (
                 <ArrowUpDown className="w-4 h-4 text-muted-foreground" />
               ) : (
                 <>
-                  {sortPriority != null && sortPriority > 1 && (
-                    <span className="text-xs text-muted-foreground mr-0.5">{sortPriority}</span>
+                  {priorityLabel && (
+                    <span className="text-xs text-muted-foreground mr-0.5" aria-hidden>
+                      {priorityLabel}
+                    </span>
                   )}
                   {effectiveDirection === 'asc' ? (
                     <ArrowUp className="w-4 h-4" />
