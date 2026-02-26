@@ -187,23 +187,26 @@ export default function BookForm({
       const result = await fetchBookFromOpenLibrary(isbnLookup.trim());
 
       if (result.success) {
-        // Pre-populate form with fetched data (Open Library returns month/year)
-        const data = result.data as {
-          publicationMonth?: string;
-          publicationYear?: number;
-        };
-        setFormData({...formData,
-          title: result.data.title || "",
-          author: result.data.author || "",
-          isbn13: result.data.isbn13 || "",
-          isbn10: result.data.isbn10 || "",
+        const data = result.data;
+        const matchedAuthor = data.matchedAuthorId != null;
+        const matchedSeries = data.matchedSeriesId != null;
+        setSelectedAuthorId(matchedAuthor ? data.matchedAuthorId : null);
+        setSelectedSeriesId(matchedSeries ? data.matchedSeriesId : null);
+        setSeriesOrderOverride(null); // Default to add-on-top; user can reorder in modal
+        setFormData((prev) => ({
+          ...prev,
+          title: data.title || "",
+          author: matchedAuthor ? data.matchedAuthorName : "",
+          email: matchedAuthor ? (data.matchedAuthorEmail ?? "") : "",
+          isbn13: data.isbn13 || "",
+          isbn10: data.isbn10 || "",
           publicationMonth: data.publicationMonth || "",
           publicationYear: data.publicationYear?.toString() || "",
-          distRoyaltyRate: "50", // Default to 50% for imported books
-          handSoldRoyaltyRate: "20", // Default to 20% for imported books
+          distRoyaltyRate: "50",
+          handSoldRoyaltyRate: "20",
           coverPrice: "",
           printCost: "",
-        });
+        }));
         setIsImported(true);
         setIsbnLookup(""); // Clear lookup input
       } else {

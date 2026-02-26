@@ -1,6 +1,9 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "../prisma";
-import { deleteCoverArt } from "../supabase/storage";
+import {
+  uploadCoverArt as uploadCoverArtToStorage,
+  deleteCoverArt,
+} from "../supabase/storage";
 import { getBooksSortedByTotalSales } from "./books-queries";
 
 /** Build YYYY-MM sort key from publication date */
@@ -757,6 +760,45 @@ export async function reorderSeriesBooks(
       error: error instanceof Error ? error.message : "Failed to reorder",
     };
   }
+}
+
+/** Upload cover art file and set book.coverArtPath. */
+export async function uploadBookCoverArt(
+  bookId: number,
+  file: File
+): Promise<
+  { success: true; path: string } | { success: false; error: string }
+> {
+  const result = await uploadCoverArtToStorage(bookId, file);
+  if ("error" in result) {
+    return { success: false, error: result.error };
+  }
+  await prisma.book.update({
+    where: { id: bookId },
+    data: { coverArtPath: result.path },
+  });
+  return { success: true, path: result.path };
+}
+
+/** Remove cover art from storage and clear book.coverArtPath. */
+export async function removeBookCoverArt(
+  bookId: number
+): Promise<{ success: true } | { success: false; error: string }> {
+  const book = await prisma.book.findUnique({
+    where: { id: bookId },
+    select: { coverArtPath: true },
+  });
+  if (!book) {
+    return { success: false, error: "Book not found." };
+  }
+  if (book.coverArtPath) {
+    await deleteCoverArt(book.coverArtPath);
+  }
+  await prisma.book.update({
+    where: { id: bookId },
+    data: { coverArtPath: null },
+  });
+  return { success: true };
 }
 
 export async function deleteBook(

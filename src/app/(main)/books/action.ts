@@ -18,8 +18,11 @@ import {
   SeriesListItem,
   SeriesBook,
 } from "@/lib/data/books";
-import { prisma } from "@/lib/prisma";
-import { uploadCoverArt as uploadCoverArtToStorage, deleteCoverArt } from "@/lib/supabase/storage";
+import { asyncGetAllAuthors } from "@/lib/data/author";
+import {
+  uploadBookCoverArt,
+  removeBookCoverArt,
+} from "@/lib/data/books";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -73,6 +76,100 @@ export async function getBookById(id: number): Promise<BookDetail | null> {
   return getBookByIdFromDb(id);
 }
 
+// Resolve Open Library author string to an internal author (case-insensitive, normalized whitespace).
+function matchAuthor(
+  olAuthor: string,
+  authors: { id: number; name: string; email: string | null }[]
+): { id: number; name: string; email: string | null } | null {
+  const normalized = olAuthor.toLowerCase().replace(/\s+/g, " ").trim();
+  if (!normalized) return null;
+  return (
+    authors.find(
+      (a) =>
+        a.name.trim().toLowerCase().replace(/\s+/g, " ") === normalized
+    ) ?? null
+  );
+}
+
+// Resolve Open Library series name to an internal series (case-insensitive, normalized whitespace).
+function matchSeries(
+  olSeriesName: string,
+  seriesList: { id: number; name: string }[]
+): { id: number; name: string } | null {
+  const normalized = olSeriesName.toLowerCase().replace(/\s+/g, " ").trim();
+  if (!normalized) return null;
+  return (
+    seriesList.find(
+      (s) =>
+        s.name.trim().toLowerCase().replace(/\s+/g, " ") === normalized
+    ) ?? null
+  );
+}
+
+// Try to get series name from Open Library: edition.works[0] -> work -> series/serial_works.
+async function fetchSeriesNameFromEdition(
+  editionData: { works?: { key: string }[]; series?: unknown }
+): Promise<string | null> {
+  // Some editions might have series directly
+  if (editionData.series != null) {
+    if (typeof editionData.series === "string" && editionData.series.trim())
+      return editionData.series.trim();
+    if (
+      Array.isArray(editionData.series) &&
+      editionData.series.length > 0 &&
+      typeof editionData.series[0] === "string"
+    )
+      return (editionData.series[0] as string).trim();
+  }
+
+  const works = editionData.works;
+  if (!works?.length || !works[0]?.key) return null;
+
+  try {
+    const workRes = await fetch(
+      `https://openlibrary.org${works[0].key}.json`,
+      { headers: { Accept: "application/json" } }
+    );
+    if (!workRes.ok) return null;
+    const work = (await workRes.json()) as Record<string, unknown>;
+
+    // serial_works: [{ series: { key: "/series/OL123S" } }] -> fetch series for name
+    const serialWorks = work.serial_works as { series?: { key?: string } }[] | undefined;
+    if (Array.isArray(serialWorks) && serialWorks.length > 0 && serialWorks[0]?.series?.key) {
+      const seriesKey = serialWorks[0].series.key as string;
+      const seriesRes = await fetch(
+        `https://openlibrary.org${seriesKey}.json`,
+        { headers: { Accept: "application/json" } }
+      );
+      if (!seriesRes.ok) return null;
+      const seriesData = (await seriesRes.json()) as { title?: string; name?: string };
+      const name = seriesData.title ?? seriesData.name;
+      return typeof name === "string" && name.trim() ? name.trim() : null;
+    }
+
+    // series: [{ key: "...", name: "..." }] or [{ title: "..." }]
+    const seriesArr = work.series as { key?: string; name?: string; title?: string }[] | undefined;
+    if (Array.isArray(seriesArr) && seriesArr.length > 0) {
+      const first = seriesArr[0];
+      const name = first?.name ?? first?.title;
+      if (typeof name === "string" && name.trim()) return name.trim();
+      if (typeof first?.key === "string") {
+        const seriesRes = await fetch(
+          `https://openlibrary.org${first.key}.json`,
+          { headers: { Accept: "application/json" } }
+        );
+        if (!seriesRes.ok) return null;
+        const seriesData = (await seriesRes.json()) as { title?: string; name?: string };
+        const n = seriesData.title ?? seriesData.name;
+        return typeof n === "string" && n.trim() ? n.trim() : null;
+      }
+    }
+  } catch {
+    // ignore fetch/parse errors
+  }
+  return null;
+}
+
 // Fetch book data from Open Library API by ISBN
 export async function fetchBookFromOpenLibrary(isbn: string): Promise<
   | {
@@ -84,6 +181,11 @@ export async function fetchBookFromOpenLibrary(isbn: string): Promise<
         isbn10?: string;
         publicationYear?: number;
         publicationMonth?: string;
+        matchedAuthorId: number | null;
+        matchedAuthorName: string;
+        matchedAuthorEmail: string | null;
+        matchedSeriesId: number | null;
+        matchedSeriesName: string;
       };
     }
   | {
@@ -242,15 +344,31 @@ export async function fetchBookFromOpenLibrary(isbn: string): Promise<
       }
     }
 
+    const [internalAuthors, internalSeries] = await Promise.all([
+      asyncGetAllAuthors(),
+      getAllSeriesFromDb(),
+    ]);
+    const matchedAuthor = matchAuthor(author.trim(), internalAuthors);
+    const olSeriesName = await fetchSeriesNameFromEdition(data);
+    const matchedSeries =
+      olSeriesName != null
+        ? matchSeries(olSeriesName, internalSeries)
+        : null;
+
     return {
       success: true,
       data: {
         title,
-        author: author,
+        author,
         isbn13,
         isbn10,
         publicationYear,
         publicationMonth,
+        matchedAuthorId: matchedAuthor?.id ?? null,
+        matchedAuthorName: matchedAuthor?.name ?? "",
+        matchedAuthorEmail: matchedAuthor?.email ?? null,
+        matchedSeriesId: matchedSeries?.id ?? null,
+        matchedSeriesName: matchedSeries?.name ?? "",
       },
     };
   } catch (error: unknown) {
@@ -336,15 +454,10 @@ export async function uploadCoverArt(
     return { success: false, error: "No file selected." };
   }
 
-  const result = await uploadCoverArtToStorage(bookId, file);
-  if ("error" in result) {
-    return { success: false, error: result.error };
+  const result = await uploadBookCoverArt(bookId, file);
+  if (!result.success) {
+    return result;
   }
-
-  await prisma.book.update({
-    where: { id: bookId },
-    data: { coverArtPath: result.path },
-  });
 
   revalidatePath("/books");
   revalidatePath(`/books/${bookId}`);
@@ -356,23 +469,10 @@ export async function uploadCoverArt(
 export async function removeCoverArt(
   bookId: number
 ): Promise<{ success: true } | { success: false; error: string }> {
-  const book = await prisma.book.findUnique({
-    where: { id: bookId },
-    select: { coverArtPath: true },
-  });
-
-  if (!book) {
-    return { success: false, error: "Book not found." };
+  const result = await removeBookCoverArt(bookId);
+  if (!result.success) {
+    return result;
   }
-
-  if (book.coverArtPath) {
-    await deleteCoverArt(book.coverArtPath);
-  }
-
-  await prisma.book.update({
-    where: { id: bookId },
-    data: { coverArtPath: null },
-  });
 
   revalidatePath("/books");
   revalidatePath(`/books/${bookId}`);
