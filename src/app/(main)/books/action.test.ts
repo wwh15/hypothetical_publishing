@@ -1,6 +1,25 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { fetchBookFromOpenLibrary } from "./action";
 
+// Avoid real DB/Supabase in CI; fetchBookFromOpenLibrary calls these after the mocked fetches.
+vi.mock("@/lib/data/author", () => ({
+  asyncGetAllAuthors: vi.fn().mockResolvedValue([]),
+}));
+vi.mock("@/lib/data/books", () => ({
+  getAllBooks: vi.fn(),
+  getBooksData: vi.fn(),
+  getBookById: vi.fn(),
+  createBook: vi.fn(),
+  updateBook: vi.fn(),
+  deleteBook: vi.fn(),
+  getAllSeries: vi.fn().mockResolvedValue([]),
+  createSeries: vi.fn(),
+  getBooksInSeries: vi.fn(),
+  reorderSeriesBooks: vi.fn(),
+  uploadBookCoverArt: vi.fn(),
+  removeBookCoverArt: vi.fn(),
+}));
+
 describe("fetchBookFromOpenLibrary", () => {
   beforeEach(() => {
     vi.stubGlobal("fetch", vi.fn());
