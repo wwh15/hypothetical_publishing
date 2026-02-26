@@ -1,7 +1,8 @@
 import { Author, Prisma } from "@prisma/client";
 import { prisma } from "../prisma";
 import { Decimal } from "decimal.js";
-import { validateEmail, validateRequiredString } from "../validation";
+import { normalizeEmail, normalizeString, validateEmail, validateRequiredString } from "../validation";
+import { normalize } from "node:path";
 
 export interface AuthorListItem {
   id: number;
@@ -59,6 +60,8 @@ export interface UpdateAuthorRequest {
   name?: string;
   email?: string;
 }
+
+export type NewAuthorInput = Omit<Prisma.AuthorUncheckedCreateInput, 'canonicalName'>;
 
 export type UpdateAuthorResponse =
   | { success: true; data: Author | null; error: null }
@@ -279,49 +282,98 @@ export async function asyncGetAuthorBooks(
   }
 }
 
+/**
+ * Generates a unique "fingerprint" for authors.
+ * Constraint: Assumes "First Last" format for all inputs.
+ * Handles: "Dr. Bob Smith", "Alice, Bob, and Charlie", "Sanderson; Jordan".
+ */
+export function getCanonicalAuthorKey(input: string | null | undefined): string {
+  if (!input) return "";
+
+  // 1. SPLIT: Divide on any common author list separator.
+  // Splits on: ; | & | and | comma (with optional space).
+  const parts = input.split(/;| & | &|\band\b|,/i);
+
+  const cleanAuthors = parts
+    .map((rawName) => {
+      let name = rawName.toLowerCase();
+
+      // 2. HONORIFICS: Strip titles and academic suffixes (dr., phd, etc.)
+      name = name.replace(/\b(phd|dr|md|jr|sr|iii|ii|mfa|prof|mr|ms|mrs)\b\.?/g, "");
+
+      // 3. PUNCTUATION: Remove all non-alphanumeric characters (including commas now)
+      name = name.replace(/[^a-z0-9\s]/g, "");
+
+      // 4. NORMALIZE: Trim edges and collapse internal double-spaces
+      return name.trim().replace(/\s+/g, " ");
+    })
+    // 5. FILTER: Remove empty strings from the list
+    .filter((name) => name.length > 0)
+    // 6. SORT: Alphabetize so "Bob|Alice" and "Alice|Bob" are identical
+    .sort();
+
+  // 7. JOIN: Create a unique pipe-delimited string
+  return cleanAuthors.join("|");
+}
+
 export async function asyncAddAuthor(
-  data: Prisma.AuthorUncheckedCreateInput
+  rawData: NewAuthorInput
 ): Promise<CreateAuthorResponse> {
-  // Validate email
-  const validatedEmail = validateEmail(data.email);
+  // 1. NORMALIZE: Clean strings before any logic or database hits
+  const cleanEmail = normalizeEmail(rawData.email);
+  const cleanName = normalizeString(rawData.name); // Basic cleanup for display
+  const fingerprint = getCanonicalAuthorKey(rawData.name); // The unique search key
+  console.log(fingerprint)
+
+  // 2. VALIDATE: Check the standardized strings
+  const validatedEmail = validateEmail(cleanEmail);
   if (!validatedEmail.success) {
     return {
-      success: validatedEmail.success,
+      success: false,
       error: validatedEmail.error,
       data: null,
     };
   }
 
-  // Validate name
-  const validatedName = validateRequiredString(data.name, "Author Name");
+  const validatedName = validateRequiredString(cleanName, "Author Name");
   if (!validatedName.success) {
     return {
-      success: validatedName.success,
+      success: false,
       error: validatedName.error,
       data: null,
     };
   }
 
-  // Check if the author exists by email
-  const existingAuthor = await prisma.author.findUnique({
-    where: {
-      email: data.email,
-    },
-  });
-
-  // If they exist, return an error message
-  if (existingAuthor) {
-    return {
-      success: false,
-      error: "An author with this email already exists.",
-      data: null,
-    };
-  }
-
+  // 3. EXISTENCE CHECK: Use the canonical fingerprint
+  // This catches "Smith, Jane" vs "Jane Smith" and prevents duplicates
   try {
-    const newAuthor = await prisma.author.create({ data });
-    return { success: true, data: newAuthor, error: "No error" };
+    const existingAuthor = await prisma.author.findUnique({
+      where: {
+        canonicalName: fingerprint,
+      },
+    });
+
+    if (existingAuthor) {
+      return {
+        success: false,
+        error: `An author record for "${cleanName}" already exists as "${existingAuthor.name}".`,
+        data: null,
+      };
+    }
+
+    // 4. CREATE: Store normalized values and the fingerprint
+    const newAuthor = await prisma.author.create({
+      data: {
+        ...rawData,
+        name: cleanName,
+        email: cleanEmail,
+        canonicalName: fingerprint,
+      },
+    });
+
+    return { success: true, data: newAuthor, error: null };
   } catch (err) {
+    console.error("Database error in asyncAddAuthor:", err);
     return {
       success: false,
       data: null,
@@ -336,38 +388,47 @@ export async function asyncUpdateAuthor(
   const { authorId, name, email } = request;
   const updateData: Prisma.AuthorUpdateInput = {};
 
-  // 1. Validate Email if provided
+  // 1. Handle Email Update (Just normalize and save)
   if (email) {
-    const validatedEmail = validateEmail(email);
+    const cleanEmail = normalizeEmail(email);
+    const validatedEmail = validateEmail(cleanEmail);
+    
     if (!validatedEmail.success) {
       return { success: false, error: validatedEmail.error, data: null };
     }
 
-    // Check for email collision (except for the current author)
-    const existing = await prisma.author.findFirst({
-      where: {
-        email: validatedEmail.data,
-        id: { not: authorId },
-      },
-    });
-    if (existing) {
-      return {
-        success: false,
-        error: "Email is already taken by another author.",
-        data: null,
-      };
-    }
-
-    updateData.email = validatedEmail.data;
+    updateData.email = cleanEmail;
   }
 
-  // 2. Validate Name if provided
+  // 2. Handle Name Update (Still needs the fingerprint sync)
   if (name) {
-    const validatedName = validateRequiredString(name, "Author Name");
+    const cleanName = normalizeString(name);
+    const validatedName = validateRequiredString(cleanName, "Author Name");
+    
     if (!validatedName.success) {
       return { success: false, error: validatedName.error, data: null };
     }
-    updateData.name = validatedName.data;
+
+    const newFingerprint = getCanonicalAuthorKey(cleanName);
+
+    // Check for name collisions because canonicalName is @unique
+    const collision = await prisma.author.findFirst({
+      where: {
+        canonicalName: newFingerprint,
+        id: { not: authorId },
+      },
+    });
+
+    if (collision) {
+      return { 
+        success: false, 
+        error: "This author name (or a variation of it) already exists.", 
+        data: null 
+      };
+    }
+
+    updateData.name = cleanName;
+    updateData.canonicalName = newFingerprint;
   }
 
   // 3. Prevent empty updates
@@ -375,7 +436,6 @@ export async function asyncUpdateAuthor(
     return { success: false, error: "No changes provided.", data: null };
   }
 
-  // 4. Execute single update
   try {
     const updatedAuthor = await prisma.author.update({
       where: { id: authorId },
@@ -383,11 +443,8 @@ export async function asyncUpdateAuthor(
     });
     return { success: true, data: updatedAuthor, error: null };
   } catch (err) {
-    return {
-      success: false,
-      data: null,
-      error: err instanceof Error ? err.message : "Failed to update author.",
-    };
+    console.error("Update Error:", err);
+    return { success: false, data: null, error: "Failed to update author." };
   }
 }
 

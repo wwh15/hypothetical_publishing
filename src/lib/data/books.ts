@@ -473,17 +473,10 @@ export async function createBook(
     const book = await prisma.$transaction(async (tx) => {
       let author = null;
 
-      // 1. Find or create the single author
+      // 1. Find the single author
       if (input.authorId) {
         author = await tx.author.findUnique({
           where: { id: input.authorId },
-        });
-      }
-
-      // 2. Try finding by Email (if ID failed or wasn't provided)
-      if (!author && input.email) {
-        author = await tx.author.findUnique({
-          where: { email: input.email },
         });
       }
 
@@ -579,15 +572,10 @@ export async function updateBook(
             connect: { id: input.authorId },
           };
         } else {
-          // If you REALLY want to allow no author, see Solution B below.
           // Otherwise, throw an error or handle it as a validation failure.
           throw new Error("An author is required for this book.");
         }
       } 
-      // Fallback: If no ID but email is provided (legacy support)
-      else if (input.email) {
-        updateData.author = { connect: { email: input.email } };
-      }
 
       if (input.title !== undefined) updateData.title = input.title;
       if (input.isbn13 !== undefined)
