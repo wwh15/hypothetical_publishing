@@ -86,7 +86,7 @@ export async function proxy(request: NextRequest) {
   }
 
   // protect other routes
-  const protectedPaths = ["/sales", "/books"]
+  const protectedPaths = ["/sales", "/books", "/reports", "/authors"]
   const isProtectedPath = protectedPaths.some( (path) => pathname.startsWith(path) );
 
   // if path is protected and user isn't logged in reroute to login
