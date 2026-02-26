@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   updateSale,
   deleteSale,
@@ -61,6 +62,7 @@ function initialDateYear(date: Date): string {
 }
 
 export default function EditForm({ sale, books }: EditFormProps) {
+  const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
     bookId: sale.book.id,
@@ -76,6 +78,7 @@ export default function EditForm({ sale, books }: EditFormProps) {
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [togglingPaid, setTogglingPaid] = useState(false);
   
   // Validation States
   const [dateError, setDateError] = useState<string | null>(null);
@@ -153,9 +156,11 @@ export default function EditForm({ sale, books }: EditFormProps) {
   };
 
   const handleTogglePaid = async () => {
-    setLoading(true);
-    await togglePaidStatus(sale.id, sale.paid);
-    setLoading(false);
+    setTogglingPaid(true);
+    const result = await togglePaidStatus(sale.id, sale.paid);
+    setTogglingPaid(false);
+    if (result?.success) router.refresh();
+    else if (result?.error) alert(result.error);
   };
 
   if (!isEditing) {
@@ -213,11 +218,27 @@ export default function EditForm({ sale, books }: EditFormProps) {
 
           <div>
             <label className="text-sm font-medium text-gray-500">Payment Status</label>
-            <div className="mt-1 flex items-center gap-2">
-              <span className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${sale.paid ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}`}>
+            <div className="mt-1 flex flex-wrap items-center gap-2">
+              <span className={cn(
+                "inline-flex items-center rounded-full px-3 py-1 text-sm font-medium",
+                sale.paid ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300" : "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300"
+              )}>
                 {sale.paid ? "Paid" : "Pending"}
               </span>
-              <button onClick={handleTogglePaid} disabled={loading} className="text-sm text-blue-600 hover:underline">Toggle</button>
+              <button
+                type="button"
+                onClick={handleTogglePaid}
+                disabled={togglingPaid}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+                  sale.paid
+                    ? "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+                    : "bg-green-600 text-white hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800",
+                  togglingPaid && "opacity-70 cursor-not-allowed"
+                )}
+              >
+                {togglingPaid ? "Updating…" : sale.paid ? "Mark as unpaid" : "Mark as paid"}
+              </button>
             </div>
           </div>
 
