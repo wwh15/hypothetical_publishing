@@ -11,21 +11,23 @@ import {
 import { Author } from "@prisma/client";
 
 interface AuthorRoyaltyReportFormProps {
-  authors: Author[];
+  authors?: Author[];
   initialAuthorId: number | null;
   initialStartQuarter: number;
   initialStartYear: number;
   initialEndQuarter: number;
   initialEndYear: number;
+  hideAuthorSelect?: boolean;
 }
 
 export function AuthorRoyaltyReportForm({
-  authors,
+  authors = [],
   initialAuthorId,
   initialStartQuarter,
   initialStartYear,
   initialEndQuarter,
   initialEndYear,
+  hideAuthorSelect=false
 }: AuthorRoyaltyReportFormProps) {
   const [authorId, setAuthorId] = useState<number | null>(initialAuthorId);
   const [startQuarter, setStartQuarter] = useState(initialStartQuarter);
@@ -54,14 +56,16 @@ export function AuthorRoyaltyReportForm({
 
   return (
     <div className="space-y-6 max-w-xl">
+      {!hideAuthorSelect && (
       <div className="space-y-2">
         <Label htmlFor="author-select">Author</Label>
         <AuthorSelectBox
-          authors={authors}
+          authors={authors || []}
           selectedAuthorId={authorId}
           onSelect={setAuthorId}
         />
       </div>
+    )}
 
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">

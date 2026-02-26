@@ -31,7 +31,7 @@ export function BaseDataTable<T>({
     className,
 }: BaseDataTableProps<T>) {
     return (
-        <div className={cn("rounded-md border", className)}>
+        <div className={cn(className)}>
             <Table>
                 <TableHeader>
                     <TableRow>
