@@ -942,14 +942,17 @@ export default function BookForm({
         </div>
       </div>
 
-      {/* Cover art (edit mode only) */}
-      {mode === "edit" && bookId && (
+      {/* Cover art (edit and create - same UI) */}
+      {((mode === "edit" && bookId) || mode === "create") && (
         <div className="mt-6 p-4 border border-gray-200 dark:border-gray-700 rounded-lg space-y-4">
-          <h3 className="text-sm font-semibold">Cover art</h3>
+          <h3 className="text-sm font-semibold">
+            {mode === "create" ? "Cover art (optional)" : "Cover art"}
+          </h3>
           {coverError && (
             <p className="text-sm text-red-600 dark:text-red-400">{coverError}</p>
           )}
-          {initialData?.coverArtPath ? (
+          {/* Saved cover (edit) or pending preview (create) */}
+          {mode === "edit" && initialData?.coverArtPath ? (
             <div className="flex flex-wrap items-start gap-4">
               <img
                 src={`/api/books/cover?path=${encodeURIComponent(initialData.coverArtPath)}`}
@@ -964,7 +967,7 @@ export default function BookForm({
                   disabled={isUploadingCover}
                   onClick={async () => {
                     setCoverError(null);
-                    const result = await removeCoverArt(bookId);
+                    const result = await removeCoverArt(bookId!);
                     if (result.success) {
                       router.refresh();
                     } else {
@@ -977,45 +980,7 @@ export default function BookForm({
               </div>
             </div>
           ) : null}
-          <div className="flex flex-wrap items-center gap-2">
-            <input
-              type="file"
-              accept="image/jpeg,image/png,image/gif,image/webp"
-              className="text-sm text-muted-foreground file:mr-2 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 dark:file:bg-blue-900/30 dark:file:text-blue-300"
-              id="cover-upload"
-              disabled={isUploadingCover}
-              onChange={async (e) => {
-                const file = e.target.files?.[0];
-                if (!file) return;
-                setCoverError(null);
-                setIsUploadingCover(true);
-                const formData = new FormData();
-                formData.set("cover", file);
-                const result = await uploadCoverArt(bookId, formData);
-                setIsUploadingCover(false);
-                e.target.value = "";
-                if (result.success) {
-                  router.refresh();
-                } else {
-                  setCoverError(result.error ?? "Upload failed");
-                }
-              }}
-            />
-            {isUploadingCover && (
-              <span className="text-sm text-muted-foreground">Uploading...</span>
-            )}
-          </div>
-          <p className="text-xs text-muted-foreground">
-            JPEG, PNG, GIF, or WebP. Max 5MB.
-          </p>
-        </div>
-      )}
-
-      {/* Cover art (create mode - optional) */}
-      {mode === "create" && (
-        <div className="mt-6 p-4 border border-gray-200 dark:border-gray-700 rounded-lg space-y-4">
-          <h3 className="text-sm font-semibold">Cover art (optional)</h3>
-          {pendingCoverFile ? (
+          {mode === "create" && pendingCoverFile ? (
             <div className="flex flex-wrap items-start gap-4">
               {pendingCoverPreview && (
                 <img
@@ -1047,21 +1012,41 @@ export default function BookForm({
               type="file"
               accept="image/jpeg,image/png,image/gif,image/webp"
               className="text-sm text-muted-foreground file:mr-2 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 dark:file:bg-blue-900/30 dark:file:text-blue-300"
-              id="cover-upload-create"
-              onChange={(e) => {
+              id="cover-upload"
+              disabled={isUploadingCover}
+              onChange={async (e) => {
                 const file = e.target.files?.[0];
                 if (!file) return;
-                if (pendingCoverPreview) {
-                  URL.revokeObjectURL(pendingCoverPreview);
+                setCoverError(null);
+                if (mode === "edit" && bookId) {
+                  setIsUploadingCover(true);
+                  const formData = new FormData();
+                  formData.set("cover", file);
+                  const result = await uploadCoverArt(bookId, formData);
+                  setIsUploadingCover(false);
+                  e.target.value = "";
+                  if (result.success) {
+                    router.refresh();
+                  } else {
+                    setCoverError(result.error ?? "Upload failed");
+                  }
+                } else {
+                  if (pendingCoverPreview) {
+                    URL.revokeObjectURL(pendingCoverPreview);
+                  }
+                  setPendingCoverFile(file);
+                  setPendingCoverPreview(URL.createObjectURL(file));
+                  e.target.value = "";
                 }
-                setPendingCoverFile(file);
-                setPendingCoverPreview(URL.createObjectURL(file));
-                e.target.value = "";
               }}
             />
+            {isUploadingCover && (
+              <span className="text-sm text-muted-foreground">Uploading...</span>
+            )}
           </div>
           <p className="text-xs text-muted-foreground">
-            JPEG, PNG, GIF, or WebP. Max 5MB. You can also add a cover after saving.
+            JPEG, PNG, GIF, or WebP. Max 5MB.
+            {mode === "create" && " You can also add a cover after saving."}
           </p>
         </div>
       )}
