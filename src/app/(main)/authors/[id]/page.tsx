@@ -4,6 +4,8 @@ import { deleteAuthor, getAuthorBooks, getAuthorById } from "../actions";
 import { AuthorBooksTable } from "../components/AuthorBooksTable";
 import { Button } from "@/components/ui/button";
 import { DeleteAuthorButton } from "../components/DeleteAuthorButton";
+import { AuthorRoyaltyReportForm } from "../../reports/author-royalty/components/AuthorRoyaltyReportForm";
+import { getDefaultQuarterRange } from "../../reports/author-royalty/lib/quarters";
 // import { getAuthorById } from "../action"; // Future server action
 
 export const dynamic = "force-dynamic";
@@ -19,6 +21,7 @@ export default async function AuthorDetailPage({ params }: PageProps) {
   const authorByIdResponse = await getAuthorById(authorId);
   const booksResponse = await getAuthorBooks(authorId);
 
+  const defaultRange = getDefaultQuarterRange();
   // 1. Handle Hard Failures (DB is down, etc.)
   if (!authorByIdResponse.success) {
     throw new Error(authorByIdResponse.error); // Triggers your error.tsx boundary
@@ -51,7 +54,7 @@ export default async function AuthorDetailPage({ params }: PageProps) {
         
         {/* Profile Information Section */}
         <section>
-          <h2 className="text-xl font-semibold mb-6 border-b pb-2">Profile Information</h2>
+          <h2 className="text-xl font-semibold mb-6">Profile Information</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
             <div>
               <label className="text-sm font-medium text-muted-foreground block mb-1">
@@ -68,6 +71,19 @@ export default async function AuthorDetailPage({ params }: PageProps) {
             {/* You can add more placeholder fields here like "Joined Date" or "Total Books" */}
           </div>
         </section>
+
+        <div className="border-b pb-2 w-full"/>
+          <section>
+            <h2 className="text-xl font-semibold mb-6">Generate Author Royalty</h2>
+            <AuthorRoyaltyReportForm
+              initialAuthorId={authorId}
+              initialStartQuarter={defaultRange.startQuarter}
+              initialStartYear={defaultRange.startYear}
+              initialEndQuarter={defaultRange.endQuarter}
+              initialEndYear={defaultRange.endYear}
+              hideAuthorSelect={true}
+            />
+          </section>
 
         <div className="border-b pb-2 w-full"/>
 
