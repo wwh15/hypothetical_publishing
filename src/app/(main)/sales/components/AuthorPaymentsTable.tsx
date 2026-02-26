@@ -129,14 +129,17 @@ export default function AuthorPaymentsTable({
                 </TableCell>
                 <TableCell colSpan={2} className="text-right">
                   <button
-                    onClick={() => openConfirm(group.authorId, group.author)}
+                    onClick={() =>
+                      openConfirm(group.authorId, group.author)
+                    }
                     disabled={
                       loadingAuthorId === group.authorId ||
-                      group.unpaidTotal === 0
+                      !group.sales.some((s) => s.paid === "pending")
                     }
                     className={cn(
                       "text-sm font-medium transition-colors px-3 py-1 rounded",
-                      group.unpaidTotal === 0 || loadingAuthorId === group.authorId
+                      !group.sales.some((s) => s.paid === "pending") ||
+                        loadingAuthorId === group.authorId
                         ? "text-gray-400 cursor-not-allowed"
                         : "text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20"
                     )}
