@@ -1,13 +1,14 @@
 "use client";
 
 import React, { useState } from "react";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
-} from "@/components/ui/table";
+import { AuthorGroup, markAllPaid } from "@/lib/data/author-payment";
+import { cn } from "@/lib/utils";
+import { SaleListItem } from "@/lib/data/records";
+import { useRouter } from "next/navigation";
+import { PaginationControls } from "@/components/PaginationControls";
+import { TableInfo } from "@/components/TableInfo";
+import { BaseDataTable } from "@/components/BaseDataTable";
+import { getAuthorPaymentPresetColumns } from "@/lib/table-configs/author-payment-columns";
 import {
   Dialog,
   DialogContent,
@@ -17,13 +18,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { AuthorGroup, markAllPaid } from "@/lib/data/author-payment";
-import { cn } from "@/lib/utils";
-import { SaleListItem } from "@/lib/data/records";
-import { useRouter } from "next/navigation";
-import { PaginationControls } from "@/components/PaginationControls";
-import { TableInfo } from "@/components/TableInfo";
-import Link from "next/link";
+import { ChevronDown, Search, X } from "lucide-react";
 
 interface AuthorPaymentsTableProps {
   groups: AuthorGroup[];
@@ -32,6 +27,7 @@ interface AuthorPaymentsTableProps {
   totalPages: number;
   pageSize: number;
   showAll: boolean;
+  search: string;
 }
 
 export default function AuthorPaymentsTable({
@@ -41,6 +37,7 @@ export default function AuthorPaymentsTable({
   totalPages,
   pageSize,
   showAll,
+  search,
 }: AuthorPaymentsTableProps) {
   const router = useRouter();
   const [confirmingAuthor, setConfirmingAuthor] = useState<{
@@ -49,6 +46,15 @@ export default function AuthorPaymentsTable({
   } | null>(null);
   const [loadingAuthorId, setLoadingAuthorId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState(search ?? "");
+
+  // Manual state to track which authors are expanded
+  const [openIds, setOpenIds] = useState<number[]>([]);
+  const toggleGroup = (id: number) => {
+    setOpenIds((prev) =>
+      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
+    );
+  };
 
   const handleRowClick = (sale: SaleListItem) => {
     router.push(`/sales/records/${sale.id}?from=payments`);
@@ -57,7 +63,7 @@ export default function AuthorPaymentsTable({
   const handlePageChange = (page: number) => {
     const params = new URLSearchParams(window.location.search);
     params.set("page", String(page));
-    params.delete("showAll"); // Clear showAll when paginating
+    params.delete("showAll");
     router.push(`/sales/payments?${params.toString()}`);
   };
 
@@ -87,14 +93,69 @@ export default function AuthorPaymentsTable({
     }
   };
 
-  const startRecord =
-    totalGroups === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const params = new URLSearchParams(window.location.search);
+
+    if (searchQuery.trim()) {
+      params.set("search", searchQuery.trim());
+    } else {
+      params.delete("search");
+    }
+
+    params.set("page", "1"); // Reset to page 1 on new search
+    router.push(`/sales/payments?${params.toString()}`);
+  };
+
+  const handleClearSearch = () => {
+    setSearchQuery("");
+    const params = new URLSearchParams(window.location.search);
+    params.delete("search");
+    params.set("page", "1");
+    router.push(`/sales/payments?${params.toString()}`);
+  };
+
+  const startRecord = totalGroups === 0 ? 0 : (currentPage - 1) * pageSize + 1;
   const endRecord =
     totalGroups === 0 ? 0 : Math.min(currentPage * pageSize, totalGroups);
+  const columns = getAuthorPaymentPresetColumns("full");
 
   return (
     <div className="space-y-4">
-      {/* Table Info - Using reusable component */}
+      <form onSubmit={handleSearchSubmit} className="relative group/form">
+        {/* Clickable Search Icon */}
+        <button
+          type="submit"
+          className="absolute inset-y-0 left-0 pl-3 flex items-center z-10"
+          aria-label="Submit search"
+        >
+          <Search className="h-5 w-5 text-gray-400 hover:text-blue-500 transition-colors" />
+        </button>
+
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search authors by name or email..."
+          className={cn(
+            "block w-full pl-10 pr-10 py-2 border border-gray-300 dark:border-gray-700 rounded-lg",
+            "bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100",
+            "focus:outline-none focus:ring-2 focus:ring-blue-500"
+          )}
+        />
+
+        {/* Clear Button */}
+        {searchQuery && (
+          <button
+            type="button"
+            onClick={handleClearSearch}
+            className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 z-10"
+            aria-label="Clear search"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        )}
+      </form>
       <TableInfo
         startRecord={startRecord}
         endRecord={endRecord}
@@ -114,132 +175,90 @@ export default function AuthorPaymentsTable({
         }}
       />
 
-      {/* Table */}
-      <Table>
-        <TableBody>
-          {groups.map((group, groupIndex) => (
-            <React.Fragment key={`group-${groupIndex}`}>
-              {/* Author Header Row */}
-              <TableRow className="bg-muted/50">
-                <TableCell colSpan={2} className="font-semibold text-base">
-                  {group.author}
-                </TableCell>
-                <TableCell colSpan={2} className="text-right font-semibold">
-                  Unpaid Total: ${group.unpaidTotal.toFixed(2)}
-                </TableCell>
-                <TableCell colSpan={2} className="text-right">
-                  <button
-                    onClick={() =>
-                      openConfirm(group.authorId, group.author)
-                    }
-                    disabled={
-                      loadingAuthorId === group.authorId ||
-                      !group.sales.some((s) => s.paid === "pending")
-                    }
+      <div className="space-y-4">
+        {groups.map((group) => {
+          // Check if this specific author is open
+          const isOpen = openIds.includes(group.authorId);
+
+          return (
+            <div
+              key={group.authorId}
+              className="border rounded-lg overflow-hidden bg-white dark:bg-gray-950 shadow-sm"
+            >
+              {/* Header: Clickable to toggle, but button is protected by stopPropagation */}
+              <div
+                onClick={() => toggleGroup(group.authorId)}
+                className={cn(
+                  "flex items-center justify-between p-4 cursor-pointer transition-colors select-none",
+                  isOpen ? "bg-muted/50 border-b" : "hover:bg-muted/20"
+                )}
+              >
+                <div className="flex items-center gap-3">
+                  {/* Chevron rotates based on open state */}
+                  <ChevronDown
                     className={cn(
-                      "text-sm font-medium transition-colors px-3 py-1 rounded",
-                      !group.sales.some((s) => s.paid === "pending") ||
-                        loadingAuthorId === group.authorId
-                        ? "text-gray-400 cursor-not-allowed"
-                        : "text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                      "h-5 w-5 text-gray-400 transition-transform duration-200",
+                      isOpen && "rotate-180"
                     )}
-                  >
-                    {loadingAuthorId === group.authorId
-                      ? "Processing..."
-                      : "Mark all as paid"}
-                  </button>
-                </TableCell>
-              </TableRow>
-
-              {/* Column Headers for Sales */}
-              <TableRow className="bg-gray-100 dark:bg-gray-800">
-                <TableHead>Title</TableHead>
-                <TableHead className="text-right">Quantity</TableHead>
-                <TableHead className="text-right">Publisher Revenue</TableHead>
-                <TableHead className="text-right">Author Royalty</TableHead>
-                <TableHead>Period</TableHead>
-                <TableHead className="text-center">Status</TableHead>
-              </TableRow>
-
-              {/* Sales Data Rows */}
-              {group.sales
-                .map((sale) => (
-                  <TableRow
-                    key={sale.id}
-                    onClick={() => handleRowClick(sale)}
-                    className={cn(
-                      "cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800",
-                      sale.paid === "paid" &&
-                        "opacity-50 bg-gray-50 dark:bg-gray-900"
-                    )}
-                  >
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <div>
-                          <Link
-                            href={`/books/${sale.bookId}`}
-                            onClick={(e) => e.stopPropagation()}
-                            className="text-blue-600 hover:underline focus:outline focus:underline"
-                          >
-                            {sale.title}
-                          </Link>
-                        </div>
-                        {sale.paid === "paid" && (
-                          <span className="text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 px-2 py-0.5 rounded">
-                            Paid
-                          </span>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {sale.quantity}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      ${sale.publisherRevenue.toFixed(2)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <span
-                        className={
-                          sale.paid === "paid"
-                            ? "text-gray-400"
-                            : "text-blue-600 font-semibold"
-                        }
-                      >
-                        ${sale.authorRoyalty}
+                  />
+                  <div>
+                    <h3 className="font-bold text-lg text-foreground leading-none mb-1">
+                      {group.author}
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      Unpaid Total:{" "}
+                      <span className="text-foreground font-semibold">
+                        ${group.unpaidTotal.toFixed(2)}
                       </span>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {new Intl.DateTimeFormat("en-US", {
-                        month: "short",
-                        year: "numeric",
-                      }).format(sale.date)}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <span
-                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                          sale.paid === "paid"
-                            ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                            : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"
-                        }`}
-                      >
-                        {sale.paid === "paid" ? "Paid" : "Pending"}
-                      </span>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                    </p>
+                  </div>
+                </div>
 
-              {/* Separator Row */}
-              {groupIndex < groups.length - 1 && (
-                <TableRow className="bg-gray-200 dark:bg-gray-700">
-                  <TableCell colSpan={6} className="h-2 p-0" />
-                </TableRow>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openConfirm(group.authorId, group.author);
+                  }}
+                  disabled={
+                    loadingAuthorId === group.authorId ||
+                    !group.sales.some((s) => s.paid === "pending")
+                  }
+                  className={cn(
+                    "px-4 py-2 rounded-md text-sm font-medium transition-all shadow-sm shrink-0",
+                    !group.sales.some((s) => s.paid === "pending") ||
+                      loadingAuthorId === group.authorId
+                      ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                      : "bg-blue-600 text-white hover:bg-blue-700 active:scale-95"
+                  )}
+                >
+                  {loadingAuthorId === group.authorId
+                    ? "Processing..."
+                    : "Mark all as paid"}
+                </button>
+              </div>
+
+              {/* 4. Sales Data: Only rendered if isOpen is true */}
+              {isOpen && (
+                <div className="p-0 animate-in fade-in slide-in-from-top-1 duration-200">
+                  <BaseDataTable
+                    columns={columns}
+                    data={group.sales}
+                    emptyMessage={`${group.author} has no recorded sales.`}
+                    onRowClick={handleRowClick}
+                  />
+                </div>
               )}
-            </React.Fragment>
-          ))}
-        </TableBody>
-      </Table>
+            </div>
+          );
+        })}
+      </div>
 
-      {/* Pagination Controls - Using reusable component */}
+      {totalGroups === 0 && (
+          <p className="text-muted-foreground">
+            No authors found matching your criteria.
+          </p>
+      )}
+
       {!showAll && totalPages > 1 && (
         <PaginationControls
           currentPage={currentPage}
@@ -248,20 +267,27 @@ export default function AuthorPaymentsTable({
         />
       )}
 
-      {/* Mark all as paid confirmation dialog */}
-      <Dialog open={!!confirmingAuthor} onOpenChange={(open) => !open && closeDialog()}>
+      <Dialog
+        open={!!confirmingAuthor}
+        onOpenChange={(open) => !open && closeDialog()}
+      >
         <DialogContent
           className="sm:max-w-md"
-          onPointerDownOutside={(e) => loadingAuthorId !== null && e.preventDefault()}
-          onEscapeKeyDown={(e) => loadingAuthorId !== null && e.preventDefault()}
+          onPointerDownOutside={(e) =>
+            loadingAuthorId !== null && e.preventDefault()
+          }
+          onEscapeKeyDown={(e) =>
+            loadingAuthorId !== null && e.preventDefault()
+          }
         >
           <DialogHeader>
             <DialogTitle>Mark all as paid?</DialogTitle>
             <DialogDescription asChild>
               <div className="space-y-2 pt-1">
                 <p>
-                  Mark all unpaid royalties for <strong>{confirmingAuthor?.name}</strong> as
-                  paid? This cannot be undone.
+                  Mark all unpaid royalties for{" "}
+                  <strong>{confirmingAuthor?.name}</strong> as paid? This cannot
+                  be undone.
                 </p>
                 {error && (
                   <p className="text-destructive text-sm font-medium">{error}</p>

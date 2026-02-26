@@ -43,11 +43,23 @@ export type PrismaAuthorWithSales = Prisma.AuthorGetPayload<{
 
 export default async function asyncGetAuthorPaymentData(
   pageNumber: number = 1,
-  pageSize: number = 2
+  pageSize: number = 20,
+  search: string = ""
 ): Promise<{ authors: AuthorGroup[]; totalGroups: number }> {
+
+  // 2. Define the search filter
+  const where: Prisma.AuthorWhereInput = search
+    ? {
+        OR: [
+          { name: { contains: search, mode: "insensitive" } },
+          { email: { contains: search, mode: "insensitive" } },
+        ],
+      }
+    : {};
 
   const [rawAuthors, totalGroups] = await Promise.all([
     prisma.author.findMany({
+      where,
       // 1. Paginate the Root (Authors)
       skip: (pageNumber - 1) * pageSize,
       take: pageSize,
@@ -56,13 +68,13 @@ export default async function asyncGetAuthorPaymentData(
       orderBy: {
         name: "asc",
       },
-      
+
       // 3. Select fields
       select: authorPaymentSelect
     }),
 
     // 4. Count total authors for the pagination UI
-    prisma.author.count(),
+    prisma.author.count({ where }),
   ]);
 
   // Use the transformation function here
