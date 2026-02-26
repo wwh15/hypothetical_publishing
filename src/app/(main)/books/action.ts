@@ -18,6 +18,7 @@ import {
   SeriesListItem,
   SeriesBook,
 } from "@/lib/data/books";
+import { asyncGetAllAuthors } from "@/lib/data/author";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -71,6 +72,21 @@ export async function getBookById(id: number): Promise<BookDetail | null> {
   return getBookByIdFromDb(id);
 }
 
+// Resolve Open Library author string to an internal author (case-insensitive, normalized whitespace).
+function matchAuthor(
+  olAuthor: string,
+  authors: { id: number; name: string; email: string | null }[]
+): { id: number; name: string; email: string | null } | null {
+  const normalized = olAuthor.toLowerCase().replace(/\s+/g, " ").trim();
+  if (!normalized) return null;
+  return (
+    authors.find(
+      (a) =>
+        a.name.trim().toLowerCase().replace(/\s+/g, " ") === normalized
+    ) ?? null
+  );
+}
+
 // Fetch book data from Open Library API by ISBN
 export async function fetchBookFromOpenLibrary(isbn: string): Promise<
   | {
@@ -82,6 +98,9 @@ export async function fetchBookFromOpenLibrary(isbn: string): Promise<
         isbn10?: string;
         publicationYear?: number;
         publicationMonth?: string;
+        matchedAuthorId: number | null;
+        matchedAuthorName: string;
+        matchedAuthorEmail: string | null;
       };
     }
   | {
@@ -240,15 +259,21 @@ export async function fetchBookFromOpenLibrary(isbn: string): Promise<
       }
     }
 
+    const internalAuthors = await asyncGetAllAuthors();
+    const matched = matchAuthor(author.trim(), internalAuthors);
+
     return {
       success: true,
       data: {
         title,
-        author: author,
+        author,
         isbn13,
         isbn10,
         publicationYear,
         publicationMonth,
+        matchedAuthorId: matched?.id ?? null,
+        matchedAuthorName: matched?.name ?? "",
+        matchedAuthorEmail: matched?.email ?? null,
       },
     };
   } catch (error: unknown) {
