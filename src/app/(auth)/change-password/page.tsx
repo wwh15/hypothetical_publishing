@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { updatePassword } from "@/lib/supabase/auth";
 import { useRouter } from "next/navigation";
 import AuthLogo from "@/components/auth/AuthLogo";
@@ -80,13 +81,21 @@ export default function ChangePasswordPage() {
             />
           </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-blue-400"
-          >
-            {loading ? "Updating..." : "Update Password"}
-          </button>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-blue-400"
+            >
+              {loading ? "Updating..." : "Update Password"}
+            </button>
+            <Link
+              href="/"
+              className="w-full sm:w-auto px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-center text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            >
+              Cancel
+            </Link>
+          </div>
         </form>
       </div>
     </div>
