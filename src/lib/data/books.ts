@@ -683,7 +683,6 @@ export async function updateBook(
       removedOrder !== null
     ) {
       await shiftSeriesOrderAfterRemoval(oldSeriesId, removedOrder);
-      await deleteSeriesIfEmpty(oldSeriesId);
     }
 
     // Delete the old series if it now has no books (series are auto-deleted when empty).
@@ -743,7 +742,7 @@ async function shiftSeriesOrderAfterRemoval(
 async function deleteSeriesIfEmpty(seriesId: number): Promise<void> {
   const count = await prisma.book.count({ where: { seriesId } });
   if (count === 0) {
-    await prisma.series.delete({ where: { id: seriesId } });
+    await prisma.series.deleteMany({ where: { id: seriesId } });
   }
 }
 
