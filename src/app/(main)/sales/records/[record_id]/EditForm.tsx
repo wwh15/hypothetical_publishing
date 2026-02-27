@@ -106,7 +106,7 @@ export default function EditForm({ sale, books }: EditFormProps) {
     formData.publisherRevenue !== 0 ? formData.publisherRevenue.toFixed(2) : ""
   );
   const [displayRoyalty, setDisplayRoyalty] = useState(
-    formData.authorRoyalty !== 0 ? formData.authorRoyalty.toFixed(2) : ""
+    formData.authorRoyalty.toFixed(2)
   );
   const [displayQuantity, setDisplayQuantity] = useState(
     formData.quantity !== 0 ? formData.quantity.toFixed(0) : ""
