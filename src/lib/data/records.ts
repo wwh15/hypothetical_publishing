@@ -88,9 +88,10 @@ function buildOrderBy(
   );
 }
 
-/** * Parse YYYY-MM to a Date object.
- * @param s The date string (YYYY-MM)
- * @param endOfMonth If true, returns the last millisecond of the month.
+/** Parse YYYY-MM to a Date in UTC (first or last moment of that month).
+ * Uses UTC so filtering is consistent across server timezones (e.g. local vs QA).
+ * @param dateStr The date string (YYYY-MM)
+ * @param endOfMonth If true, returns the last millisecond of the month in UTC.
  */
 function parseDate(
   dateStr: string,
@@ -99,13 +100,16 @@ function parseDate(
   if (!dateStr) return undefined;
 
   const [year, month] = dateStr.split("-").map(Number);
+  if (!Number.isFinite(year) || !Number.isFinite(month) || month < 1 || month > 12) {
+    return undefined;
+  }
 
   if (endOfMonth) {
-    // Get the last day of that specific month
-    return new Date(year, month, 0, 23, 59, 59, 999);
+    // Last moment of the month in UTC (23:59:59.999 on the last day)
+    return new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
   }
-  // Get the first day of that specific month
-  return new Date(year, month - 1, 1, 0, 0, 0, 0);
+  // First moment of the month in UTC (00:00:00.000 on the 1st)
+  return new Date(Date.UTC(year, month - 1, 1, 0, 0, 0, 0));
 }
 
 export interface GetSalesDataParams {
