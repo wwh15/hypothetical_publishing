@@ -43,7 +43,7 @@ export default async function BooksPage({ searchParams }: BooksPageProps) {
     await getBooksData({ search, page, pageSize, sortColumns });
 
   return (
-    <div className="container mx-auto py-10">
+    <div className="container mx-auto py-10 px-4 sm:px-6">
       <div className="mb-6 flex justify-between items-start">
         <div>
           <h1 className="text-3xl font-bold">Books</h1>
