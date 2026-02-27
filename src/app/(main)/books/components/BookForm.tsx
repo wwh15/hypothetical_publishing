@@ -629,7 +629,7 @@ export default function BookForm({
             htmlFor="isbn13"
             className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
           >
-            ISBN-13
+            ISBN-13 <span className="text-red-500">*</span>
           </label>
           <input
             id="isbn13"
@@ -810,7 +810,7 @@ export default function BookForm({
             htmlFor="coverPrice"
             className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
           >
-            Cover Price ($)
+            Cover Price ($) <span className="text-red-500">*</span>
           </label>
           <input
             id="coverPrice"
@@ -842,7 +842,7 @@ export default function BookForm({
             htmlFor="printCost"
             className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
           >
-            Print Cost ($)
+            Print Cost ($) <span className="text-red-500">*</span>
           </label>
           <input
             id="printCost"
