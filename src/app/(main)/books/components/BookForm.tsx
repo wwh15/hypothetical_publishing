@@ -931,6 +931,7 @@ export default function BookForm({
                     ? { title: formData.title, author: formData.author }
                     : undefined
                 }
+                initialOrder={seriesOrderOverride}
                 onOrderChange={(ids) => {
                   setSeriesOrderOverride(ids);
                   setSeriesOrderModalOpen(false);

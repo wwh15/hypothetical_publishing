@@ -48,6 +48,8 @@ interface SeriesOrderModalProps {
   seriesName: string;
   /** Current book being edited/created - not in series yet. Shown in list so user can position it. */
   currentBook?: { title: string; author: string };
+  /** When reopening with unsaved current book, use this order so the dialog reflects the last applied order. */
+  initialOrder?: number[] | null;
   /** Called when user applies order with unsaved current book - order is stored for form submit */
   onOrderChange?: (orderedIds: number[]) => void;
   onReorderComplete?: () => void;
@@ -118,6 +120,7 @@ export default function SeriesOrderModal({
   seriesId,
   seriesName,
   currentBook,
+  initialOrder,
   onOrderChange,
   onReorderComplete,
 }: SeriesOrderModalProps) {
@@ -149,20 +152,35 @@ export default function SeriesOrderModal({
     getBooksInSeries(seriesId)
       .then((fetched) => {
         if (cancelled) return;
-          let items: SeriesOrderItem[] = fetched;
-          if (currentBook) {
-            items = [
-              ...fetched,
-              {
-                id: CURRENT_BOOK_SENTINEL,
-                title: currentBook.title.trim() || "(No title yet)",
-                author: currentBook.author.trim() || "(No author yet)",
-                seriesOrder: fetched.length + 1,
-              },
-            ];
+        let items: SeriesOrderItem[] = fetched;
+        if (currentBook) {
+          const unsavedItem: SeriesOrderItem = {
+            id: CURRENT_BOOK_SENTINEL,
+            title: currentBook.title.trim() || "(No title yet)",
+            author: currentBook.author.trim() || "(No author yet)",
+            seriesOrder: fetched.length + 1,
+          };
+          if (
+            initialOrder &&
+            initialOrder.length === fetched.length + 1 &&
+            initialOrder.includes(CURRENT_BOOK_SENTINEL)
+          ) {
+            const byId = new Map(fetched.map((b) => [b.id, b]));
+            byId.set(CURRENT_BOOK_SENTINEL, unsavedItem);
+            const ordered = initialOrder
+              .map((id) => byId.get(id))
+              .filter((b): b is SeriesOrderItem => b != null);
+            if (ordered.length === initialOrder.length) {
+              items = ordered;
+            } else {
+              items = [...fetched, unsavedItem];
+            }
+          } else {
+            items = [...fetched, unsavedItem];
           }
-          setBooks(items);
-        })
+        }
+        setBooks(items);
+      })
       .catch((err) => {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : "Failed to load books");
@@ -175,8 +193,9 @@ export default function SeriesOrderModal({
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- currentBook intentionally omitted; refetch only when open/seriesId changes
-  }, [open, seriesId]);
+    // initialOrder included so reopening shows last applied order for unsaved book
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- currentBook intentionally omitted
+  }, [open, seriesId, initialOrder]);
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
