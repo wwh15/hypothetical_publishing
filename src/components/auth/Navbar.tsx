@@ -50,7 +50,7 @@ export default async function Navbar() {
                   Reports
                 </Link>
               </nav>
-              <div className="group relative pb-1">
+              <div className="group relative flex items-center">
                 <span className="text-sm text-gray-600 dark:text-gray-400 cursor-pointer">
                   {user.user_metadata?.username ?? user.email}
                 </span>

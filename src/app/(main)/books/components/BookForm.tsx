@@ -597,39 +597,13 @@ export default function BookForm({
           </label>
         </div>
 
-        {/* Author Email (Non-Editable) */}
-        <div className="space-y-2">
-          <label
-            htmlFor="email"
-            className="text-sm font-medium leading-none text-muted-foreground"
-          >
-            Author Email
-          </label>
-          <input
-            id="email"
-            type="email"
-            value={formData.email}
-            readOnly
-            className={cn(
-              "flex h-10 w-full rounded-md border border-input bg-gray-50 px-3 py-2 text-sm ring-offset-background",
-              "cursor-not-allowed opacity-70 focus-visible:outline-none",
-              "dark:bg-gray-800 dark:text-gray-400"
-            )}
-            placeholder="Select an author to see email"
-            tabIndex={-1} 
-          />
-          <p className="text-[10px] text-muted-foreground italic">
-            Managed via Author Profile
-          </p>
-        </div>
-
         {/* ISBN-13 */}
         <div className="space-y-2">
           <label
             htmlFor="isbn13"
             className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
           >
-            ISBN-13
+            ISBN-13 <span className="text-red-500">*</span>
           </label>
           <input
             id="isbn13"
@@ -810,7 +784,7 @@ export default function BookForm({
             htmlFor="coverPrice"
             className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
           >
-            Cover Price ($)
+            Cover Price ($) <span className="text-red-500">*</span>
           </label>
           <input
             id="coverPrice"
@@ -842,7 +816,7 @@ export default function BookForm({
             htmlFor="printCost"
             className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
           >
-            Print Cost ($)
+            Print Cost ($) <span className="text-red-500">*</span>
           </label>
           <input
             id="printCost"
