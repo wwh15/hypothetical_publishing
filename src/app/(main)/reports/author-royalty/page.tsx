@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { BackLink } from "@/components/BackLink";
 import { getAllAuthors } from "@/app/(main)/authors/actions";
 import { AuthorRoyaltyReportForm } from "./components/AuthorRoyaltyReportForm";
 import { getDefaultQuarterRange } from "./lib/quarters";
@@ -13,12 +13,7 @@ export default async function AuthorRoyaltyReportPage() {
     <div className="container mx-auto py-10 px-4 md:px-6">
       <div className="mb-8 space-y-6">
         <div>
-          <Link
-            href="/reports"
-            className="text-sm text-muted-foreground hover:text-foreground"
-          >
-            ← Reports
-          </Link>
+          <BackLink href="/reports">Reports</BackLink>
         </div>
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-foreground">

@@ -1,6 +1,7 @@
 import { getBooksData } from "@/app/(main)/books/action";
 import SalesInputClient from "../components/SalesInputClient";
 import Link from "next/link";
+import { BackLink } from "@/components/BackLink";
 
 export const dynamic = "force-dynamic";
 
@@ -27,24 +28,16 @@ export default async function SalesInputPage({ searchParams }: PageProps) {
   });
 
   return (
-    <div className="container mx-auto py-10">
+    <div className="container mx-auto py-10 px-4 sm:px-6">
       <div className="mb-6">
         <div className="flex flex-wrap items-center gap-2 mb-2">
-          <Link
-            href="/sales/records"
-            className="text-blue-600 hover:underline text-sm"
-          >
-            ← Back to Sales
-          </Link>
+          <BackLink href="/sales/records">Back to Sales</BackLink>
           {validInitialBookId != null && (
             <>
               <span className="text-muted-foreground">·</span>
-              <Link
-                href={`/books/${validInitialBookId}`}
-                className="text-blue-600 hover:underline text-sm"
-              >
+              <BackLink href={`/books/${validInitialBookId}`}>
                 Back to book
-              </Link>
+              </BackLink>
             </>
           )}
         </div>

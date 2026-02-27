@@ -1,6 +1,6 @@
 export default function BooksLoading() {
   return (
-    <div className="container mx-auto py-10">
+    <div className="container mx-auto py-10 px-4 sm:px-6">
       <div className="mb-6 flex justify-between items-start">
         <div>
           <div className="h-9 w-32 bg-muted rounded animate-pulse" />

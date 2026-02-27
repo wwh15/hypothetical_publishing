@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import Link from 'next/link';
+import { BackLink } from "@/components/BackLink";
 import { getAuthorById } from '../../actions';
 import AuthorForm from '../../components/AuthorForm';
 
@@ -23,12 +23,9 @@ export default async function EditAuthorPage({ params }: PageProps) {
   return (
     <div className="container mx-auto py-10">
       <div className="mb-6">
-        <Link 
-          href={`/authors/${authorId}`}
-          className="text-blue-600 hover:underline mb-2 inline-block"
-        >
-          ← Back to Author Details
-        </Link>
+        <BackLink href={`/authors/${authorId}`} className="mb-2">
+          Back to Author Details
+        </BackLink>
         <h1 className="text-3xl font-bold">Edit Author</h1>
         <p className="text-muted-foreground mt-2">
           Update book information

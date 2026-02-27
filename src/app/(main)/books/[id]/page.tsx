@@ -1,5 +1,6 @@
 import { getBookById } from "../action";
 import Link from "next/link";
+import { BackLink } from "@/components/BackLink";
 import { notFound } from "next/navigation";
 import SalesRowsTable from "@/app/(main)/sales/components/SalesRowsTable";
 import DeleteBookButton from "./components/DeleteBookButton";
@@ -56,12 +57,9 @@ export default async function BookDetailPage({ params, searchParams }: PageProps
   return (
     <div className="container mx-auto py-10">
       <div className="mb-6">
-        <Link 
-          href="/books"
-          className="text-blue-600 hover:underline mb-2 inline-block"
-        >
-          ← Back to Books
-        </Link>
+        <BackLink href="/books" className="mb-2">
+          Back to Books
+        </BackLink>
         <h1 className="text-3xl font-bold">{book.title}</h1>
         <p className="text-muted-foreground mt-2">
           Book Details
