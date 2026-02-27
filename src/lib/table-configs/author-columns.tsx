@@ -5,7 +5,6 @@
 import { ColumnDef } from "@/components/BaseDataTable";
 import { AuthorListItem } from "@/lib/data/author";
 import { cn } from "@/lib/utils";
-import Link from "next/link";
 
 /**
  * Stable column IDs for type-safe column selection (author list table only)
@@ -57,15 +56,7 @@ export const authorColumns: ColumnDef<AuthorListItem>[] = [
     key: "name",
     header: "Author Name",
     className: "w-1/4",
-    render: (row) => (
-      <Link
-        href={`/authors/${row.id}`}
-        onClick={(e) => e.stopPropagation()}
-        className="font-medium text-blue-600 hover:underline focus:outline focus:underline"
-      >
-        {row.name}
-      </Link>
-    ),
+    render: (row) => <span className="font-medium">{row.name}</span>,
   },
   {
     key: "email",
