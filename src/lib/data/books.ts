@@ -381,6 +381,47 @@ export async function getBooksData({
   };
 }
 
+/** Fetch all books for an author as BookListItem[], sorted by default book sort (series name, series order, title). */
+export async function getBooksByAuthorId(
+  authorId: number
+): Promise<BookListItem[]> {
+  const books = await prisma.book.findMany({
+    where: { authorId },
+    include: { author: true, sales: true, series: true },
+    orderBy: [
+      { series: { name: "asc" } },
+      { seriesOrder: "asc" },
+      { title: "asc" },
+    ],
+  });
+
+  return books.map((book) => {
+    const totalSales = book.sales.reduce((sum, sale) => sum + sale.quantity, 0);
+    const distRoyaltyRate = Math.round(book.distAuthorRoyaltyRate * 100);
+    const handSoldRoyaltyRate = Math.round(book.handSoldAuthorRoyaltyRate * 100);
+    const publicationSortKey = publicationSortKeyFromDate(
+      book.publicationDate as Date
+    );
+    return {
+      id: book.id,
+      title: book.title,
+      author: book.author.name,
+      isbn13: book.isbn13 as string,
+      isbn10: book.isbn10,
+      publicationDate: book.publicationDate as Date,
+      publicationSortKey,
+      distRoyaltyRate,
+      handSoldRoyaltyRate,
+      coverPrice: Number(book.coverPrice),
+      printCost: Number(book.printCost),
+      totalSales,
+      seriesName: book.series?.name ?? null,
+      seriesOrder: book.seriesOrder ?? null,
+      coverArtPath: book.coverArtPath ?? null,
+    };
+  });
+}
+
 export async function getBookById(id: number): Promise<BookDetail | null> {
   const book = await prisma.book.findUnique({
     where: { id },

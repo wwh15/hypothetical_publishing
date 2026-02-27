@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { deleteAuthor, getAuthorBooks, getAuthorById } from "../actions";
-import { AuthorBooksTable } from "../components/AuthorBooksTable";
-import { Button } from "@/components/ui/button";
+import { getAuthorById } from "../actions";
+import { getBooksByAuthorId } from "@/lib/data/books";
+import BooksTable from "../../books/components/BooksTable";
 import { DeleteAuthorButton } from "../components/DeleteAuthorButton";
 import { AuthorRoyaltyReportForm } from "../../reports/author-royalty/components/AuthorRoyaltyReportForm";
 import { getDefaultQuarterRange } from "../../reports/author-royalty/lib/quarters";
@@ -19,7 +19,7 @@ export default async function AuthorDetailPage({ params }: PageProps) {
   const authorId = parseInt(id);
 
   const authorByIdResponse = await getAuthorById(authorId);
-  const booksResponse = await getAuthorBooks(authorId);
+  const authorBooks = await getBooksByAuthorId(authorId);
 
   const defaultRange = getDefaultQuarterRange();
   // 1. Handle Hard Failures (DB is down, etc.)
@@ -92,16 +92,16 @@ export default async function AuthorDetailPage({ params }: PageProps) {
           <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
             <h2 className="text-xl font-semibold">Books</h2>
           </div>
-          {booksResponse.success ? (
-            <AuthorBooksTable 
-            data={booksResponse.data} 
-            authorName={author.name} 
+          <BooksTable
+            books={authorBooks}
+            total={authorBooks.length}
+            page={1}
+            pageSize={authorBooks.length}
+            search=""
+            sortColumns={[]}
+            embedded
+            hideAuthorColumn
           />
-          ) : (
-            <p className="text-muted-foreground text-sm">
-              No sales records yet. Add one using the button above or from Sales → Add Sales Records.
-            </p>
-          )}
         </section>
 
         {/* Action Buttons Section */}
@@ -115,7 +115,7 @@ export default async function AuthorDetailPage({ params }: PageProps) {
             </Link>
             
             {/* Placeholder for a Delete component */}
-            <DeleteAuthorButton authorId={authorId} authorName={author.name} bookCount={booksResponse.data?.length ?? 0} />
+            <DeleteAuthorButton authorId={authorId} authorName={author.name} bookCount={authorBooks.length} />
           </div>
         </section>
       </div>
