@@ -88,19 +88,40 @@ function buildOrderBy(
   );
 }
 
-/** Parse YYYY-MM to a Date in UTC (first or last moment of that month).
+/** Parse YYYY-MM or MM-YYYY to a Date in UTC (first or last moment of that month).
  * Uses UTC so filtering is consistent across server timezones (e.g. local vs QA).
- * @param dateStr The date string (YYYY-MM)
+ * Accepts both formats so behavior is correct regardless of client/URL format.
+ * @param dateStr The date string (YYYY-MM or MM-YYYY)
  * @param endOfMonth If true, returns the last millisecond of the month in UTC.
  */
 function parseDate(
   dateStr: string,
   endOfMonth: boolean = false
 ): Date | undefined {
-  if (!dateStr) return undefined;
+  const trimmed = dateStr?.trim();
+  if (!trimmed) return undefined;
 
-  const [year, month] = dateStr.split("-").map(Number);
-  if (!Number.isFinite(year) || !Number.isFinite(month) || month < 1 || month > 12) {
+  const parts = trimmed.split("-").map(Number);
+  if (parts.length !== 2 || !Number.isFinite(parts[0]) || !Number.isFinite(parts[1])) {
+    return undefined;
+  }
+
+  // Accept both YYYY-MM and MM-YYYY: first part > 12 => year; second part > 12 => year
+  let year: number;
+  let month: number;
+  if (parts[0] > 12) {
+    year = parts[0];
+    month = parts[1];
+  } else if (parts[1] > 12) {
+    month = parts[0];
+    year = parts[1];
+  } else {
+    // Both <= 12: assume YYYY-MM (ISO-style) so year is first
+    year = parts[0];
+    month = parts[1];
+  }
+
+  if (month < 1 || month > 12 || year < 1000 || year > 9999) {
     return undefined;
   }
 
@@ -118,8 +139,8 @@ export interface GetSalesDataParams {
   pageSize?: number;
   sortBy?: string;
   sortDir?: "asc" | "desc";
-  dateFrom?: string; // MM-YYYY
-  dateTo?: string; // MM-YYYY
+  dateFrom?: string; // YYYY-MM or MM-YYYY (parsed in parseDate)
+  dateTo?: string; // YYYY-MM or MM-YYYY (parsed in parseDate)
   source?: "DISTRIBUTOR" | "HAND_SOLD";
 }
 

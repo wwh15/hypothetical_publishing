@@ -88,7 +88,7 @@ enum SaleSource {
 model Sale {
   id               Int        @id @default(autoincrement())
   bookId           Int        @map("book_id")
-  date             DateTime   @map("date") // First day of sale month (e.g. 2025-01-01)
+  date             DateTime   @db.Timestamptz @map("date") // First day of sale month (e.g. 2025-01-01), stored in UTC
   quantity         Int
   publisherRevenue Decimal @default(0)    @map("publisher_revenue")
   authorRoyalty    Decimal @default(0)    @map("author_royalty")
@@ -96,8 +96,8 @@ model Sale {
   paid             Boolean  @default(false) // Payment status
   comment          String?  @db.VarChar(256) @map("comment")
   source           SaleSource @default(DISTRIBUTOR) // Sales channel
-  createdAt        DateTime @default(now()) @map("created_at")
-  updatedAt        DateTime @updatedAt @map("updated_at")
+  createdAt        DateTime @default(now()) @db.Timestamptz @map("created_at")
+  updatedAt        DateTime @updatedAt @db.Timestamptz @map("updated_at")
   
   // Relations
   book             Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
