@@ -47,8 +47,13 @@ export function TableHeaderCell<T>({
     if (column.sortable === false || !column.accessor) return;
 
     if (multiSortMode) {
-      // Binary: off → on (asc), on → off (null)
-      onMultiSort(column.key, isMultiSorted ? null : 'asc');
+      // Cycle: unsorted → asc → desc → unsorted
+      const nextDirection: SortDirection = !isMultiSorted
+        ? 'asc'
+        : multiSortDir === 'asc'
+          ? 'desc'
+          : null;
+      onMultiSort(column.key, nextDirection);
     } else {
       // Legacy single-sort cycle
       const nextDirection: SortDirection =
@@ -60,10 +65,7 @@ export function TableHeaderCell<T>({
   const canSort = column.sortable !== false && column.accessor;
 
   return (
-    <TableHead className={cn(
-      column.className,
-      multiSortMode && isMultiSorted && 'bg-blue-50 dark:bg-blue-950/30'
-    )}>
+    <TableHead className={column.className}>
       <div className="flex flex-col gap-1">
         <span className="font-semibold flex items-center gap-1">
           {column.header}
@@ -79,8 +81,10 @@ export function TableHeaderCell<T>({
               )}
               aria-label={
                 !isSorted
-                  ? `Sort by ${column.header}`
-                  : `Remove ${column.header} sort`
+                  ? `Sort by ${column.header} (ascending)`
+                  : currentDir === 'asc'
+                    ? `Sort ${column.header} descending`
+                    : `Remove ${column.header} sort`
               }
             >
               {!isSorted ? (

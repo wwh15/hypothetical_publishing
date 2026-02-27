@@ -279,10 +279,7 @@ export function DataTable<T extends object>({
                                 {columns.map((column) => (
                                     <TableCell
                                         key={column.key}
-                                        className={cn(
-                                            column.className,
-                                            multiSortMode && sortColumns.some((s) => s.field === column.key) && 'bg-blue-50 dark:bg-blue-950/30'
-                                        )}
+                                        className={column.className}
                                     >
                                         {getCellValue(row, column)}
                                     </TableCell>
