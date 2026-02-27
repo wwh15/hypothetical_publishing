@@ -1,8 +1,10 @@
 import { getBookById } from "../action";
 import Link from "next/link";
+import { BackLink } from "@/components/BackLink";
 import { notFound } from "next/navigation";
 import SalesRowsTable from "@/app/(main)/sales/components/SalesRowsTable";
 import DeleteBookButton from "./components/DeleteBookButton";
+import { Button } from "@/components/ui/button";
 import { getSalesByBookId } from "@/lib/data/records";
 
 export const dynamic = "force-dynamic";
@@ -56,12 +58,9 @@ export default async function BookDetailPage({ params, searchParams }: PageProps
   return (
     <div className="container mx-auto py-10">
       <div className="mb-6">
-        <Link 
-          href="/books"
-          className="text-blue-600 hover:underline mb-2 inline-block"
-        >
-          ← Back to Books
-        </Link>
+        <BackLink href="/books" className="mb-2">
+          Back to Books
+        </BackLink>
         <h1 className="text-3xl font-bold">{book.title}</h1>
         <p className="text-muted-foreground mt-2">
           Book Details
@@ -206,17 +205,20 @@ export default async function BookDetailPage({ params, searchParams }: PageProps
         {/* Action Buttons */}
         <section className="pt-4 border-t border-gray-200 dark:border-gray-700">
           <div className="flex gap-4">
-            <Link
-              href={`/books/${bookId}/edit`}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors inline-block"
-            >
-              Edit Book
-            </Link>
+            <Button asChild className="transition-colors duration-150">
+              <Link
+                href={`/books/${bookId}/edit`}
+                className="no-underline hover:no-underline"
+              >
+                Edit Book
+              </Link>
+            </Button>
             <DeleteBookButton
               bookId={bookId}
               bookTitle={book.title}
               author={book.author}
               salesRecordCount={salesResult.total}
+              className="transition-colors duration-150 cursor-pointer"
             />
           </div>
         </section>

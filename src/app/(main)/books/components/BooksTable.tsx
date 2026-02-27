@@ -104,13 +104,6 @@ export default function BooksTable({
       render: (row) => <span>{row.isbn13}</span>,
     },
     {
-      key: "isbn10",
-      header: "ISBN-10",
-      accessor: "isbn10",
-      sortable: true,
-      render: (row) => <span>{row.isbn10 || "-"}</span>,
-    },
-    {
       key: "publication",
       header: "Publication",
       accessor: "publicationSortKey",

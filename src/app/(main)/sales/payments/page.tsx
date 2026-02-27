@@ -3,6 +3,7 @@ import asyncGetAuthorPaymentData from "@/lib/data/author-payment";
 import AuthorPaymentsTable from "../components/AuthorPaymentsTable";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { BackLink } from "@/components/BackLink";
 
 
 export default async function AuthorPaymentsPage({
@@ -35,11 +36,7 @@ export default async function AuthorPaymentsPage({
     <div className="container mx-auto py-8 px-4 sm:px-6">
       <div className="mb-6 space-y-6">
         <div className="flex flex-col gap-3">
-          <Link href="/sales" className="w-fit">
-            <Button variant="outline" size="sm">
-              ← Back to Sales
-            </Button>
-          </Link>
+          <BackLink href="/sales/records">Back to Sales</BackLink>
           <Link href="/sales/add-record" className="w-fit">
             <Button size="sm">Add New Sale Record</Button>
           </Link>

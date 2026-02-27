@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BackLink } from "@/components/BackLink";
 import AuthorForm from "../components/AuthorForm";
 import { Button } from "@/components/ui/button";
 
@@ -10,11 +11,7 @@ export default function AddAuthorPage() {
       <div className="mb-8 space-y-6">
         {/* Navigation Section */}
         <div className="flex flex-col gap-3">
-          <Link href="/authors" className="w-fit">
-            <Button size="sm">
-              ← Back to Authors
-            </Button>
-          </Link>
+          <BackLink href="/authors">Back to Authors</BackLink>
         </div>
 
         {/* Page Header */}

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { BackLink } from "@/components/BackLink";
 import { getAuthorById } from "../actions";
 import { getBooksByAuthorId } from "@/lib/data/books";
 import BooksTable from "../../books/components/BooksTable";
@@ -38,12 +39,9 @@ export default async function AuthorDetailPage({ params }: PageProps) {
     <div className="container mx-auto py-10 px-4 md:px-6">
       {/* Header / Breadcrumb */}
       <div className="mb-8">
-        <Link 
-          href="/authors"
-          className="text-blue-600 hover:underline mb-2 inline-block text-sm"
-        >
-          ← Back to Authors
-        </Link>
+        <BackLink href="/authors" className="mb-2">
+          Back to Authors
+        </BackLink>
         <h1 className="text-3xl font-bold tracking-tight">{author.name}</h1>
         <p className="text-muted-foreground mt-2">
           View and manage author profile information.

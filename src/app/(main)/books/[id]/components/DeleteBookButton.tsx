@@ -18,6 +18,7 @@ export interface DeleteBookButtonProps {
   bookTitle: string;
   author: string;
   salesRecordCount: number;
+  className?: string;
 }
 
 export default function DeleteBookButton({
@@ -25,6 +26,7 @@ export default function DeleteBookButton({
   bookTitle,
   author,
   salesRecordCount,
+  className,
 }: DeleteBookButtonProps) {
   const [open, setOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -45,8 +47,9 @@ export default function DeleteBookButton({
     <>
       <Button
         variant="destructive"
+        size="default"
         onClick={() => setOpen(true)}
-        className="px-4 py-2"
+        className={className}
       >
         Delete Book
       </Button>
