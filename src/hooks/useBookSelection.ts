@@ -11,7 +11,7 @@ export function useBookSelection(
 
   const selectedBook = books.find((b) => b.id === parseInt(selectedBookId));
   const bookDisplayValue = selectedBook
-    ? `${selectedBook.title} - ${selectedBook.authors}`
+    ? `${selectedBook.title} - ${selectedBook.author}`
     : "Select Book";
 
   const handleBookSelect = (bookId: string) => {

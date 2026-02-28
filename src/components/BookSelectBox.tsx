@@ -68,7 +68,7 @@ export function BookSelectBox({
       <PopoverContent id={contentId} className="w-[--radix-popover-trigger-width] p-0">
         <Command shouldFilter={false}>
           <CommandInput
-            placeholder="Search by title, author, or ISBN..."
+            placeholder="Search by title, author, series, or ISBN..."
             value={searchQuery}
             onValueChange={setSearchQuery}
           />
@@ -79,7 +79,7 @@ export function BookSelectBox({
                 // Build search value including ISBN for better matching
                 const searchValue = [
                   book.title,
-                  book.authors,
+                  book.author,
                   book.isbn13,
                   book.isbn10,
                 ]
@@ -100,7 +100,7 @@ export function BookSelectBox({
                           : "opacity-0"
                       )}
                     />
-                    {book.title} - {book.authors}
+                    {book.title} - {book.author}
                     {book.isbn13 && (
                       <span className="ml-2 text-xs text-muted-foreground">
                         ({book.isbn13})

@@ -1,6 +1,25 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { fetchBookFromOpenLibrary } from "./action";
 
+// Avoid real DB/Supabase in CI; fetchBookFromOpenLibrary calls these after the mocked fetches.
+vi.mock("@/lib/data/author", () => ({
+  asyncGetAllAuthors: vi.fn().mockResolvedValue([]),
+}));
+vi.mock("@/lib/data/books", () => ({
+  getAllBooks: vi.fn(),
+  getBooksData: vi.fn(),
+  getBookById: vi.fn(),
+  createBook: vi.fn(),
+  updateBook: vi.fn(),
+  deleteBook: vi.fn(),
+  getAllSeries: vi.fn().mockResolvedValue([]),
+  createSeries: vi.fn(),
+  getBooksInSeries: vi.fn(),
+  reorderSeriesBooks: vi.fn(),
+  uploadBookCoverArt: vi.fn(),
+  removeBookCoverArt: vi.fn(),
+}));
+
 describe("fetchBookFromOpenLibrary", () => {
   beforeEach(() => {
     vi.stubGlobal("fetch", vi.fn());
@@ -37,7 +56,7 @@ describe("fetchBookFromOpenLibrary", () => {
         json: () =>
           Promise.resolve({
             title: "Test Title",
-            authors: [{ key: "/authors/OL1A" }],
+            authors: [{ key: "/author/OL1A" }],
             isbn_13: ["9781234567890"],
             isbn_10: ["1234567890"],
             publish_date: "2020",
@@ -52,7 +71,12 @@ describe("fetchBookFromOpenLibrary", () => {
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data.title).toBe("Test Title");
-      expect(result.data.authors).toBe("Test Author");
+      expect(result.data.author).toBe("Test Author");
+      expect(result.data).toHaveProperty("matchedAuthorId");
+      expect(result.data).toHaveProperty("matchedAuthorName");
+      expect(result.data).toHaveProperty("matchedAuthorEmail");
+      expect(result.data).toHaveProperty("matchedSeriesId");
+      expect(result.data).toHaveProperty("matchedSeriesName");
     }
   });
 

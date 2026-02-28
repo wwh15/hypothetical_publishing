@@ -6,7 +6,7 @@ import { supabaseAdmin } from './lib/supabase/admin';
 // check if setup has been completed
   async function isSetupComplete(): Promise<boolean> {
 
-    const { data: { users }, error } = await supabaseAdmin.auth.admin.listUsers();
+    const { data: { users } } = await supabaseAdmin.auth.admin.listUsers();
     
     
     return (users?.length ?? 0) > 0; // true if there is more than 0 users
@@ -73,21 +73,10 @@ export async function proxy(request: NextRequest) {
     return supabaseResponse;
   }
 
-  // Allow forgot-password without auth
-  if (pathname === "/forgot-password") {
+  // Change-password requires auth
+  if (pathname === "/change-password") {
     if (!setup) return NextResponse.redirect(new URL("/setup", request.url));
-    return supabaseResponse;
-  }
-
-  // Reset-password requires session from callback
-  if (pathname === "/reset-password") {
-    if (!setup) return NextResponse.redirect(new URL("/setup", request.url));
-    if (!user) return NextResponse.redirect(new URL("/forgot-password", request.url));
-    return supabaseResponse;
-  }
-
-  // Always allow auth callback
-  if (pathname.startsWith("/api/auth/callback")) {
+    if (!user) return NextResponse.redirect(new URL("/login", request.url));
     return supabaseResponse;
   }
 
@@ -97,7 +86,7 @@ export async function proxy(request: NextRequest) {
   }
 
   // protect other routes
-  const protectedPaths = ["/sales", "/books"]
+  const protectedPaths = ["/sales", "/books", "/reports", "/authors"]
   const isProtectedPath = protectedPaths.some( (path) => pathname.startsWith(path) );
 
   // if path is protected and user isn't logged in reroute to login

@@ -1,8 +1,10 @@
 import { getBookById } from "../action";
 import Link from "next/link";
+import { BackLink } from "@/components/BackLink";
 import { notFound } from "next/navigation";
 import SalesRowsTable from "@/app/(main)/sales/components/SalesRowsTable";
 import DeleteBookButton from "./components/DeleteBookButton";
+import { Button } from "@/components/ui/button";
 import { getSalesByBookId } from "@/lib/data/records";
 
 export const dynamic = "force-dynamic";
@@ -44,33 +46,23 @@ export default async function BookDetailPage({ params, searchParams }: PageProps
       year: 'numeric',
       month: 'long',
       day: 'numeric',
+      timeZone: 'UTC',
     }).format(date);
   };
 
-  const formatPublicationDate = () => {
-    if (book.publicationMonth && book.publicationYear) {
-      const monthNames = [
-        'January', 'February', 'March', 'April', 'May', 'June',
-        'July', 'August', 'September', 'October', 'November', 'December'
-      ];
-      const monthIndex = parseInt(book.publicationMonth) - 1;
-      const monthName = monthIndex >= 0 && monthIndex < 12 
-        ? monthNames[monthIndex] 
-        : book.publicationMonth;
-      return `${monthName} ${book.publicationYear}`;
-    }
-    return 'Not specified';
-  };
+  const formatPublicationDate = () =>
+    new Intl.DateTimeFormat("en-US", {
+      month: "long",
+      year: "numeric",
+      timeZone: "UTC",
+    }).format(book.publicationDate);
 
   return (
     <div className="container mx-auto py-10">
       <div className="mb-6">
-        <Link 
-          href="/books"
-          className="text-blue-600 hover:underline mb-2 inline-block"
-        >
-          ← Back to Books
-        </Link>
+        <BackLink href="/books" className="mb-2">
+          Back to Books
+        </BackLink>
         <h1 className="text-3xl font-bold">{book.title}</h1>
         <p className="text-muted-foreground mt-2">
           Book Details
@@ -82,17 +74,28 @@ export default async function BookDetailPage({ params, searchParams }: PageProps
         <section>
           <h2 className="text-xl font-semibold mb-4">Basic Information</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {book.coverArtPath && (
+              <div className="md:col-span-2">
+                <label className="text-sm font-medium text-muted-foreground block mb-2">Cover</label>
+                <img
+                  src={`/api/books/cover?path=${encodeURIComponent(book.coverArtPath)}`}
+                  alt={`Cover for ${book.title}`}
+                  className="max-h-80 w-auto object-contain rounded border border-gray-200 dark:border-gray-600"
+                />
+              </div>
+            )}
             <div>
               <label className="text-sm font-medium text-muted-foreground">Title</label>
               <p className="text-lg">{book.title}</p>
             </div>
-            <div>
-              <label className="text-sm font-medium text-muted-foreground">Author(s)</label>
-              <p className="text-lg">{book.authors}</p>
-            </div>
+            <Link
+            href={`/authors/${book.authorId}`}>
+              <label className="text-sm font-medium">Author</label>
+              <p className="text-lg font-medium text-blue-600 hover:underline focus:outline focus:underline">{book.author}</p>
+            </Link>
             <div>
               <label className="text-sm font-medium text-muted-foreground">ISBN-13</label>
-              <p className="text-lg">{book.isbn13 || '-'}</p>
+              <p className="text-lg">{book.isbn13}</p>
             </div>
             <div>
               <label className="text-sm font-medium text-muted-foreground">ISBN-10</label>
@@ -103,8 +106,34 @@ export default async function BookDetailPage({ params, searchParams }: PageProps
               <p className="text-lg">{formatPublicationDate()}</p>
             </div>
             <div>
-              <label className="text-sm font-medium text-muted-foreground">Default Royalty Rate</label>
-              <p className="text-lg">{book.defaultRoyaltyRate}%</p>
+              <label className="text-sm font-medium text-muted-foreground">Distributor Royalty Rate</label>
+              <p className="text-lg">{book.distRoyaltyRate}%</p>
+            </div>
+            {book.seriesName && (
+              <>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Series</label>
+                  <p className="text-lg">{book.seriesName}</p>
+                </div>
+                {book.seriesOrder !== null && (
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Series Order</label>
+                    <p className="text-lg">#{book.seriesOrder}</p>
+                  </div>
+                )}
+              </>
+            )}
+            <div>
+              <label className="text-sm font-medium text-muted-foreground">Hand-Sold Royalty Rate</label>
+              <p className="text-lg">{book.handSoldRoyaltyRate}%</p>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-muted-foreground">Cover Price</label>
+              <p className="text-lg">${book.coverPrice.toFixed(2)}</p>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-muted-foreground">Print Cost</label>
+              <p className="text-lg">${book.printCost.toFixed(2)}</p>
             </div>
             <div>
               <label className="text-sm font-medium text-muted-foreground">Created At</label>
@@ -178,17 +207,20 @@ export default async function BookDetailPage({ params, searchParams }: PageProps
         {/* Action Buttons */}
         <section className="pt-4 border-t border-gray-200 dark:border-gray-700">
           <div className="flex gap-4">
-            <Link
-              href={`/books/${bookId}/edit`}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors inline-block"
-            >
-              Edit Book
-            </Link>
+            <Button asChild className="transition-colors duration-150">
+              <Link
+                href={`/books/${bookId}/edit`}
+                className="no-underline hover:no-underline"
+              >
+                Edit Book
+              </Link>
+            </Button>
             <DeleteBookButton
               bookId={bookId}
               bookTitle={book.title}
-              authors={book.authors}
+              author={book.author}
               salesRecordCount={salesResult.total}
+              className="transition-colors duration-150 cursor-pointer"
             />
           </div>
         </section>

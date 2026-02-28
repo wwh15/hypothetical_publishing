@@ -1,5 +1,4 @@
 import type { NextConfig } from "next";
-import { redirect } from "next/dist/server/api-utils";
 module.exports = {
   async redirects() {
     return [
@@ -11,6 +10,7 @@ module.exports = {
 const nextConfig: NextConfig = {
   /* config options here */
   reactCompiler: true,
+  serverExternalPackages: ["@react-pdf/renderer"],
 };
 
 export default nextConfig;

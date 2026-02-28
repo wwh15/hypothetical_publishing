@@ -10,23 +10,24 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL") 
+  url       = env("DATABASE_URL")
 }
 
 model User {
   id        Int      @id @default(autoincrement())
-  email     String   @unique
-  createdAt DateTime @default(now()) @map("created_at")
+  username  String   @unique
+  createdAt DateTime @default(now()) @db.Timestamptz @map("created_at")
   
   @@map("users")
 }
 
 model Author {
   id        Int      @id @default(autoincrement())
-  name      String   @unique
-  email     String?  @unique // Optional: for payment notifications
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  name      String   
+  email     String
+  canonicalName String   @unique   
+  createdAt DateTime @default(now()) @db.Timestamptz @map("created_at")
+  updatedAt DateTime @updatedAt @db.Timestamptz @map("updated_at")
   
   // Relations
   books     Book[]
@@ -35,43 +36,72 @@ model Author {
   @@map("authors")
 }
 
-model Book {
-  id                Int      @id @default(autoincrement())
-  title             String
-  isbn13            String?  @unique // ISBN-13 format, stored without dashes
-  isbn10            String?  @unique // ISBN-10 format, stored without dashes
-  authorRoyaltyRate Float    @default(0.5) @map("author_royalty_rate") // Default 50%, stored as decimal (0.5)
-  publicationMonth  String?  @map("publication_month") // 1 to 12
-  publicationYear   Int?     @map("publication_year") // e.g. 2024
-  createdAt         DateTime @default(now()) @map("created_at")
-  updatedAt         DateTime @updatedAt @map("updated_at")
-  
+model Series {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  description String?  // Optional blurb about the series
+  createdAt   DateTime @default(now()) @db.Timestamptz @map("created_at")
+  updatedAt   DateTime @updatedAt @db.Timestamptz @map("updated_at")
+
   // Relations
-  authors           Author[]
+  books       Book[]
+
+  @@index([name])
+  @@map("series")
+}
+
+model Book {
+  id                        Int       @id @default(autoincrement())
+  authorId                  Int
+  title                     String
+  isbn13                    String    @unique // ISBN-13 format, stored without dashes
+  isbn10                    String?   @unique // ISBN-10 format, stored without dashes
+  distAuthorRoyaltyRate     Float     @default(0.5) @map("dist_author_royalty_rate") // Distributor royalty rate, stored as decimal (0.5 = 50%)
+  handSoldAuthorRoyaltyRate Float     @default(0.2) @map("hand_sold_author_royalty_rate") // Hand-sold royalty rate, stored as decimal (0.2 = 20%)
+  coverPrice                Decimal   @map("cover_price") // Retail cover price
+  printCost                 Decimal   @map("print_cost") // Cost to print one copy
+  publicationDate           DateTime  @db.Timestamptz @map("publication_date") // First day of publication month (e.g. 2024-01-01)
+  seriesId                  Int?      @map("series_id") // Optional: book can belong to at most one series
+  seriesOrder               Int?      @map("series_order") // Position in series (1, 2, 3, ...) when part of a series
+  coverArtPath              String?   @map("cover_art_path") // Supabase Storage path in Cover-Art bucket
+  createdAt                 DateTime  @default(now()) @db.Timestamptz @map("created_at")
+  updatedAt                 DateTime  @updatedAt @db.Timestamptz @map("updated_at")
+
+  // Relations
+  author            Author   @relation(fields: [authorId], references: [id], onDelete: Cascade)
   sales             Sale[]
-  
+  series            Series?  @relation(fields: [seriesId], references: [id], onDelete: SetNull)
+
   // Indexes for efficient search and autocomplete
   @@index([title]) // For title search
   @@index([isbn13]) // For ISBN search
   @@index([isbn10]) // For ISBN search
+  @@index([seriesId]) // For filtering/sorting by series
   @@map("books")
 }
 
+enum SaleSource {
+  DISTRIBUTOR
+  HAND_SOLD
+}
+
 model Sale {
-  id               Int      @id @default(autoincrement())
-  bookId           Int      @map("book_id")
-  date             String   // MM-YYYY format (e.g., "01-2025")
+  id               Int        @id @default(autoincrement())
+  bookId           Int        @map("book_id")
+  date             DateTime   @db.Timestamptz @map("date") // First day of sale month (e.g. 2025-01-01)
   quantity         Int
-  publisherRevenue Float    @map("publisher_revenue")
-  authorRoyalty    Float    @map("author_royalty")
+  publisherRevenue Decimal @default(0)    @map("publisher_revenue")
+  authorRoyalty    Decimal @default(0)    @map("author_royalty")
   royaltyOverridden Boolean @default(false) @map("royalty_overridden") // Track if manually set
   paid             Boolean  @default(false) // Payment status
-  createdAt        DateTime @default(now()) @map("created_at")
-  updatedAt        DateTime @updatedAt @map("updated_at")
+  comment          String?  @db.VarChar(256) @map("comment")
+  source           SaleSource @default(DISTRIBUTOR) // Sales channel
+  createdAt        DateTime @default(now()) @db.Timestamptz @map("created_at")
+  updatedAt        DateTime @updatedAt @db.Timestamptz @map("updated_at")
   
   // Relations
   book             Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
-  
+
   // Indexes for common query patterns
   @@index([bookId]) // For filtering by book
   @@index([paid]) // For filtering paid/unpaid

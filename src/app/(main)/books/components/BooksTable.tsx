@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { Search, X } from "lucide-react";
 import { PaginationControls } from "@/components/PaginationControls";
 import { TableInfo } from "@/components/TableInfo";
+import { SortColumn, serializeSortParam, DEFAULT_BOOK_SORT } from "@/lib/types/sort";
 
 interface BooksTableProps {
   books: BookListItem[];
@@ -15,10 +16,13 @@ interface BooksTableProps {
   page: number;
   pageSize: number;
   search: string;
-  sortBy: string;
-  sortDir: "asc" | "desc";
+  sortColumns: SortColumn[];
   showAll?: boolean;
   normalPageSize?: number;
+  /** Embedded table (e.g. on author detail): no search, pagination, or sort controls; default sort only. */
+  embedded?: boolean;
+  /** Hide the Author column (e.g. when all rows are the same author). */
+  hideAuthorColumn?: boolean;
 }
 
 export default function BooksTable({
@@ -27,10 +31,11 @@ export default function BooksTable({
   page,
   pageSize,
   search,
-  sortBy,
-  sortDir,
+  sortColumns,
   showAll = false,
   normalPageSize = 20,
+  embedded = false,
+  hideAuthorColumn = false,
 }: BooksTableProps) {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState(search ?? "");
@@ -46,59 +51,71 @@ export default function BooksTable({
 
   const columns: ColumnDef<BookListItem>[] = [
     {
+      key: "cover",
+      header: "Cover",
+      accessor: "coverArtPath",
+      sortable: false,
+      render: (row) => {
+        if (row.coverArtPath) {
+          return (
+            <img
+              src={`/api/books/cover?path=${encodeURIComponent(row.coverArtPath)}`}
+              alt=""
+              className="h-10 w-7 object-cover rounded border border-gray-200 dark:border-gray-600"
+            />
+          );
+        }
+        return <span className="text-muted-foreground text-xs">No cover</span>;
+      },
+    },
+    {
       key: "title",
       header: "Title",
       accessor: "title",
       sortable: true,
     },
     {
-      key: "authors",
-      header: "Author(s)",
-      accessor: "authors",
+      key: "author",
+      header: "Author",
+      accessor: "author",
       sortable: true,
+    },
+    {
+      key: "series",
+      header: "Series",
+      accessor: "seriesName",
+      sortable: true,
+      render: (row) => {
+        if (!row.seriesName) {
+          return <span>-</span>;
+        }
+        const label =
+          row.seriesOrder != null
+            ? `${row.seriesName} #${row.seriesOrder}`
+            : row.seriesName;
+        return <span>{label}</span>;
+      },
     },
     {
       key: "isbn13",
       header: "ISBN-13",
       accessor: "isbn13",
       sortable: true,
-      render: (row) => <span>{row.isbn13 || "-"}</span>,
-    },
-    {
-      key: "isbn10",
-      header: "ISBN-10",
-      accessor: "isbn10",
-      sortable: true,
-      render: (row) => <span>{row.isbn10 || "-"}</span>,
+      render: (row) => <span>{row.isbn13}</span>,
     },
     {
       key: "publication",
       header: "Publication",
       accessor: "publicationSortKey",
       sortable: true,
-      render: (row) => {
-        if (row.publicationMonth && row.publicationYear) {
-          const monthNames = [
-            "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-            "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
-          ];
-          const monthIndex = parseInt(row.publicationMonth) - 1;
-          const monthName =
-            monthIndex >= 0 && monthIndex < 12
-              ? monthNames[monthIndex]
-              : row.publicationMonth;
-          return <span>{monthName} {row.publicationYear}</span>;
-        }
-        return <span>-</span>;
-      },
-    },
-    {
-      key: "defaultRoyaltyRate",
-      header: "Royalty Rate",
-      accessor: "defaultRoyaltyRate",
-      sortable: true,
       render: (row) => (
-        <span className="font-medium">{row.defaultRoyaltyRate}%</span>
+        <span>
+          {new Intl.DateTimeFormat("en-US", {
+            month: "short",
+            year: "numeric",
+            timeZone: "UTC",
+          }).format(row.publicationDate)}
+        </span>
       ),
     },
     {
@@ -112,24 +129,33 @@ export default function BooksTable({
     },
   ];
 
+  const filteredColumns = (hideAuthorColumn
+    ? columns.filter((c) => c.key !== "author")
+    : columns
+  ).map((c) => (embedded ? { ...c, sortable: false } : c));
+
   const buildQueryParams = (overrides: {
     page?: number;
     q?: string;
-    sortBy?: string;
-    sortDir?: "asc" | "desc";
+    sort?: SortColumn[];
     showAll?: boolean;
   } = {}) => {
     const params = new URLSearchParams();
     const q = overrides.q !== undefined ? overrides.q : search.trim();
     const p = overrides.page ?? page;
-    const sb = overrides.sortBy ?? sortBy;
-    const sd = overrides.sortDir ?? sortDir;
+    const cols = overrides.sort !== undefined ? overrides.sort : sortColumns;
     const sa = overrides.showAll !== undefined ? overrides.showAll : showAll;
 
     if (q) params.set("q", q);
     params.set("page", String(p));
-    params.set("sortBy", sb);
-    params.set("sortDir", sd);
+    // Only set sort param if it differs from default
+    const serialized = serializeSortParam(cols);
+    const defaultSerialized = serializeSortParam(DEFAULT_BOOK_SORT);
+    if (cols.length === 0) {
+      params.set("sort", "none");
+    } else if (serialized !== defaultSerialized) {
+      params.set("sort", serialized);
+    }
     if (sa) params.set("showAll", "true");
     return params;
   };
@@ -151,12 +177,13 @@ export default function BooksTable({
     router.push(`/books?${params.toString()}`);
   };
 
-  const handleSortChange = (field: string, direction: "asc" | "desc") => {
-    const params = buildQueryParams({
-      sortBy: field,
-      sortDir: direction,
-      page: 1,
-    });
+  const handleMultiSortChange = (newSortColumns: SortColumn[]) => {
+    const params = buildQueryParams({ sort: newSortColumns, page: 1 });
+    router.push(`/books?${params.toString()}`);
+  };
+
+  const handleClearSort = () => {
+    const params = buildQueryParams({ sort: [], page: 1 });
     router.push(`/books?${params.toString()}`);
   };
 
@@ -174,36 +201,40 @@ export default function BooksTable({
 
   return (
     <div className="space-y-4">
-      <form onSubmit={handleSearchSubmit} className="relative">
-        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-          <Search className="h-5 w-5 text-gray-400" />
+      {!embedded && (
+        <div className="flex items-center gap-3">
+          <form onSubmit={handleSearchSubmit} className="relative flex-1">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Search className="h-5 w-5 text-gray-400" />
+            </div>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by title, author, series, or ISBN..."
+              className={cn(
+                "block w-full pl-10 pr-10 py-2 border border-gray-300 dark:border-gray-700 rounded-lg",
+                "bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100",
+                "placeholder:text-gray-400 dark:placeholder:text-gray-500",
+                "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent",
+                "transition-colors",
+              )}
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={handleClearSearch}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                aria-label="Clear search"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            )}
+          </form>
         </div>
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search by title, author, or ISBN..."
-          className={cn(
-            "block w-full pl-10 pr-10 py-2 border border-gray-300 dark:border-gray-700 rounded-lg",
-            "bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100",
-            "placeholder:text-gray-400 dark:placeholder:text-gray-500",
-            "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent",
-            "transition-colors",
-          )}
-        />
-        {searchQuery && (
-          <button
-            type="button"
-            onClick={handleClearSearch}
-            className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-            aria-label="Clear search"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        )}
-      </form>
+      )}
 
-      {total > 0 && (
+      {!embedded && total > 0 && (
         <TableInfo
           startRecord={startRecord}
           endRecord={endRecord}
@@ -215,19 +246,28 @@ export default function BooksTable({
       )}
 
       <DataTable<BookListItem>
-        columns={columns}
+        columns={filteredColumns}
         data={books}
         emptyMessage={
-          hasSearch ? "No books match your search" : "No books found"
+          embedded
+            ? "No books found"
+            : hasSearch
+              ? "No books match your search"
+              : "No books found"
         }
         onRowClick={handleRowClick}
-        sortField={sortBy}
-        sortDirection={sortDir}
-        onSortChange={handleSortChange}
+        sortColumns={embedded ? [] : sortColumns}
+        onMultiSortChange={embedded ? undefined : handleMultiSortChange}
         showPagination={false}
+        columnLabels={Object.fromEntries(
+          filteredColumns.map((c) => [c.key, c.header])
+        )}
+        onClearSort={
+          embedded || sortColumns.length === 0 ? undefined : handleClearSort
+        }
       />
 
-      {totalPages > 1 && !showAll && (
+      {!embedded && totalPages > 1 && !showAll && (
         <div className="flex justify-end">
           <PaginationControls
             currentPage={page}

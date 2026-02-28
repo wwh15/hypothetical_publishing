@@ -7,26 +7,34 @@ const mockBooks: BookListItem[] = [
   {
     id: 1,
     title: "First Book",
-    authors: "Author A",
-    isbn13: null,
+    author: "Author A",
+    isbn13: "9781111111111",
     isbn10: null,
-    publicationMonth: null,
-    publicationYear: null,
-    publicationSortKey: "9999-99",
-    defaultRoyaltyRate: 10,
+    publicationDate: new Date(2020, 0, 1),
+    publicationSortKey: "2020-01",
+    distRoyaltyRate: 10,
+    handSoldRoyaltyRate: 5,
+    coverPrice: 19.99,
+    printCost: 4.5,
     totalSales: 0,
+    seriesName: null,
+    seriesOrder: null,
   },
   {
     id: 2,
     title: "Second Book",
-    authors: "Author B",
-    isbn13: null,
+    author: "Author B",
+    isbn13: "9782222222222",
     isbn10: null,
-    publicationMonth: null,
-    publicationYear: null,
-    publicationSortKey: "9999-99",
-    defaultRoyaltyRate: 15,
+    publicationDate: new Date(2020, 0, 1),
+    publicationSortKey: "2020-01",
+    distRoyaltyRate: 15,
+    handSoldRoyaltyRate: 8,
+    coverPrice: 14.99,
+    printCost: 3.5,
     totalSales: 0,
+    seriesName: null,
+    seriesOrder: null,
   },
 ];
 
@@ -39,7 +47,7 @@ describe("useBookSelection", () => {
     expect(result.current.bookDisplayValue).toBe("Select Book");
   });
 
-  it("shows title and authors when a book is selected", () => {
+  it("shows title and author when a book is selected", () => {
     const onBookChange = vi.fn();
     const { result } = renderHook(() =>
       useBookSelection(mockBooks, "1", onBookChange)

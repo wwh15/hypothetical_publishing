@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   updateSale,
   deleteSale,
@@ -10,69 +11,211 @@ import type { SaleDetailPayload } from "@/lib/data/records";
 import Link from "next/link";
 import { BookSelectBox } from "@/components/BookSelectBox";
 import { BookListItem } from "@/lib/data/books";
+import MonthYearSelector from "@/components/MonthYearSelector";
+import { Decimal } from "decimal.js";
+import {
+  isValidCurrencyInput,
+  isValidQuantityInput,
+  normalizeCurrency,
+  validateCurrency,
+  validateDatePeriod,
+  validateQuantity,
+  validateRoyaltyLimit,
+} from "@/lib/validation";
+import { cn } from "@/lib/utils";
+import { Textarea } from "@/components/ui/textarea";
+
+/** Get the royalty rate (as percentage) for a book based on sale source */
+function getRateForSource(
+  book: BookListItem,
+  source: "DISTRIBUTOR" | "HAND_SOLD"
+): number {
+  return source === "HAND_SOLD"
+    ? book.handSoldRoyaltyRate
+    : book.distRoyaltyRate;
+}
+
+/** Auto-calculate revenue for hand-sold: (coverPrice - printCost) * quantity */
+function calcHandSoldRevenue(
+  book: BookListItem,
+  quantity: number
+): number | null {
+  if (quantity > 0) {
+    return (book.coverPrice - book.printCost) * quantity;
+  }
+  return null;
+}
 
 interface EditFormProps {
   books: BookListItem[];
   sale: SaleDetailPayload;
 }
 
+const SALES_YEAR_MIN = 1000;
+const SALES_YEAR_MAX = new Date().getFullYear();
+
+function initialDateMonth(date: Date): string {
+  if (
+    !date ||
+    !Number.isFinite(date.getTime()) ||
+    date.getUTCFullYear() < SALES_YEAR_MIN || // Use UTC here too
+    date.getUTCFullYear() > SALES_YEAR_MAX
+  ) {
+    return "";
+  }
+  // getUTCMonth() ensures Nov 1st 00:00Z returns 10 (November)
+  return String(date.getUTCMonth() + 1).padStart(2, "0");
+}
+
+function initialDateYear(date: Date): string {
+  if (!date || !Number.isFinite(date.getTime())) {
+    return "";
+  }
+  
+  const year = date.getUTCFullYear(); // Use UTC
+  
+  if (year < SALES_YEAR_MIN || year > SALES_YEAR_MAX) {
+    return "";
+  }
+  return String(year);
+}
+
 export default function EditForm({ sale, books }: EditFormProps) {
+  const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
-    bookId: sale.bookId,
-    date: sale.date,
+    bookId: sale.book.id,
+    dateMonth: initialDateMonth(sale.date),
+    dateYear: initialDateYear(sale.date),
     quantity: sale.quantity,
-    publisherRevenue: sale.publisherRevenue,
-    authorRoyalty: sale.authorRoyalty,
+    publisherRevenue: new Decimal(sale.publisherRevenue).toNumber(),
+    authorRoyalty: new Decimal(sale.authorRoyalty).toNumber(),
     royaltyOverridden: sale.royaltyOverridden,
+    comment: sale.comment ?? "",
+    source: sale.source,
   });
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [togglingPaid, setTogglingPaid] = useState(false);
+  
+  // Validation States
+  const [dateError, setDateError] = useState<string | null>(null);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const [displayRevenue, setDisplayRevenue] = useState(
+    formData.publisherRevenue !== 0 ? formData.publisherRevenue.toFixed(2) : ""
+  );
+  const [displayRoyalty, setDisplayRoyalty] = useState(
+    formData.authorRoyalty.toFixed(2)
+  );
+  const [displayQuantity, setDisplayQuantity] = useState(
+    formData.quantity !== 0 ? formData.quantity.toFixed(0) : ""
+  );
 
   const handleSave = async () => {
-    setLoading(true);
-    const result = await updateSale(sale.id, formData);
-    setLoading(false);
-
-    if (result.success) {
-      setIsEditing(false);
-    } else {
-      alert(result.error);
+    setErrors({});
+    setDateError(null);
+    const newErrors: Record<string, string> = {};
+  
+    // 1. Run validations
+    const dateCheck = validateDatePeriod(formData.dateYear, formData.dateMonth);
+    const qtyCheck = validateQuantity(displayQuantity);
+    const revenueCheck = validateCurrency(displayRevenue);
+  
+    // 2. Accumulate errors
+    if (!dateCheck.success) {
+      setDateError(dateCheck.error);
+      newErrors.date = dateCheck.error;
+    }
+    if (!qtyCheck.success) newErrors.quantity = qtyCheck.error;
+    if (!revenueCheck.success) newErrors.publisherRevenue = revenueCheck.error;
+  
+    // 3. Stop if there are errors (This handles the UI)
+    if (Object.keys(newErrors).length > 0) {
+      setErrors({ ...newErrors, global: "Please fix the errors above." });
+      return;
+    }
+  
+    // 4. FINAL GUARD (This satisfies TypeScript)
+    // By checking .success here, TypeScript "narrows" the type inside the block
+    if (dateCheck.success && qtyCheck.success && revenueCheck.success) {
+      setLoading(true);
+      try {
+        const result = await updateSale(sale.id, {
+          bookId: formData.bookId,
+          date: dateCheck.data,       // ✅ TypeScript now knows .data exists
+          quantity: qtyCheck.data,   // ✅ TypeScript now knows .data exists
+          publisherRevenue: revenueCheck.data, // ✅ TypeScript now knows .data exists
+          authorRoyalty: parseFloat(displayRoyalty) || 0,
+          source: formData.source,
+          comment: formData.comment.trim() || null,
+        });
+  
+        if (result.success) {
+          setIsEditing(false);
+        } else {
+          setErrors({ global: result.error ?? "Failed to update." });
+        }
+      } catch {
+        setErrors({ global: "Network error occurred." });
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
   const handleDelete = async () => {
     setLoading(true);
     await deleteSale(sale.id);
-    // Redirects automatically in the action
+  };
+
+  const resetForm = () => {
+    setFormData({
+      bookId: sale.book.id,
+      dateMonth: initialDateMonth(sale.date),
+      dateYear: initialDateYear(sale.date),
+      quantity: sale.quantity,
+      publisherRevenue: new Decimal(sale.publisherRevenue).toNumber(),
+      authorRoyalty: new Decimal(sale.authorRoyalty).toNumber(),
+      royaltyOverridden: sale.royaltyOverridden,
+      comment: sale.comment ?? "",
+      source: sale.source,
+    });
+
+    setDisplayRevenue(new Decimal(sale.publisherRevenue).toFixed(2));
+    setDisplayRoyalty(new Decimal(sale.authorRoyalty).toFixed(2));
+    setDisplayQuantity(String(sale.quantity));
+
+    setErrors({});
+    setDateError(null);
+  };
+
+  const handleCancel = () => {
+    resetForm();
+    setIsEditing(false);
   };
 
   const handleTogglePaid = async () => {
-    setLoading(true);
-    await togglePaidStatus(sale.id, sale.paid);
-    setLoading(false);
+    setTogglingPaid(true);
+    const result = await togglePaidStatus(sale.id, sale.paid);
+    setTogglingPaid(false);
+    if (result?.success) router.refresh();
+    else if (result?.error) alert(result.error);
   };
 
-  function normalizeAuthorRoyalty(value: number): number {
-    return (Math.round(value * 100) / 100);
-  }
-
   if (!isEditing) {
-    // View Mode
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg border p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Display fields */}
           <div>
             <label className="text-sm font-medium text-gray-500">
               Book Title
             </label>
             <p className="text-lg font-semibold mt-1">
               <Link
-                href={`/books/${sale.bookId}`}
-                onClick={(e) => e.stopPropagation()}
-                className="text-blue-600 hover:underline focus:outline focus:underline"
+                href={`/books/${sale.book.id}`}
+                className="text-blue-600 hover:underline"
               >
                 {sale.book.title}
               </Link>
@@ -82,15 +225,19 @@ export default function EditForm({ sale, books }: EditFormProps) {
           <div>
             <label className="text-sm font-medium text-gray-500">Author</label>
             <p className="text-lg font-semibold mt-1">
-              {sale.book.authors.length > 0
-                ? sale.book.authors.map((a) => a.name).join(", ")
-                : "-"}
+              {sale.book.author.name}
             </p>
           </div>
 
           <div>
             <label className="text-sm font-medium text-gray-500">Period</label>
-            <p className="text-lg font-semibold mt-1">{sale.date}</p>
+            <p className="text-lg font-semibold mt-1">
+              {new Intl.DateTimeFormat("en-US", {
+                month: "short",
+                year: "numeric",
+                timeZone: "UTC"
+              }).format(sale.date)}
+            </p>
           </div>
 
           <div>
@@ -105,7 +252,7 @@ export default function EditForm({ sale, books }: EditFormProps) {
               Publisher Revenue
             </label>
             <p className="text-lg font-semibold mt-1 text-green-600">
-              ${sale.publisherRevenue.toFixed(2)}
+              ${new Decimal(sale.publisherRevenue).toFixed(2)}
             </p>
           </div>
 
@@ -114,39 +261,63 @@ export default function EditForm({ sale, books }: EditFormProps) {
               Author Royalty
             </label>
             <p className="text-lg font-semibold mt-1 text-blue-600">
-              ${sale.authorRoyalty.toFixed(2)}
-              {sale.royaltyOverridden && (
-                <span className="ml-2 text-xs text-orange-600">(Override)</span>
-              )}
+              ${new Decimal(sale.authorRoyalty).toFixed(2)}
             </p>
           </div>
 
           <div>
-            <label className="text-sm font-medium text-gray-500">
-              Payment Status
-            </label>
-            <div className="mt-1 flex items-center gap-2">
+            <label className="text-sm font-medium text-gray-500">Source</label>
+            <p className="mt-1">
               <span
                 className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${
-                  sale.paid
-                    ? "bg-green-100 text-green-800"
-                    : "bg-yellow-100 text-yellow-800"
+                  sale.source === "HAND_SOLD"
+                    ? "bg-purple-100 text-purple-800"
+                    : "bg-blue-100 text-blue-800"
                 }`}
               >
+                {sale.source === "HAND_SOLD" ? "Hand Sold" : "Distributor"}
+              </span>
+            </p>
+          </div>
+
+          <div>
+            <label className="text-sm font-medium text-gray-500">Payment Status</label>
+            <div className="mt-1 flex flex-wrap items-center gap-2">
+              <span className={cn(
+                "inline-flex items-center rounded-full px-3 py-1 text-sm font-medium",
+                sale.paid ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300" : "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300"
+              )}>
                 {sale.paid ? "Paid" : "Pending"}
               </span>
               <button
+                type="button"
                 onClick={handleTogglePaid}
-                disabled={loading}
-                className="text-sm text-blue-600 hover:underline"
+                disabled={togglingPaid}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+                  sale.paid
+                    ? "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+                    : "bg-green-600 text-white hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800",
+                  togglingPaid && "opacity-70 cursor-not-allowed"
+                )}
               >
-                Toggle
+                {togglingPaid ? "Updating…" : sale.paid ? "Mark as unpaid" : "Mark as paid"}
               </button>
             </div>
           </div>
+
+          {sale.comment != null && sale.comment !== "" && (
+            <div className="md:col-span-2">
+              <label className="text-sm font-medium text-gray-500">
+                Comment
+              </label>
+              <p className="text-lg font-semibold mt-1 whitespace-pre-wrap">
+                {sale.comment}
+              </p>
+            </div>
+          )}
         </div>
 
-        {/* Action Buttons */}
         <div className="flex gap-4 mt-8 pt-6 border-t">
           <button
             onClick={() => setIsEditing(true)}
@@ -162,7 +333,6 @@ export default function EditForm({ sale, books }: EditFormProps) {
           </button>
         </div>
 
-        {/* Delete Confirmation */}
         {showDeleteConfirm && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white dark:bg-gray-800 p-6 rounded-lg max-w-md">
@@ -192,7 +362,11 @@ export default function EditForm({ sale, books }: EditFormProps) {
     );
   }
 
-  // Edit Mode
+  const selectorValue =
+    formData.dateYear && formData.dateMonth
+      ? `${formData.dateYear}-${String(formData.dateMonth).padStart(2, "0")}`
+      : null;
+
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg border p-6">
       <h2 className="text-xl font-bold mb-4">Edit Sale Record</h2>
@@ -208,32 +382,71 @@ export default function EditForm({ sale, books }: EditFormProps) {
             selectedBookId={String(formData.bookId)}
             onSelect={(bookId) => {
               const book = books.find((b) => b.id === Number(bookId));
-              const rate = book?.defaultRoyaltyRate;
+              let revenue = formData.publisherRevenue;
+              if (formData.source === "HAND_SOLD" && book) {
+                const autoRev = calcHandSoldRevenue(book, formData.quantity);
+                if (autoRev != null) {
+                  revenue = normalizeCurrency(autoRev);
+                  setDisplayRevenue(revenue.toFixed(2));
+                }
+              }
+              const rate = book
+                ? getRateForSource(book, formData.source)
+                : null;
               const newRoyalty =
-                rate != null
-                  ? formData.publisherRevenue * (rate / 100)
-                  : formData.authorRoyalty;
+                rate != null ? revenue * (rate / 100) : formData.authorRoyalty;
+              setDisplayRoyalty(newRoyalty.toFixed(2));
               setFormData({
                 ...formData,
                 bookId: Number(bookId),
-                authorRoyalty: newRoyalty,
+                publisherRevenue: revenue,
+                authorRoyalty: normalizeCurrency(newRoyalty),
               });
+              if (errors.bookId) setErrors((prev) => ({ ...prev, bookId: "" }));
             }}
           />
         </div>
 
-        {/* Date */}
+        {/* Date Selector */}
         <div>
-          <label className="block text-sm font-medium mb-2">
-            Period (MM-YYYY)
-          </label>
-          <input
-            type="text"
-            value={formData.date}
-            onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-            placeholder="01-2025"
-            className="w-full px-3 py-2 border rounded-md"
+          <label className="block text-sm font-medium mb-2">Sale Date</label>
+          <MonthYearSelector
+            value={selectorValue}
+            onChange={(v) => {
+              setDateError(null);
+              setErrors((prev) => ({ ...prev, date: "" }));
+              if (!v) {
+                setFormData({ ...formData, dateYear: "", dateMonth: "" });
+                return;
+              }
+              const [y, m] = v.split("-");
+              setFormData({
+                ...formData,
+                dateYear: y,
+                dateMonth: m ? String(parseInt(m, 10)).padStart(2, "0") : "",
+              });
+            }}
+            placeholder="Select month & year"
           />
+          {dateError && (
+            <p className="mt-2 text-sm text-red-600 font-medium">{dateError}</p>
+          )}
+        </div>
+
+        {/* Source (read-only) */}
+        <div>
+          <label className="block text-sm font-medium mb-2">Source</label>
+          <p className="mt-1">
+            <span
+              className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${
+                formData.source === "HAND_SOLD"
+                  ? "bg-purple-100 text-purple-800"
+                  : "bg-blue-100 text-blue-800"
+              }`}
+            >
+              {formData.source === "HAND_SOLD" ? "Hand Sold" : "Distributor"}
+            </span>
+          </p>
         </div>
 
         {/* Quantity */}
@@ -242,16 +455,47 @@ export default function EditForm({ sale, books }: EditFormProps) {
             Quantity Sold
           </label>
           <input
-            type="number"
-            min={0}
-            value={Number.isFinite(formData.quantity) ? formData.quantity : ""}
+            type="text"
+            inputMode="numeric"
+            placeholder="0"
+            value={displayQuantity}
+            className={cn(
+              "w-full px-3 py-2 border rounded-md transition-colors",
+              errors.quantity ? "border-red-500" : "border-gray-300"
+            )}
             onChange={(e) => {
-              const raw = parseInt(e.target.value, 10);
-              const q = Number.isFinite(raw) ? Math.max(0, raw) : 0;
-              setFormData({ ...formData, quantity: q });
+              const val = e.target.value;
+              setDisplayQuantity(val);
+              if (errors.quantity) setErrors((prev) => ({ ...prev, quantity: "" }));
+
+              const qtyValidation = validateQuantity(val);
+              if (qtyValidation.success) {
+                const qty = qtyValidation.data;
+                setFormData((prev) => {
+                  const next = { ...prev, quantity: qty };
+                  const book = books.find((b) => b.id === prev.bookId);
+
+                  if (prev.source === "HAND_SOLD" && book) {
+                    const autoRev = calcHandSoldRevenue(book, qty) ?? 0;
+                    next.publisherRevenue = normalizeCurrency(autoRev);
+                    setDisplayRevenue(next.publisherRevenue.toFixed(2));
+                    const rate = getRateForSource(book, "HAND_SOLD");
+                    next.authorRoyalty = normalizeCurrency(next.publisherRevenue * (rate / 100));
+                    setDisplayRoyalty(next.authorRoyalty.toFixed(2));
+                  } else {
+                    const rate = book ? getRateForSource(book, "DISTRIBUTOR") : 0;
+                    const newRoyalty = prev.publisherRevenue * (rate / 100);
+                    next.authorRoyalty = normalizeCurrency(newRoyalty);
+                    setDisplayRoyalty(next.authorRoyalty.toFixed(2));
+                  }
+                  return next;
+                });
+              }
             }}
-            className="w-full px-3 py-2 border rounded-md"
           />
+          {errors.quantity && (
+            <p className="mt-1 text-xs text-red-500 font-medium">{errors.quantity}</p>
+          )}
         </div>
 
         {/* Publisher Revenue */}
@@ -260,97 +504,108 @@ export default function EditForm({ sale, books }: EditFormProps) {
             Publisher Revenue ($)
           </label>
           <input
-            type="number"
-            step="0.01"
-            min={0}
-            value={
-              Number.isFinite(formData.publisherRevenue)
-                ? formData.publisherRevenue
-                : ""
-            }
+            type="text"
+            inputMode="decimal"
+            placeholder="0.00"
+            value={displayRevenue}
+            readOnly={formData.source === "HAND_SOLD"}
+            className={cn(
+              "w-full px-3 py-2 border rounded-md transition-colors",
+              errors.publisherRevenue ? "border-red-500" : "border-gray-300",
+              formData.source === "HAND_SOLD" &&
+                "bg-gray-100 dark:bg-gray-700 cursor-not-allowed"
+            )}
+            tabIndex={formData.source === "HAND_SOLD" ? -1 : undefined}
             onChange={(e) => {
-              const raw = parseFloat(e.target.value);
-              const revenue = Number.isFinite(raw) ? Math.max(0, raw) : 0;
-              const book = books.find((b) => b.id === Number(formData.bookId));
-              const rate = book?.defaultRoyaltyRate;
-              const newRoyalty =
-                rate != null ? revenue * (rate / 100) : formData.authorRoyalty;
-              const authorRoyalty = Number.isFinite(newRoyalty)
-                ? Math.max(0, newRoyalty)
-                : formData.authorRoyalty;
-              setFormData({
-                ...formData,
-                publisherRevenue: revenue,
-                authorRoyalty: normalizeAuthorRoyalty(authorRoyalty),
-                royaltyOverridden: false,
-              });
+              if (formData.source === "HAND_SOLD") return;
+              const val = e.target.value;
+              setDisplayRevenue(val);
+              if (errors.publisherRevenue) setErrors((prev) => ({ ...prev, publisherRevenue: "" }));
+
+              const revenueValidation = validateCurrency(val);
+              if (revenueValidation.success) {
+                const numericRevenue = revenueValidation.data;
+                const book = books.find((b) => b.id === Number(formData.bookId));
+                const rate = book ? getRateForSource(book, formData.source) : 0;
+                const newRoyalty = normalizeCurrency(numericRevenue * (rate / 100));
+
+                setDisplayRoyalty(newRoyalty.toFixed(2));
+                setFormData((prev) => ({
+                  ...prev,
+                  publisherRevenue: numericRevenue,
+                  authorRoyalty: newRoyalty,
+                }));
+              }
             }}
-            className="w-full px-3 py-2 border rounded-md"
+            onBlur={() => {
+              if (formData.source === "HAND_SOLD" || displayRevenue === "") return;
+              const revenueValidation = validateCurrency(displayRevenue);
+              if (revenueValidation.success) {
+                setDisplayRevenue(revenueValidation.data.toFixed(2));
+              }
+            }}
           />
+          {errors.publisherRevenue && (
+            <p className="mt-1 text-xs text-red-500 font-medium">
+              {errors.publisherRevenue}
+            </p>
+          )}
         </div>
 
-        {/* Author Royalty */}
+        {/* Author Royalty (read-only, auto-calculated) */}
         <div>
           <label className="block text-sm font-medium mb-2">
             Author Royalty ($)
           </label>
           <input
-            type="number"
-            step="0.01"
-            min={0}
-            value={
-              Number.isFinite(formData.authorRoyalty)
-                ? formData.authorRoyalty
-                : ""
-            }
-            onChange={(e) => {
-              const raw = parseFloat(e.target.value);
-              if (Number.isFinite(raw)) {
-                setFormData({
-                  ...formData,
-                  authorRoyalty: Math.max(0, raw),
-                  royaltyOverridden: true,
-                });
-              } else {
-                // Cleared or invalid: revert to computed from book rate
-                const book = books.find(
-                  (b) => b.id === Number(formData.bookId)
-                );
-                const rate = book?.defaultRoyaltyRate;
-                const computed =
-                  rate != null
-                    ? formData.publisherRevenue * (rate / 100)
-                    : formData.authorRoyalty;
-                setFormData({
-                  ...formData,
-                  authorRoyalty: Number.isFinite(computed) ? normalizeAuthorRoyalty(computed) : 0,
-                  royaltyOverridden: false,
-                });
-              }
-            }}
-            className="w-full px-3 py-2 border rounded-md"
+            type="text"
+            value={displayRoyalty}
+            readOnly
+            className={cn(
+              "w-full px-3 py-2 border rounded-md bg-gray-100 dark:bg-gray-700 cursor-not-allowed",
+              errors.authorRoyalty ? "border-red-500" : "border-gray-300"
+            )}
+            tabIndex={-1}
           />
-          {formData.royaltyOverridden && (
-            <p className="mt-2 text-sm text-orange-600">(Overridden)</p>
+          {errors.authorRoyalty && (
+            <p className="mt-1 text-xs text-red-500 font-medium">{errors.authorRoyalty}</p>
           )}
+        </div>
+
+        {/* Comment */}
+        <div className="md:col-span-2">
+          <label className="block text-sm font-medium mb-2">Comment</label>
+          <Textarea
+            value={formData.comment}
+            onChange={(e) =>
+              setFormData((prev) => ({ ...prev, comment: e.target.value }))
+            }
+            placeholder="Optional note"
+            maxLength={256}
+            rows={2}
+            className="resize-none w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800"
+          />
         </div>
       </div>
 
-      {/* Save/Cancel Buttons */}
-      <div className="flex gap-4 mt-8 pt-6 border-t">
-        <button
-          onClick={handleSave}
-          disabled={loading}
-          className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
-        >
-          {loading ? "Saving..." : "Save Changes"}
-        </button>
-        <button
-          onClick={() => setIsEditing(false)}
-          className="px-4 py-2 bg-gray-300 rounded-md hover:bg-gray-400"
-        >
-          Cancel
-        </button>
+      <div className="flex flex-col gap-3 mt-8 pt-6 border-t">
+        <div className="flex gap-4">
+          <button
+            onClick={handleSave}
+            disabled={loading}
+            className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 flex items-center justify-center min-w-[120px]"
+          >
+            {loading ? "Saving..." : "Save Changes"}
+          </button>
+          <button
+            onClick={handleCancel}
+            className="px-4 py-2 bg-gray-300 rounded-md hover:bg-gray-400"
+          >
+            Cancel
+          </button>
+        </div>
+        
+        
       </div>
     </div>
   );

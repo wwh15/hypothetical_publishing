@@ -1,69 +1,123 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "../prisma";
+import {
+  uploadCoverArt as uploadCoverArtToStorage,
+  deleteCoverArt,
+} from "../supabase/storage";
+import { getBooksSortedByTotalSales } from "./books-queries";
+import { SortColumn } from "../types/sort";
+
+/** Build YYYY-MM sort key from publication date */
+export function publicationSortKeyFromDate(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  return `${y}-${m}`;
+}
 
 // Flat Book type for table display (similar to Sale type)
 export interface BookListItem {
-    id: number;
-    title: string;
-    authors: string;
-    isbn13: string | null;
-    isbn10: string | null;
-    publicationMonth: string | null; // "01" to "12"
-    publicationYear: number | null;
-    /** YYYY-MM string for sorting; nulls become 9999-99 so they sort last */
-    publicationSortKey: string;
-    defaultRoyaltyRate: number; // As percentage (e.g., 50 for 50%)
-    totalSales: number; // Total sales to date
+  id: number;
+  title: string;
+  author: string;
+  isbn13: string;
+  isbn10: string | null;
+  /** First day of publication month (e.g. 2024-01-01) */
+  publicationDate: Date;
+  /** YYYY-MM string for sorting */
+  publicationSortKey: string;
+  distRoyaltyRate: number; // Distributor royalty as percentage (e.g., 50 for 50%)
+  handSoldRoyaltyRate: number; // Hand-sold royalty as percentage (e.g., 20 for 20%)
+  coverPrice: number; // Retail cover price
+  printCost: number; // Cost to print one copy
+  totalSales: number;
+  seriesName: string | null;
+  seriesOrder: number | null;
+  coverArtPath: string | null;
+}
+
+// Series type for UI
+export interface SeriesListItem {
+  id: number;
+  name: string;
+  description: string | null;
 }
 
 // Form input DTOs (use these for create/update forms)
 export interface CreateBookInput {
-    title: string;
-    authors: string; // later: could be string[] when authors becomes a relation
-    isbn13?: string;
-    isbn10?: string;
-    publicationMonth?: string; // "01" to "12"
-    publicationYear?: number;
-    defaultRoyaltyRate?: number; // percentage (e.g., 50), default handled by server
+  title: string;
+  /** Unique identifier for an existing author. If provided, used to link the book. */
+  authorId?: number | null;
+  author: string; // name of author
+  email: string; // email of author
+  isbn13: string;
+  isbn10?: string;
+  /** First day of publication month (e.g. new Date(2024, 0, 1) for Jan 2024) */
+  publicationDate: Date;
+  distRoyaltyRate?: number; // Distributor royalty percentage (e.g., 50), default handled by server
+  handSoldRoyaltyRate?: number; // Hand-sold royalty percentage (e.g., 20), default handled by server
+  coverPrice: number; // Retail cover price
+  printCost: number; // Cost to print one copy
+  seriesId?: number | null; // Existing series ID, or null for no series
+  seriesOrder?: number | null; // Position in series (1, 2, 3, ...)
+  newSeriesName?: string; // Name for new series (if creating new series)
+  coverArtPath?: string | null; // Optional; cover is usually added on edit
 }
 
 export interface UpdateBookInput extends Partial<CreateBookInput> {
-    id: number;
+  id: number;
+  email: string;
+  authorId: number;
+  /** Set to null to remove book from series. */
+  seriesId?: number | null;
+  seriesOrder?: number | null;
+  /** Set to null to clear cover art path. */
+  coverArtPath?: string | null;
 }
 
 export interface BookDetail {
-    id: number;
-    title: string;
-    authors: string;
-    isbn13: string | null;
-    isbn10: string | null;
-    publicationMonth: string | null; // "01" to "12"
-    publicationYear: number | null;
-    defaultRoyaltyRate: number;
-    createdAt: Date;
-    updatedAt: Date;
-    totalSales: number;
-    totalPublisherRevenue: number;
-    unpaidAuthorRoyalty: number;
-    paidAuthorRoyalty: number;
-    totalAuthorRoyalty: number;
-    sales?: import('./records').SaleListItem[]; // Sales records for this book
+  id: number;
+  title: string;
+  author: string;
+  authorId: number;
+  email: string;
+  isbn13: string;
+  isbn10: string | null;
+  /** First day of publication month */
+  publicationDate: Date;
+  distRoyaltyRate: number;
+  handSoldRoyaltyRate: number;
+  coverPrice: number;
+  printCost: number;
+  createdAt: Date;
+  updatedAt: Date;
+  totalSales: number;
+  totalPublisherRevenue: number;
+  unpaidAuthorRoyalty: number;
+  paidAuthorRoyalty: number;
+  totalAuthorRoyalty: number;
+  seriesId: number | null;
+  seriesOrder: number | null;
+  seriesName: string | null;
+  coverArtPath: string | null;
+  sales?: import("./records").SaleListItem[]; // Sales records for this book
 }
 
 // Column keys from BooksTable that support server-side sort.
-// Note: "authors" sorts by number of authors (_count); Prisma relation orderBy does not support ordering by relation field (e.g. name).
-const SORT_FIELD_MAP: Record<string, Prisma.BookOrderByWithRelationInput | Prisma.BookOrderByWithRelationInput[]> = {
+// Series: alphabetical by series name, then by series order (1,2,...,9,10); books with no series last.
+const SORT_FIELD_MAP: Record<
+  string,
+  Prisma.BookOrderByWithRelationInput | Prisma.BookOrderByWithRelationInput[]
+> = {
   title: { title: "asc" },
-  authors: { authors: { _count: "asc" } },
+  author: { author: { name: "asc" } },
   isbn13: { isbn13: "asc" },
   isbn10: { isbn10: "asc" },
-  publication: [
-    { publicationYear: "asc" },
-    { publicationMonth: "asc" },
-  ],
-  defaultRoyaltyRate: { authorRoyaltyRate: "asc" },
+  publication: { publicationDate: "asc" },
+  distRoyaltyRate: { distAuthorRoyaltyRate: "asc" },
   // Prisma can only order by relation _count, not sum(quantity). When sortBy is totalSales we use in-memory sort in getBooksData.
   totalSales: { sales: { _count: "desc" } },
+  // Series name (nulls last in PostgreSQL ASC), then series order (numeric; nulls last)
+  series: [{ series: { name: "asc" } }, { seriesOrder: "asc" }],
 };
 
 function flipOrderDir(
@@ -80,50 +134,112 @@ function flipOrderDir(
   return result as Prisma.BookOrderByWithRelationInput;
 }
 
-function buildOrderBy(
-  sortBy: string,
-  sortDir: "asc" | "desc"
-): Prisma.BookOrderByWithRelationInput | Prisma.BookOrderByWithRelationInput[] {
-  const base = SORT_FIELD_MAP[sortBy];
-  if (!base) return { title: "asc" };
-
-  const applyDir = (
-    o: Prisma.BookOrderByWithRelationInput
-  ): Prisma.BookOrderByWithRelationInput =>
-    sortDir === "desc" ? flipOrderDir(o) : o;
-
-  if (Array.isArray(base)) {
-    return base.map(applyDir) as Prisma.BookOrderByWithRelationInput[];
+/** Build Prisma multi-column orderBy from SortColumn[] */
+function buildMultiOrderBy(
+  sortColumns: SortColumn[]
+): Prisma.BookOrderByWithRelationInput[] {
+  const result: Prisma.BookOrderByWithRelationInput[] = [];
+  for (const col of sortColumns) {
+    const base = SORT_FIELD_MAP[col.field];
+    if (!base) continue;
+    const applyDir = (
+      o: Prisma.BookOrderByWithRelationInput
+    ): Prisma.BookOrderByWithRelationInput =>
+      col.direction === "desc" ? flipOrderDir(o) : o;
+    if (Array.isArray(base)) {
+      result.push(...base.map(applyDir));
+    } else {
+      result.push(applyDir(base));
+    }
   }
-  return applyDir(base);
+  if (result.length === 0) {
+    result.push({ title: "asc" });
+  }
+  return result;
+}
+
+// Get all series
+export async function getAllSeries(): Promise<SeriesListItem[]> {
+  const series = await prisma.series.findMany({
+    orderBy: { name: "asc" },
+  });
+
+  return series.map((s) => ({
+    id: s.id,
+    name: s.name,
+    description: s.description,
+  }));
+}
+
+// Create a new series
+export async function createSeries(
+  name: string,
+  description?: string
+): Promise<
+  { success: true; seriesId: number } | { success: false; error: string }
+> {
+  try {
+    if (!name.trim()) {
+      return { success: false, error: "Series name is required" };
+    }
+
+    const series = await prisma.series.create({
+      data: {
+        name: name.trim(),
+        description: description?.trim() || null,
+      },
+    });
+
+    return { success: true, seriesId: series.id };
+  } catch (error: unknown) {
+    // Handle unique constraint violations (duplicate series names)
+    if (
+      error &&
+      typeof error === "object" &&
+      "code" in error &&
+      (error as { code: string }).code === "P2002"
+    ) {
+      return {
+        success: false,
+        error: "A series with this name already exists",
+      };
+    }
+
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to create series",
+    };
+  }
 }
 
 // Get all books (for client-side pagination/sorting)
 export async function getAllBooks(): Promise<BookListItem[]> {
   const books = await prisma.book.findMany({
-    include: { authors: true, sales: true },
+    include: { author: true, sales: true, series: true },
     orderBy: { title: "asc" },
   });
 
   return books.map((book) => {
     const totalSales = book.sales.reduce((sum, sale) => sum + sale.quantity, 0);
-    const authors = book.authors.map((a) => a.name).join(", ");
-    const defaultRoyaltyRate = Math.round(book.authorRoyaltyRate * 100);
-    const year = book.publicationYear ?? 9999;
-    const month = book.publicationMonth ?? "99";
-    const publicationSortKey = `${year}-${month}`;
-
+    const distRoyaltyRate = Math.round(book.distAuthorRoyaltyRate * 100);
+    const handSoldRoyaltyRate = Math.round(book.handSoldAuthorRoyaltyRate * 100);
+    const publicationSortKey = publicationSortKeyFromDate(book.publicationDate as Date);
     return {
       id: book.id,
       title: book.title,
-      authors,
-      isbn13: book.isbn13,
+      author: book.author.name,
+      isbn13: book.isbn13 as string,
       isbn10: book.isbn10,
-      publicationMonth: book.publicationMonth,
-      publicationYear: book.publicationYear,
+      publicationDate: book.publicationDate as Date,
       publicationSortKey,
-      defaultRoyaltyRate,
+      distRoyaltyRate,
+      handSoldRoyaltyRate,
+      coverPrice: Number(book.coverPrice),
+      printCost: Number(book.printCost),
       totalSales,
+      seriesName: book.series?.name ?? null,
+      seriesOrder: book.seriesOrder ?? null,
+      coverArtPath: book.coverArtPath ?? null,
     };
   });
 }
@@ -133,14 +249,12 @@ export async function getBooksData({
   search,
   page = 1,
   pageSize = 20,
-  sortBy,
-  sortDir,
+  sortColumns,
 }: {
   search?: string;
   page?: number;
   pageSize?: number;
-  sortBy?: string;
-  sortDir?: "asc" | "desc";
+  sortColumns?: SortColumn[];
 }): Promise<{
   items: BookListItem[];
   total: number;
@@ -168,12 +282,19 @@ export async function getBooksData({
       },
       // Author name match (case-insensitive)
       {
-        authors: {
-          some: {
-            name: {
-              contains: query,
-              mode: "insensitive",
-            },
+        author: {
+          name: {
+            contains: query,
+            mode: "insensitive",
+          },
+        },
+      },
+      // Series name match (case-insensitive)
+      {
+        series: {
+          name: {
+            contains: query,
+            mode: "insensitive",
           },
         },
       },
@@ -193,68 +314,34 @@ export async function getBooksData({
           isbn10: {
             contains: normalizedIsbn,
           },
-        },
+        }
       );
     }
 
     where.OR = orConditions;
   }
 
-  // When sorting by totalSales we order by sum(sales.quantity); Prisma only supports _count. Fetch all, sort in memory, then paginate.
-  // TODO: This is a hack to get the total sales to work. We should find a better way to do this.
-  const sortByTotalSales = sortBy === "totalSales" && sortDir;
+  const cols = sortColumns ?? [];
 
-  if (sortByTotalSales) {
-    const books = await prisma.book.findMany({
-      where,
-      include: { authors: true, sales: true },
-    });
+  // When any sort column is totalSales, use raw SQL to compute SUM(sales.quantity)
+  const hasTotalSales = cols.some((c) => c.field === "totalSales");
 
-    const allItems: BookListItem[] = books.map((book) => {
-      const totalSales = book.sales.reduce((sum, sale) => sum + sale.quantity, 0);
-      const authors = book.authors.map((a) => a.name).join(", ");
-      const defaultRoyaltyRate = Math.round(book.authorRoyaltyRate * 100);
-      const year = book.publicationYear ?? 9999;
-      const month = book.publicationMonth ?? "99";
-      const publicationSortKey = `${year}-${month}`;
-      return {
-        id: book.id,
-        title: book.title,
-        authors,
-        isbn13: book.isbn13,
-        isbn10: book.isbn10,
-        publicationMonth: book.publicationMonth,
-        publicationYear: book.publicationYear,
-        publicationSortKey,
-        defaultRoyaltyRate,
-        totalSales,
-      };
-    });
-
-    allItems.sort((a, b) =>
-      sortDir === "desc"
-        ? b.totalSales - a.totalSales
-        : a.totalSales - b.totalSales
+  if (hasTotalSales) {
+    return getBooksSortedByTotalSales(
+      { search: trimmedSearch },
+      { page: currentPage, pageSize: limit },
+      cols
     );
-
-    const total = allItems.length;
-    const items = allItems.slice(
-      (currentPage - 1) * limit,
-      currentPage * limit
-    );
-
-    return { items, total, page: currentPage, pageSize: limit };
   }
 
-  const orderBy =
-    sortBy && sortDir
-      ? buildOrderBy(sortBy, sortDir)
-      : { title: "asc" as const };
+  const orderBy = cols.length > 0
+    ? buildMultiOrderBy(cols)
+    : [{ title: "asc" as const }];
 
   const [books, total] = await Promise.all([
     prisma.book.findMany({
       where,
-      include: { authors: true, sales: true },
+      include: { author: true, sales: true, series: true },
       orderBy,
       skip: (currentPage - 1) * limit,
       take: limit,
@@ -263,26 +350,26 @@ export async function getBooksData({
   ]);
 
   const items: BookListItem[] = books.map((book) => {
-    const totalSales = book.sales.reduce(
-      (sum, sale) => sum + sale.quantity,
-      0,
-    );
-    const authors = book.authors.map((a) => a.name).join(", ");
-    const defaultRoyaltyRate = Math.round(book.authorRoyaltyRate * 100);
-    const year = book.publicationYear ?? 9999;
-    const month = book.publicationMonth ?? "99";
-    const publicationSortKey = `${year}-${month}`;
+    const totalSales = book.sales.reduce((sum, sale) => sum + sale.quantity, 0);
+    const distRoyaltyRate = Math.round(book.distAuthorRoyaltyRate * 100);
+    const handSoldRoyaltyRate = Math.round(book.handSoldAuthorRoyaltyRate * 100);
+    const publicationSortKey = publicationSortKeyFromDate(book.publicationDate as Date);
     return {
       id: book.id,
       title: book.title,
-      authors,
-      isbn13: book.isbn13,
+      author: book.author.name,
+      isbn13: book.isbn13 as string,
       isbn10: book.isbn10,
-      publicationMonth: book.publicationMonth,
-      publicationYear: book.publicationYear,
+      publicationDate: book.publicationDate as Date,
       publicationSortKey,
-      defaultRoyaltyRate,
+      distRoyaltyRate,
+      handSoldRoyaltyRate,
+      coverPrice: Number(book.coverPrice),
+      printCost: Number(book.printCost),
       totalSales,
+      seriesName: book.series?.name ?? null,
+      seriesOrder: book.seriesOrder ?? null,
+      coverArtPath: book.coverArtPath ?? null,
     };
   });
 
@@ -294,18 +381,59 @@ export async function getBooksData({
   };
 }
 
+/** Fetch all books for an author as BookListItem[], sorted by default book sort (series name, series order, title). */
+export async function getBooksByAuthorId(
+  authorId: number
+): Promise<BookListItem[]> {
+  const books = await prisma.book.findMany({
+    where: { authorId },
+    include: { author: true, sales: true, series: true },
+    orderBy: [
+      { series: { name: "asc" } },
+      { seriesOrder: "asc" },
+      { title: "asc" },
+    ],
+  });
+
+  return books.map((book) => {
+    const totalSales = book.sales.reduce((sum, sale) => sum + sale.quantity, 0);
+    const distRoyaltyRate = Math.round(book.distAuthorRoyaltyRate * 100);
+    const handSoldRoyaltyRate = Math.round(book.handSoldAuthorRoyaltyRate * 100);
+    const publicationSortKey = publicationSortKeyFromDate(
+      book.publicationDate as Date
+    );
+    return {
+      id: book.id,
+      title: book.title,
+      author: book.author.name,
+      isbn13: book.isbn13 as string,
+      isbn10: book.isbn10,
+      publicationDate: book.publicationDate as Date,
+      publicationSortKey,
+      distRoyaltyRate,
+      handSoldRoyaltyRate,
+      coverPrice: Number(book.coverPrice),
+      printCost: Number(book.printCost),
+      totalSales,
+      seriesName: book.series?.name ?? null,
+      seriesOrder: book.seriesOrder ?? null,
+      coverArtPath: book.coverArtPath ?? null,
+    };
+  });
+}
+
 export async function getBookById(id: number): Promise<BookDetail | null> {
   const book = await prisma.book.findUnique({
     where: { id },
-    include: { authors: true },
+    include: { author: true, series: true },
   });
 
   if (!book) {
     return null;
   }
 
-  const authors = book.authors.map((a) => a.name).join(", ");
-  const defaultRoyaltyRate = Math.round(book.authorRoyaltyRate * 100);
+  const distRoyaltyRate = Math.round(book.distAuthorRoyaltyRate * 100);
+  const handSoldRoyaltyRate = Math.round(book.handSoldAuthorRoyaltyRate * 100);
 
   // Use aggregates so we don't load all sales (sales list is paginated separately)
   const [totals, unpaidAgg, paidAgg] = await Promise.all([
@@ -323,21 +451,27 @@ export async function getBookById(id: number): Promise<BookDetail | null> {
     }),
   ]);
 
-  const totalSales = totals._sum.quantity ?? 0;
-  const totalPublisherRevenue = totals._sum.publisherRevenue ?? 0;
-  const unpaidAuthorRoyalty = unpaidAgg._sum.authorRoyalty ?? 0;
-  const paidAuthorRoyalty = paidAgg._sum.authorRoyalty ?? 0;
-  const totalAuthorRoyalty = totals._sum.authorRoyalty ?? 0;
+  const totalSales = totals._sum.quantity ?? 0; // Quantity is usually an Int, so this is fine
+
+  // For currency/royalty fields (Decimal types), convert to number for the UI
+  const totalPublisherRevenue = new Prisma.Decimal(totals._sum.publisherRevenue ?? 0).toNumber();
+  const unpaidAuthorRoyalty = new Prisma.Decimal(unpaidAgg._sum.authorRoyalty ?? 0).toNumber();
+  const paidAuthorRoyalty = new Prisma.Decimal(paidAgg._sum.authorRoyalty ?? 0).toNumber();
+  const totalAuthorRoyalty = new Prisma.Decimal(totals._sum.authorRoyalty ?? 0).toNumber();
 
   return {
     id: book.id,
     title: book.title,
-    authors,
-    isbn13: book.isbn13,
+    author: book.author.name,
+    authorId: book.author.id,
+    email: book.author.email,
+    isbn13: book.isbn13 as string,
     isbn10: book.isbn10,
-    publicationMonth: book.publicationMonth,
-    publicationYear: book.publicationYear,
-    defaultRoyaltyRate,
+    publicationDate: book.publicationDate as Date,
+    distRoyaltyRate,
+    handSoldRoyaltyRate,
+    coverPrice: Number(book.coverPrice),
+    printCost: Number(book.printCost),
     createdAt: book.createdAt,
     updatedAt: book.updatedAt,
     totalSales,
@@ -345,64 +479,87 @@ export async function getBookById(id: number): Promise<BookDetail | null> {
     unpaidAuthorRoyalty,
     paidAuthorRoyalty,
     totalAuthorRoyalty,
+    seriesId: book.seriesId,
+    seriesOrder: book.seriesOrder,
+    seriesName: book.series?.name ?? null,
+    coverArtPath: book.coverArtPath ?? null,
     // Sales list is loaded separately via getSalesByBookId (paginated)
     sales: undefined,
   };
 }
 
-export async function createBook(input: CreateBookInput): Promise<{ success: true; bookId: number } | { success: false; error: string }> {
+export async function createBook(
+  input: CreateBookInput
+): Promise<
+  { success: true; bookId: number } | { success: false; error: string }
+> {
   try {
-    // Parse authors (comma-separated string)
-    const authorNames = input.authors
-      .split(',')
-      .map(name => name.trim())
-      .filter(name => name.length > 0);
-
-    if (authorNames.length === 0) {
-      return { success: false, error: 'At least one author is required' };
-    }
-
-    // Convert royalty rate from percentage to decimal (e.g., 50 -> 0.50)
-    const authorRoyaltyRate = input.defaultRoyaltyRate 
-      ? input.defaultRoyaltyRate / 100 
+    // Convert royalty rates from percentage to decimal (e.g., 50 -> 0.50)
+    const distAuthorRoyaltyRate = input.distRoyaltyRate
+      ? input.distRoyaltyRate / 100
       : 0.5; // Default to 50%
+    const handSoldAuthorRoyaltyRate = input.handSoldRoyaltyRate
+      ? input.handSoldRoyaltyRate / 100
+      : 0.2; // Default to 20%
+
+    // Determine series handling
+    let seriesId: number | null = null;
+    if (input.newSeriesName && input.newSeriesName.trim()) {
+      // Create new series
+      const newSeries = await prisma.series.create({
+        data: { name: input.newSeriesName.trim() },
+      });
+      seriesId = newSeries.id;
+    } else if (input.seriesId !== undefined && input.seriesId !== null) {
+      // Use existing series
+      seriesId = input.seriesId;
+    }
 
     // Wrap author creation and book creation in a single transaction
     const book = await prisma.$transaction(async (tx) => {
-      // Find or create authors within the transaction
-      const authorConnections = await Promise.all(
-        authorNames.map(async (name) => {
-          // Try to find existing author
-          let author = await tx.author.findUnique({
-            where: { name },
-          });
+      let author = null;
 
-          // Create if doesn't exist
-          if (!author) {
-            author = await tx.author.create({
-              data: { name },
-            });
-          }
+      // 1. Find the single author
+      if (input.authorId) {
+        author = await tx.author.findUnique({
+          where: { id: input.authorId },
+        });
+      }
 
-          return { id: author.id };
-        })
-      );
+      // Enforce author selection: throw Error if no author found
+      if (!author) {
+        throw new Error(`Author not found. Please select or create the author first.`);
+      }
 
-      // Create the book, connected to all authors
+      // When adding to a series without explicit order, assign next available
+      let seriesOrderVal = input.seriesOrder ?? null;
+      if (seriesId !== null && seriesOrderVal === null) {
+        const max = await tx.book.aggregate({
+          where: { seriesId },
+          _max: { seriesOrder: true },
+        });
+        seriesOrderVal = (max._max.seriesOrder ?? 0) + 1;
+      }
+
+      // 2. Create the book, connected to the single author
       return tx.book.create({
         data: {
           title: input.title,
-          isbn13: input.isbn13 || null,
+          isbn13: input.isbn13,
           isbn10: input.isbn10 || null,
-          authorRoyaltyRate,
-          publicationMonth: input.publicationMonth ?? null,
-          publicationYear: input.publicationYear ?? null,
-          authors: {
-            connect: authorConnections,
-          },
+          distAuthorRoyaltyRate,
+          handSoldAuthorRoyaltyRate,
+          coverPrice: input.coverPrice,
+          printCost: input.printCost,
+          publicationDate: input.publicationDate,
+          seriesId: seriesId,
+          seriesOrder: seriesOrderVal,
+          // Fixed: Use 'author' (singular) and connect to one ID
+          authorId: author.id,
         },
+        // Optional: include if you need author data returned in the 'book' object
         include: {
-          authors: true,
+          author: true,
         },
       });
     });
@@ -410,11 +567,19 @@ export async function createBook(input: CreateBookInput): Promise<{ success: tru
     return { success: true, bookId: book.id };
   } catch (error: unknown) {
     // Handle unique constraint violations (ISBN duplicates)
-    if (error && typeof error === "object" && "code" in error && (error as { code: string }).code === "P2002") {
-      const field = (error as { meta?: { target?: string[] } }).meta?.target?.[0];
+    if (
+      error &&
+      typeof error === "object" &&
+      "code" in error &&
+      (error as { code: string }).code === "P2002"
+    ) {
+      const field = (error as { meta?: { target?: string[] } }).meta
+        ?.target?.[0];
       return {
         success: false,
-        error: `A book with this ${field === "isbn13" ? "ISBN-13" : "ISBN-10"} already exists`,
+        error: `A book with this ${
+          field === "isbn13" ? "ISBN-13" : "ISBN-10"
+        } already exists`,
       };
     }
 
@@ -425,106 +590,122 @@ export async function createBook(input: CreateBookInput): Promise<{ success: tru
   }
 }
 
-export async function updateBook(input: UpdateBookInput): Promise<{ success: true; bookId: number } | { success: false; error: string }> {
+export async function updateBook(
+  input: UpdateBookInput
+): Promise<
+  { success: true; bookId: number } | { success: false; error: string }
+> {
   try {
     // Check if book exists
     const existingBook = await prisma.book.findUnique({
       where: { id: input.id },
-      include: { authors: true },
+      include: { author: true },
     });
 
     if (!existingBook) {
-      return { success: false, error: 'Book not found' };
+      return { success: false, error: "Book not found" };
     }
 
-    // Parse authors if provided (comma-separated string)
-    let authorConnections: { id: number }[] | undefined;
-    if (input.authors !== undefined) {
-      const authorNames = input.authors
-        .split(',')
-        .map(name => name.trim())
-        .filter(name => name.length > 0);
-
-      if (authorNames.length === 0) {
-        return { success: false, error: 'At least one author is required' };
-      }
-
-      // Wrap author lookup/creation and book update in a transaction
-      const updatedBook = await prisma.$transaction(async (tx) => {
-        // Find or create authors within the transaction
-        authorConnections = await Promise.all(
-          authorNames.map(async (name) => {
-            let author = await tx.author.findUnique({
-              where: { name },
-            });
-
-            if (!author) {
-              author = await tx.author.create({
-                data: { name },
-              });
-            }
-
-            return { id: author.id };
-          })
-        );
-
-        // Update the book
-        const updateData: Prisma.BookUpdateInput = {};
-
-        if (input.title !== undefined) updateData.title = input.title;
-        if (input.isbn13 !== undefined) updateData.isbn13 = input.isbn13 || null;
-        if (input.isbn10 !== undefined) updateData.isbn10 = input.isbn10 || null;
-        if (input.defaultRoyaltyRate !== undefined) {
-          updateData.authorRoyaltyRate = input.defaultRoyaltyRate / 100;
-        }
-        if (input.publicationMonth !== undefined) updateData.publicationMonth = input.publicationMonth ?? null;
-        if (input.publicationYear !== undefined) updateData.publicationYear = input.publicationYear ?? null;
-
-        // Update authors if provided
-        if (authorConnections) {
-          // Disconnect all existing authors and connect new ones
-          updateData.authors = {
-            set: [], // Disconnect all
-            connect: authorConnections, // Connect new ones
-          };
-        }
-
-        return tx.book.update({
-          where: { id: input.id },
-          data: updateData,
-          include: { authors: true },
-        });
-      });
-
-      return { success: true, bookId: updatedBook.id };
-    } else {
-      // No author changes, just update other fields
+    // Update the book
+    const updatedBook = await prisma.$transaction(async (tx) => {
+      // Prepare data
       const updateData: Prisma.BookUpdateInput = {};
 
-      if (input.title !== undefined) updateData.title = input.title;
-      if (input.isbn13 !== undefined) updateData.isbn13 = input.isbn13 || null;
-      if (input.isbn10 !== undefined) updateData.isbn10 = input.isbn10 || null;
-      if (input.defaultRoyaltyRate !== undefined) {
-        updateData.authorRoyaltyRate = input.defaultRoyaltyRate / 100;
-      }
-      if (input.publicationMonth !== undefined) updateData.publicationMonth = input.publicationMonth ?? null;
-      if (input.publicationYear !== undefined) updateData.publicationYear = input.publicationYear ?? null;
+      // Handle Author Connection by ID
+      if (input.authorId !== undefined) {
+        if (input.authorId !== null) {
+          updateData.author = {
+            connect: { id: input.authorId },
+          };
+        } else {
+          // Otherwise, throw an error or handle it as a validation failure.
+          throw new Error("An author is required for this book.");
+        }
+      } 
 
-      const updatedBook = await prisma.book.update({
+      if (input.title !== undefined) updateData.title = input.title;
+      if (input.isbn13 !== undefined)
+        updateData.isbn13 = input.isbn13;
+      if (input.isbn10 !== undefined)
+        updateData.isbn10 = input.isbn10 || null;
+      if (input.distRoyaltyRate !== undefined) {
+        updateData.distAuthorRoyaltyRate = input.distRoyaltyRate / 100;
+      }
+      if (input.handSoldRoyaltyRate !== undefined) {
+        updateData.handSoldAuthorRoyaltyRate = input.handSoldRoyaltyRate / 100;
+      }
+      if (input.coverPrice !== undefined) {
+        updateData.coverPrice = input.coverPrice;
+      }
+      if (input.printCost !== undefined) {
+        updateData.printCost = input.printCost;
+      }
+      if (input.publicationDate !== undefined)
+        updateData.publicationDate = input.publicationDate;
+      if (input.seriesId !== undefined) {
+        updateData.series =
+          input.seriesId == null
+            ? { disconnect: true }
+            : { connect: { id: input.seriesId } };
+        if (input.seriesId == null) updateData.seriesOrder = null;
+      }
+      if (input.seriesOrder !== undefined) {
+        updateData.seriesOrder = input.seriesOrder ?? null;
+      }
+      if (input.coverArtPath !== undefined) {
+        updateData.coverArtPath = input.coverArtPath ?? null;
+      } else if (
+        input.seriesId != null &&
+        existingBook.seriesId !== input.seriesId
+      ) {
+        // Newly connecting to series without explicit order: assign next available
+        const max = await tx.book.aggregate({
+          where: { seriesId: input.seriesId },
+          _max: { seriesOrder: true },
+        });
+        updateData.seriesOrder = (max._max.seriesOrder ?? 0) + 1;
+      }
+
+      return tx.book.update({
         where: { id: input.id },
         data: updateData,
-        include: { authors: true },
+        include: { author: true },
       });
+    });
 
-      return { success: true, bookId: updatedBook.id };
+    // Shift series order for remaining books when disconnecting from a series.
+    const oldSeriesId = existingBook.seriesId ?? null;
+    const newSeriesId = updatedBook.seriesId ?? null;
+    const removedOrder = existingBook.seriesOrder ?? null;
+    if (
+      oldSeriesId !== null &&
+      oldSeriesId !== newSeriesId &&
+      removedOrder !== null
+    ) {
+      await shiftSeriesOrderAfterRemoval(oldSeriesId, removedOrder);
     }
+
+    // Delete the old series if it now has no books (series are auto-deleted when empty).
+    if (oldSeriesId !== null && oldSeriesId !== newSeriesId) {
+      await deleteSeriesIfEmpty(oldSeriesId);
+    }
+
+    return { success: true, bookId: updatedBook.id };
   } catch (error: unknown) {
     // Handle unique constraint violations (ISBN duplicates)
-    if (error && typeof error === "object" && "code" in error && (error as { code: string }).code === "P2002") {
-      const field = (error as { meta?: { target?: string[] } }).meta?.target?.[0];
+    if (
+      error &&
+      typeof error === "object" &&
+      "code" in error &&
+      (error as { code: string }).code === "P2002"
+    ) {
+      const field = (error as { meta?: { target?: string[] } }).meta
+        ?.target?.[0];
       return {
         success: false,
-        error: `A book with this ${field === "isbn13" ? "ISBN-13" : "ISBN-10"} already exists`,
+        error: `A book with this ${
+          field === "isbn13" ? "ISBN-13" : "ISBN-10"
+        } already exists`,
       };
     }
 
@@ -535,7 +716,127 @@ export async function updateBook(input: UpdateBookInput): Promise<{ success: tru
   }
 }
 
-export async function deleteBook(id: number): Promise<{ success: true } | { success: false; error: string }> {
+/** Shift series order down for remaining books after a book is removed. Call after disconnect or delete. */
+async function shiftSeriesOrderAfterRemoval(
+  seriesId: number,
+  removedOrder: number
+): Promise<void> {
+  const toShift = await prisma.book.findMany({
+    where: {
+      seriesId,
+      seriesOrder: { gt: removedOrder },
+    },
+    select: { id: true },
+  });
+  await prisma.$transaction(
+    toShift.map((b) =>
+      prisma.book.update({
+        where: { id: b.id },
+        data: { seriesOrder: { decrement: 1 } },
+      })
+    )
+  );
+}
+
+/** Deletes a series if it has no books left. Call after removing a book from a series (delete or update). */
+async function deleteSeriesIfEmpty(seriesId: number): Promise<void> {
+  const count = await prisma.book.count({ where: { seriesId } });
+  if (count === 0) {
+    await prisma.series.deleteMany({ where: { id: seriesId } });
+  }
+}
+
+/** Book in a series for the order modal */
+export interface SeriesBook {
+  id: number;
+  title: string;
+  author: string;
+  seriesOrder: number;
+}
+
+/** Get all books in a series, ordered by seriesOrder (nulls last) */
+export async function getBooksInSeries(
+  seriesId: number
+): Promise<SeriesBook[]> {
+  const books = await prisma.book.findMany({
+    where: { seriesId },
+    include: { author: true },
+    orderBy: [{ seriesOrder: "asc" }, { title: "asc" }],
+  });
+
+  return books.map((book) => ({
+    id: book.id,
+    title: book.title,
+    author: book.author.name,
+    seriesOrder: book.seriesOrder ?? 0,
+  }));
+}
+
+/** Reorder books in a series. orderedBookIds is the desired order (ids in order 1, 2, 3, ...). */
+export async function reorderSeriesBooks(
+  seriesId: number,
+  orderedBookIds: number[]
+): Promise<{ success: true } | { success: false; error: string }> {
+  try {
+    await prisma.$transaction(
+      orderedBookIds.map((bookId, index) =>
+        prisma.book.update({
+          where: { id: bookId, seriesId },
+          data: { seriesOrder: index + 1 },
+        })
+      )
+    );
+    return { success: true };
+  } catch (error: unknown) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to reorder",
+    };
+  }
+}
+
+/** Upload cover art file and set book.coverArtPath. */
+export async function uploadBookCoverArt(
+  bookId: number,
+  file: File
+): Promise<
+  { success: true; path: string } | { success: false; error: string }
+> {
+  const result = await uploadCoverArtToStorage(bookId, file);
+  if ("error" in result) {
+    return { success: false, error: result.error };
+  }
+  await prisma.book.update({
+    where: { id: bookId },
+    data: { coverArtPath: result.path },
+  });
+  return { success: true, path: result.path };
+}
+
+/** Remove cover art from storage and clear book.coverArtPath. */
+export async function removeBookCoverArt(
+  bookId: number
+): Promise<{ success: true } | { success: false; error: string }> {
+  const book = await prisma.book.findUnique({
+    where: { id: bookId },
+    select: { coverArtPath: true },
+  });
+  if (!book) {
+    return { success: false, error: "Book not found." };
+  }
+  if (book.coverArtPath) {
+    await deleteCoverArt(book.coverArtPath);
+  }
+  await prisma.book.update({
+    where: { id: bookId },
+    data: { coverArtPath: null },
+  });
+  return { success: true };
+}
+
+export async function deleteBook(
+  id: number
+): Promise<{ success: true } | { success: false; error: string }> {
   try {
     const book = await prisma.book.findUnique({
       where: { id },
@@ -545,11 +846,29 @@ export async function deleteBook(id: number): Promise<{ success: true } | { succ
       return { success: false, error: "Book not found" };
     }
 
+    const seriesIdBeforeDelete = book.seriesId ?? null;
+    const deletedSeriesOrder = book.seriesOrder ?? null;
+
+    // Remove cover art from storage if present
+    if (book.coverArtPath) {
+      await deleteCoverArt(book.coverArtPath);
+    }
+
     // Delete the book. Sales records are deleted automatically (FK onDelete: Cascade).
-    // Authors are unchanged (many-to-many; other books may reference them).
     await prisma.book.delete({
       where: { id },
     });
+
+    // Shift series order for remaining books in the same series
+    if (seriesIdBeforeDelete !== null) {
+      if (deletedSeriesOrder !== null) {
+        await shiftSeriesOrderAfterRemoval(
+          seriesIdBeforeDelete,
+          deletedSeriesOrder
+        );
+      }
+      await deleteSeriesIfEmpty(seriesIdBeforeDelete);
+    }
 
     return { success: true };
   } catch (error: unknown) {

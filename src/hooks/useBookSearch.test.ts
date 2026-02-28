@@ -7,26 +7,34 @@ const mockBooks: BookListItem[] = [
   {
     id: 1,
     title: "React in Action",
-    authors: "John Doe",
+    author: "John Doe",
     isbn13: "9781617293856",
     isbn10: "1617293859",
-    publicationMonth: "03",
-    publicationYear: 2018,
+    publicationDate: new Date(2018, 2, 1), // March 2018
     publicationSortKey: "2018-03",
-    defaultRoyaltyRate: 10,
+    distRoyaltyRate: 10,
+    handSoldRoyaltyRate: 5,
+    coverPrice: 29.99,
+    printCost: 5.5,
     totalSales: 100,
+    seriesName: null,
+    seriesOrder: null,
   },
   {
     id: 2,
     title: "Learning TypeScript",
-    authors: "Jane Smith",
-    isbn13: null,
+    author: "Jane Smith",
+    isbn13: "9781492037651",
     isbn10: "1492037658",
-    publicationMonth: null,
-    publicationYear: 2020,
-    publicationSortKey: "2020-99",
-    defaultRoyaltyRate: 15,
+    publicationDate: new Date(2020, 5, 1),
+    publicationSortKey: "2020-06",
+    distRoyaltyRate: 15,
+    handSoldRoyaltyRate: 8,
+    coverPrice: 34.99,
+    printCost: 6,
     totalSales: 50,
+    seriesName: null,
+    seriesOrder: null,
   },
 ];
 
@@ -45,7 +53,7 @@ describe("filterBooksBySearch", () => {
   it("filters by author", () => {
     const result = filterBooksBySearch(mockBooks, "Jane");
     expect(result).toHaveLength(1);
-    expect(result[0].authors).toBe("Jane Smith");
+    expect(result[0].author).toBe("Jane Smith");
   });
 
   it("filters by ISBN (digits only match)", () => {

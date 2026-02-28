@@ -16,15 +16,17 @@ import { AlertTriangle } from "lucide-react";
 export interface DeleteBookButtonProps {
   bookId: number;
   bookTitle: string;
-  authors: string;
+  author: string;
   salesRecordCount: number;
+  className?: string;
 }
 
 export default function DeleteBookButton({
   bookId,
   bookTitle,
-  authors,
+  author,
   salesRecordCount,
+  className,
 }: DeleteBookButtonProps) {
   const [open, setOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -45,8 +47,9 @@ export default function DeleteBookButton({
     <>
       <Button
         variant="destructive"
+        size="default"
         onClick={() => setOpen(true)}
-        className="px-4 py-2"
+        className={className}
       >
         Delete Book
       </Button>
@@ -72,7 +75,7 @@ export default function DeleteBookButton({
                 <div className="rounded-md border border-border bg-muted/50 px-3 py-2">
                   <p className="font-semibold">{bookTitle}</p>
                   <p className="text-muted-foreground text-sm">
-                    {authors}
+                    {author}
                   </p>
                 </div>
                 {salesRecordCount > 0 ? (

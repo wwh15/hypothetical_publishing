@@ -12,7 +12,7 @@ import asyncGetSalesData, {
   asyncAddSale,
   asyncGetSaleById,
 } from "@/lib/data/records";
-import { Prisma, Sale } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -31,12 +31,14 @@ export async function updateSale(
   id: number,
   data: {
     bookId?: number;
-    date?: string;
+    date?: Date;
     quantity?: number;
     publisherRevenue?: number;
     authorRoyalty?: number;
     royaltyOverridden?: boolean;
     paid?: boolean;
+    comment?: string | null;
+    source?: "DISTRIBUTOR" | "HAND_SOLD";
   }
 ) {
   try {

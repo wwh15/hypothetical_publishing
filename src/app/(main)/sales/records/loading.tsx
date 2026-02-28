@@ -1,6 +1,6 @@
 export default function SalesRecordsLoading() {
   return (
-    <div className="container mx-auto py-10">
+    <div className="container mx-auto py-10 px-4 sm:px-6">
       <div className="mb-6 space-y-6">
         <div className="flex flex-col gap-3">
           <div className="h-8 w-24 bg-muted rounded animate-pulse" />

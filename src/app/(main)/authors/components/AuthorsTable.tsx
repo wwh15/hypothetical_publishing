@@ -1,0 +1,235 @@
+"use client";
+
+import { BaseDataTable } from "@/components/BaseDataTable";
+import { PaginationControls } from "@/components/PaginationControls";
+import { TableInfo } from "@/components/TableInfo";
+import { AuthorListItem } from "@/lib/data/author";
+import { AuthorColumnId, authorTablePresets, getAuthorPresetColumns } from "@/lib/table-configs/author-columns";
+import { cn } from "@/lib/utils";
+import { ArrowDown, ArrowUp, ArrowUpDown, Search, X } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useCallback, useMemo, useState } from "react";
+
+export type AuthorsTablePreset = keyof typeof authorTablePresets;
+
+export interface AuthorsTableProps {
+  /** Authors data for the current page (from server) */
+  rows: AuthorListItem[];
+  /** Total count across all pages (from server) */
+  total: number;
+  /** Current 1-based page (from server) */
+  page: number;
+  /** Page size (from server) */
+  pageSize: number;
+  /** Current search query (from server / URL) */
+  search: string;
+  /** Current sort field (from server / URL) */
+  sortBy: string;
+  /** Current sort direction (from server / URL) */
+  sortDir: "asc" | "desc";
+  /** Show all records (no pagination) */
+  showAll?: boolean;
+  /** Override row click */
+  onRowClick?: (row: AuthorListItem) => void;
+  /** Add query params when navigating to a record (e.g. from=book&bookId=123) */
+  navigationContext?: Record<string, string | number>;
+  /** Preset for column selection; default "full" */
+  preset?: AuthorsTablePreset;
+  /** Override columns via allowlist (overrides preset) */
+  visibleColumns?: AuthorColumnId[];
+}
+
+export default function AuthorsTable({
+  rows,
+  total,
+  page,
+  pageSize,
+  search,
+  sortBy,
+  sortDir,
+  showAll = false,
+  onRowClick,
+}: AuthorsTableProps) {
+  const router = useRouter();
+  const [searchQuery, setSearchQuery] = useState(search);
+
+  const totalPages = useMemo(
+    () => (total > 0 && pageSize > 0 ? Math.ceil(total / pageSize) : 1),
+    [total, pageSize]
+  );
+
+  const buildQueryParams = useCallback(
+    (
+      overrides: {
+        page?: number;
+        q?: string;
+        sortBy?: string | null;
+        sortDir?: "asc" | "desc" | null;
+        dateFrom?: string;
+        dateTo?: string;
+        showAll?: boolean;
+      } = {}
+    ) => {
+      const params = new URLSearchParams();
+      const q = overrides.q !== undefined ? overrides.q : search.trim();
+      const p = overrides.page ?? page;
+      const sb = "sortBy" in overrides ? overrides.sortBy : sortBy;
+      const sd = "sortDir" in overrides ? overrides.sortDir : sortDir;
+      const sa = overrides.showAll !== undefined ? overrides.showAll : showAll;
+
+      if (q) params.set("q", q);
+      params.set("page", String(p));
+      if (sb != null) params.set("sortBy", sb);
+      if (sd != null) params.set("sortDir", sd);
+      if (sa) params.set("showAll", "true");
+      return params;
+    },
+    [search, page, sortBy, sortDir, showAll]
+  );
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const params = buildQueryParams({ q: searchQuery.trim(), page: 1 });
+    router.push(`/authors?${params.toString()}`);
+  };
+
+  const handleClearSearch = () => {
+    setSearchQuery("");
+    const params = buildQueryParams({ q: "", page: 1 });
+    router.push(`/authors?${params.toString()}`);
+  };
+
+  const handlePageChange = useCallback(
+    (newPage: number) => {
+      const params = buildQueryParams({ page: newPage });
+      router.push(`/authors?${params.toString()}`);
+    },
+    [router, buildQueryParams]
+  );
+
+  const handleSortChange = useCallback(
+    (field: string, direction: "asc" | "desc") => {
+      const params = buildQueryParams({
+        sortBy: field,
+        sortDir: direction,
+        page: 1, // Always reset to page 1 on sort
+      });
+      router.push(`/authors?${params.toString()}`);
+    },
+    [buildQueryParams, router]
+  );
+
+  // Replace your columns.map block with this:
+const enhancedColumns = useMemo(() => {
+    const columns = getAuthorPresetColumns("full");
+    return columns.map((col) => {
+      const isSorted = sortBy === col.key;
+      return {
+        ...col,
+        header: (
+          <div className="flex items-center gap-2">
+            <span className="font-semibold">{col.header as string}</span>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation(); // Prevent row click if header click bubbles
+                const nextDirection = isSorted && sortDir === "asc" ? "desc" : "asc";
+                handleSortChange(col.key, nextDirection);
+              }}
+              className={cn(
+                "p-0.5 rounded hover:bg-muted transition-colors",
+                isSorted && "text-blue-600 bg-blue-50 dark:bg-blue-900/20"
+              )}
+            >
+              {!isSorted ? (
+                <ArrowUpDown className="w-4 h-4 text-muted-foreground opacity-50" />
+              ) : sortDir === "asc" ? (
+                <ArrowUp className="w-4 h-4" />
+              ) : (
+                <ArrowDown className="h-4 w-4" />
+              )}
+            </button>
+          </div>
+        ),
+      };
+    });
+  }, [sortBy, sortDir, handleSortChange]);
+
+  const handleRowClick =
+    onRowClick ||
+    ((author: AuthorListItem) => {
+      router.push(`/authors/${author.id}`);
+    });
+
+  const handleToggleShowAll = () => {
+    const params = buildQueryParams({
+      showAll: !showAll,
+      page: 1,
+    });
+    router.push(`/authors?${params.toString()}`);
+  };
+
+  const normalPageSize = 20;
+  const startRecord = showAll ? 1 : (page - 1) * normalPageSize + 1;
+  const endRecord = showAll ? total : Math.min(page * normalPageSize, total);
+
+  return (
+    <div className="space-y-4">
+      <form onSubmit={handleSearchSubmit} className="relative">
+        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+          <Search className="h-5 w-5 text-gray-400" />
+        </div>
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search by title or author..."
+          className={cn(
+            "block w-full pl-10 pr-10 py-2 border border-gray-300 dark:border-gray-700 rounded-lg",
+            "bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100",
+            "placeholder:text-gray-400 dark:placeholder:text-gray-500",
+            "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          )}
+        />
+        {searchQuery && (
+          <button
+            type="button"
+            onClick={handleClearSearch}
+            className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+            aria-label="Clear search"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        )}
+      </form>
+
+      {total > 0 && (
+        <TableInfo
+          startRecord={startRecord}
+          endRecord={endRecord}
+          totalRecords={total}
+          showAll={showAll}
+          itemsPerPage={normalPageSize}
+          onToggleShowAll={handleToggleShowAll}
+        />
+      )}
+
+      <BaseDataTable<AuthorListItem>
+        columns={enhancedColumns}
+        data={rows}
+        emptyMessage={"No authors records"}
+        onRowClick={handleRowClick}
+      />
+
+      {totalPages > 1 && !showAll && (
+        <div className="flex justify-end">
+          <PaginationControls
+            currentPage={page}
+            totalPages={totalPages}
+            onPageChange={handlePageChange}
+          />
+        </div>
+      )}
+    </div>
+  );
+}

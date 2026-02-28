@@ -7,8 +7,11 @@ export default async function Navbar() {
 
   return (
     <nav className="border-b bg-white dark:bg-gray-800">
-      <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-        <Link href="/" className="font-bold text-lg">
+      <div className="max-w-7xl mx-auto flex items-center justify-between gap-4 min-h-14 px-4 sm:px-6">
+        <Link
+          href="/"
+          className="font-bold text-lg py-3 -ml-2 pl-2 pr-2 rounded-md focus:outline focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 shrink-0"
+        >
           Hypothetical Publishing
         </Link>
 
@@ -23,25 +26,37 @@ export default async function Navbar() {
                   Books
                 </Link>
                 <Link
-                  href="/sales"
+                  href="/sales/records"
                   className="text-sm text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
                 >
                   Sales
                 </Link>
                 <Link
-                  href="/sales/add-record"
+                  href="/authors"
                   className="text-sm text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
                 >
-                  Add Record
+                  Authors
+                </Link>
+                <Link
+                  href="/sales/payments"
+                  className="text-sm text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                >
+                  Author Payments
+                </Link>
+                <Link
+                  href="/reports"
+                  className="text-sm text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                >
+                  Reports
                 </Link>
               </nav>
-              <div className="group relative pb-1">
+              <div className="group relative flex items-center">
                 <span className="text-sm text-gray-600 dark:text-gray-400 cursor-pointer">
-                  {user.email}
+                  {user.user_metadata?.username ?? user.email}
                 </span>
                 <div className="absolute right-0 top-full hidden group-hover:block bg-white dark:bg-gray-800 border rounded-md shadow-md py-1 z-10 whitespace-nowrap">
                   <Link
-                    href="/reset-password"
+                    href="/change-password"
                     className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                   >
                     Change Password
