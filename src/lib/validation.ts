@@ -101,8 +101,11 @@ export const validateDatePeriod = (yearStr: string, monthStr: string): Validatio
   const year = parseInt(yearStr, 10);
   const month = parseInt(monthStr, 10);
   if (isNaN(year) || isNaN(month)) return { success: false, error: "Invalid date format" };
-  const date = new Date(year, month - 1, 1);
-  return (date.getMonth() === month - 1) ? { success: true, data: date } : { success: false, error: "Invalid month/year" };
+  const date = new Date(Date.UTC(year, month - 1, 1));
+  if (date.getUTCMonth() !== month - 1 || date.getUTCFullYear() !== year) {
+    return { success: false, error: "Invalid month/year" };
+  }
+  return { success: true, data: date };
 };
 
 export const normalizeISBN = (val: string | null | undefined): string | null => 

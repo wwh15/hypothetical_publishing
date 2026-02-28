@@ -88,10 +88,9 @@ function buildOrderBy(
   );
 }
 
-/** Parse YYYY-MM or MM-YYYY to a Date in UTC (first or last moment of that month).
- * Uses UTC so filtering is consistent across server timezones (e.g. local vs QA).
- * Accepts both formats so behavior is correct regardless of client/URL format.
- * @param dateStr The date string (YYYY-MM or MM-YYYY)
+/**
+ * Parses "YYYY-MM" into a UTC Date object.
+ * @param dateStr The date string (YYYY-MM)
  * @param endOfMonth If true, returns the last millisecond of the month in UTC.
  */
 function parseDate(
@@ -101,37 +100,23 @@ function parseDate(
   const trimmed = dateStr?.trim();
   if (!trimmed) return undefined;
 
-  const parts = trimmed.split("-").map(Number);
-  if (parts.length !== 2 || !Number.isFinite(parts[0]) || !Number.isFinite(parts[1])) {
-    return undefined;
-  }
+  // Since we enforced YYYY-MM in the frontend, we split simply
+  const [year, month] = trimmed.split("-").map(Number);
 
-  // Accept both YYYY-MM and MM-YYYY: first part > 12 => year; second part > 12 => year
-  let year: number;
-  let month: number;
-  if (parts[0] > 12) {
-    year = parts[0];
-    month = parts[1];
-  } else if (parts[1] > 12) {
-    month = parts[0];
-    year = parts[1];
-  } else {
-    // Both <= 12: assume YYYY-MM (ISO-style) so year is first
-    year = parts[0];
-    month = parts[1];
-  }
-
-  if (month < 1 || month > 12 || year < 1000 || year > 9999) {
+  if (!year || !month || month < 1 || month > 12) {
     return undefined;
   }
 
   if (endOfMonth) {
-    // Last moment of the month in UTC (23:59:59.999 on the last day)
+    // Last moment of the month: Year, Month, Day 0 (last day of prev month), 23:59:59
+    // e.g., 2026-02 -> Date.UTC(2026, 2, 0...) -> Feb 28th 23:59:59.999Z
     return new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
   }
-  // First moment of the month in UTC (00:00:00.000 on the 1st)
+  
+  // First moment: Year, Month-1 (0-indexed), Day 1, 00:00:00.000Z
   return new Date(Date.UTC(year, month - 1, 1, 0, 0, 0, 0));
 }
+
 
 export interface GetSalesDataParams {
   search?: string;
@@ -139,8 +124,8 @@ export interface GetSalesDataParams {
   pageSize?: number;
   sortBy?: string;
   sortDir?: "asc" | "desc";
-  dateFrom?: string; // YYYY-MM or MM-YYYY (parsed in parseDate)
-  dateTo?: string; // YYYY-MM or MM-YYYY (parsed in parseDate)
+  dateFrom?: string; // YYYY-MM (parsed in parseDate)
+  dateTo?: string; // YYYY-MM (parsed in parseDate)
   source?: "DISTRIBUTOR" | "HAND_SOLD";
 }
 
@@ -194,7 +179,7 @@ export async function getSalesData({
 
   // 2. Handle Date Range Filtering
   const fromDate = dateFrom?.trim() ? parseDate(dateFrom) : undefined;
-  const toDate = dateTo?.trim() ? parseDate(dateTo) : undefined;
+  const toDate = dateTo?.trim() ? parseDate(dateTo, true) : undefined;
   if (fromDate || toDate) {
     where.date = {};
     if (fromDate) where.date.gte = fromDate;
