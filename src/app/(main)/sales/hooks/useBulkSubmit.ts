@@ -48,7 +48,7 @@ export function useBulkPasteSubmit(
     selectedDate: { year: string; month: string },
     fileName: string = "uploaded_file.csv"
   ) {
-    const importTimestamp = new Date().toLocaleString();
+    const importTimestamp = new Date().toISOString().replace('T', ' ').slice(0, 19);
     const submissionErrors: Array<{ line: number; errors: Record<string, string> }> = [];
 
     rows.forEach((row) => {

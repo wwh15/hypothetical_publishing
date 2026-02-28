@@ -46,6 +46,7 @@ export default async function BookDetailPage({ params, searchParams }: PageProps
       year: 'numeric',
       month: 'long',
       day: 'numeric',
+      timeZone: 'UTC',
     }).format(date);
   };
 
