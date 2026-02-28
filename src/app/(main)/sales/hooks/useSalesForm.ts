@@ -9,6 +9,7 @@ import {
   normalizeQuantity,
   validateRoyaltyLimit,
   validateQuantity,
+  validateCurrency,
 } from "@/lib/validation";
 
 interface FormData {
@@ -137,7 +138,7 @@ export function useSalesForm(
 
     // 3. Validation Rules
     const qtyCheck = validateQuantity(formData.quantity);
-    const revCheck = validateQuantity(formData.publisherRevenue);
+    const revCheck = validateCurrency(formData.publisherRevenue);
 
     if (!qtyCheck.success || !revCheck.success) {
       return setFormErrors({
