@@ -134,11 +134,22 @@ export const salesColumns: ColumnDef<SaleListItem>[] = [
   {
     key: "comment",
     header: "Comment",
-    render: (row) => (
-      <span className="text-muted-foreground">
-        {row.comment != null && row.comment !== "" ? row.comment : "—"}
-      </span>
-    ),
+    render: (row) => {
+      const MAX_LENGTH = 30; // Define your character limit here
+      const comment = row.comment;
+  
+      if (!comment) return <span className="text-muted-foreground">—</span>;
+  
+      const displayComment = comment.length > MAX_LENGTH 
+        ? `${comment.slice(0, MAX_LENGTH)}...` 
+        : comment;
+  
+      return (
+        <span className="text-muted-foreground" title={comment}>
+          {displayComment}
+        </span>
+      );
+    },
   },
 ];
 
@@ -208,11 +219,22 @@ export function getPendingColumns(
     {
       key: "comment",
       header: "Comment",
-      render: (row) => (
-        <span className="text-muted-foreground text-sm">
-          {row.comment != null && row.comment !== "" ? row.comment : "—"}
-        </span>
-      ),
+      render: (row) => {
+        const MAX_LENGTH = 30; // Define your character limit here
+        const comment = row.comment;
+    
+        if (!comment) return <span className="text-muted-foreground">—</span>;
+    
+        const displayComment = comment.length > MAX_LENGTH 
+          ? `${comment.slice(0, MAX_LENGTH)}...` 
+          : comment;
+    
+        return (
+          <span className="text-muted-foreground" title={comment}>
+            {displayComment}
+          </span>
+        );
+      },
     },
     {
       key: "actions",
