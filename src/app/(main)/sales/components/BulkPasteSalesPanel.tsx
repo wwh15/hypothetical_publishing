@@ -185,9 +185,12 @@ export default function BulkPasteSalesPanel({
         schema.forEach(([index, key, validate, label]) => {
           const result = validate(row[index] || "");
           if (!result.success) {
-            rowErrors.push(label ? `Field [${label}] ${result.error}` : result.error);
+            rowErrors.push(
+              label ? `Field [${label}] ${result.error}` : result.error
+            );
           } else {
-            (parsedSaleRow as Record<string, string | number>)[key] = result.data;
+            (parsedSaleRow as Record<string, string | number>)[key] =
+              result.data;
           }
         });
 
@@ -233,8 +236,8 @@ export default function BulkPasteSalesPanel({
       <CardHeader>
         <CardTitle>Bulk Import Sales Records</CardTitle>
         <CardDescription className="border-b pb-2">
-          Import a CSV or paste raw data. Review the preview below before adding
-          items to the <strong>Pending Records</strong> table.
+          Import a CSV to add sales records to the{" "}
+          <strong>Pending Records</strong> table at the bottom of the page.
         </CardDescription>
       </CardHeader>
 
@@ -278,12 +281,14 @@ export default function BulkPasteSalesPanel({
           </Label>
         </div>
 
-        <div className="rounded-lg border bg-muted/30 p-4 text-sm mb-6 pb-2">
-          <div className="font-medium mb-2">Required CSV Format/Headers</div>
-          <pre className="whitespace-pre-wrap text-xs text-muted-foreground">
-            ISBN,Title,Author,Format,Gross Qty,Returned Qty,Net Qty,Net
-            Compensation,Sales Market
-          </pre>
+        <div className="my-6 border-l-2 border-slate-950 pl-4 py-1">
+          <p className="text-sm font-semibold text-foreground mb-1">
+            Required CSV Headers
+          </p>
+          <p className="text-sm text-muted-foreground leading-relaxed italic">
+            ISBN, Title, Author, Format, Gross Qty, Returned Qty, Net Qty, Net
+            Compensation, Sales Market
+          </p>
         </div>
 
         <div className="flex items-center gap-2 mb-6 border-b pb-2">
@@ -368,7 +373,7 @@ export default function BulkPasteSalesPanel({
               </div>
               <p className="text-m text-green-700">
                 Review the imported data in the <strong>Pending Records</strong>{" "}
-                Table below.
+                table below.
               </p>
             </div>
           ))}
