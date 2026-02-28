@@ -53,6 +53,7 @@ export default async function BookDetailPage({ params, searchParams }: PageProps
     new Intl.DateTimeFormat("en-US", {
       month: "long",
       year: "numeric",
+      timeZone: "UTC",
     }).format(book.publicationDate);
 
   return (

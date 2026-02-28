@@ -113,6 +113,7 @@ export default function BooksTable({
           {new Intl.DateTimeFormat("en-US", {
             month: "short",
             year: "numeric",
+            timeZone: "UTC",
           }).format(row.publicationDate)}
         </span>
       ),

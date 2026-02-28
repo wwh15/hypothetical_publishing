@@ -58,22 +58,23 @@ function initialDateMonth(date: Date): string {
   if (
     !date ||
     !Number.isFinite(date.getTime()) ||
-    date.getFullYear() < SALES_YEAR_MIN ||
-    date.getFullYear() > SALES_YEAR_MAX
+    date.getUTCFullYear() < SALES_YEAR_MIN || // Use UTC here too
+    date.getUTCFullYear() > SALES_YEAR_MAX
   ) {
     return "";
   }
-  return String(date.getMonth() + 1).padStart(2, "0");
+  // getUTCMonth() ensures Nov 1st 00:00Z returns 10 (November)
+  return String(date.getUTCMonth() + 1).padStart(2, "0");
 }
 
 function initialDateYear(date: Date): string {
-  const year = date?.getFullYear();
-  if (
-    !date ||
-    !Number.isFinite(date.getTime()) ||
-    year < SALES_YEAR_MIN ||
-    year > SALES_YEAR_MAX
-  ) {
+  if (!date || !Number.isFinite(date.getTime())) {
+    return "";
+  }
+  
+  const year = date.getUTCFullYear(); // Use UTC
+  
+  if (year < SALES_YEAR_MIN || year > SALES_YEAR_MAX) {
     return "";
   }
   return String(year);
@@ -172,8 +173,8 @@ export default function EditForm({ sale, books }: EditFormProps) {
   const resetForm = () => {
     setFormData({
       bookId: sale.book.id,
-      dateMonth: String(sale.date.getMonth() + 1).padStart(2, "0"),
-      dateYear: String(sale.date.getFullYear()),
+      dateMonth: initialDateMonth(sale.date),
+      dateYear: initialDateYear(sale.date),
       quantity: sale.quantity,
       publisherRevenue: new Decimal(sale.publisherRevenue).toNumber(),
       authorRoyalty: new Decimal(sale.authorRoyalty).toNumber(),
@@ -234,6 +235,7 @@ export default function EditForm({ sale, books }: EditFormProps) {
               {new Intl.DateTimeFormat("en-US", {
                 month: "short",
                 year: "numeric",
+                timeZone: "UTC"
               }).format(sale.date)}
             </p>
           </div>

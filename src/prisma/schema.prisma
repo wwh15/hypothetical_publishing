@@ -16,7 +16,7 @@ datasource db {
 model User {
   id        Int      @id @default(autoincrement())
   username  String   @unique
-  createdAt DateTime @default(now()) @map("created_at")
+  createdAt DateTime @default(now()) @db.Timestamptz @map("created_at")
   
   @@map("users")
 }
@@ -26,8 +26,8 @@ model Author {
   name      String   
   email     String
   canonicalName String   @unique   
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @db.Timestamptz @map("created_at")
+  updatedAt DateTime @updatedAt @db.Timestamptz @map("updated_at")
   
   // Relations
   books     Book[]
@@ -40,8 +40,8 @@ model Series {
   id          Int      @id @default(autoincrement())
   name        String   @unique
   description String?  // Optional blurb about the series
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdAt   DateTime @default(now()) @db.Timestamptz @map("created_at")
+  updatedAt   DateTime @updatedAt @db.Timestamptz @map("updated_at")
 
   // Relations
   books       Book[]
@@ -60,12 +60,12 @@ model Book {
   handSoldAuthorRoyaltyRate Float     @default(0.2) @map("hand_sold_author_royalty_rate") // Hand-sold royalty rate, stored as decimal (0.2 = 20%)
   coverPrice                Decimal   @map("cover_price") // Retail cover price
   printCost                 Decimal   @map("print_cost") // Cost to print one copy
-  publicationDate           DateTime  @map("publication_date") // First day of publication month (e.g. 2024-01-01)
+  publicationDate           DateTime  @db.Timestamptz @map("publication_date") // First day of publication month (e.g. 2024-01-01)
   seriesId                  Int?      @map("series_id") // Optional: book can belong to at most one series
   seriesOrder               Int?      @map("series_order") // Position in series (1, 2, 3, ...) when part of a series
   coverArtPath              String?   @map("cover_art_path") // Supabase Storage path in Cover-Art bucket
-  createdAt                 DateTime  @default(now()) @map("created_at")
-  updatedAt                 DateTime  @updatedAt @map("updated_at")
+  createdAt                 DateTime  @default(now()) @db.Timestamptz @map("created_at")
+  updatedAt                 DateTime  @updatedAt @db.Timestamptz @map("updated_at")
 
   // Relations
   author            Author   @relation(fields: [authorId], references: [id], onDelete: Cascade)
@@ -88,7 +88,7 @@ enum SaleSource {
 model Sale {
   id               Int        @id @default(autoincrement())
   bookId           Int        @map("book_id")
-  date             DateTime   @db.Timestamptz @map("date") // First day of sale month (e.g. 2025-01-01), stored in UTC
+  date             DateTime   @db.Timestamptz @map("date") // First day of sale month (e.g. 2025-01-01)
   quantity         Int
   publisherRevenue Decimal @default(0)    @map("publisher_revenue")
   authorRoyalty    Decimal @default(0)    @map("author_royalty")

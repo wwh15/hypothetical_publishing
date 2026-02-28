@@ -140,7 +140,7 @@ export default function MonthYearSelector({
               className="h-7 w-7"
               onClick={() => setViewYear((v) => v - 10)}
             >
-              <ChevronsLeft className="h-4 w-4 text-muted-foreground" />
+              <ChevronsLeft className="h-4 w-4" />
             </Button>
             <Button
               variant="ghost"
@@ -169,7 +169,7 @@ export default function MonthYearSelector({
               className="h-7 w-7"
               onClick={() => setViewYear((v) => v + 10)}
             >
-              <ChevronsRight className="h-4 w-4 text-muted-foreground" />
+              <ChevronsRight className="h-4 w-4" />
             </Button>
           </div>
         </div>
