@@ -22,16 +22,15 @@ export type AuthorPaymentColumnId =
 // Reusable cell renderers specific to payments
 export const authorPaymentCellRenderers = {
   currency: (value: number, colorClass?: string) => (
-    <span className={cn("font-medium", colorClass)}>
-      ${value.toFixed(2)}
-    </span>
+    <span className={cn("font-medium", colorClass)}>${value.toFixed(2)}</span>
   ),
 
-  date: (date: Date | string) => (
-    <span className="text-sm text-gray-500">
-      {new Date(date).toLocaleDateString()}
-    </span>
-  ),
+  date: (date: Date) =>
+    new Intl.DateTimeFormat("en-US", {
+      month: "short",
+      year: "numeric",
+      timeZone: "UTC",
+    }).format(new Date(date)),
   paidStatus: (status: "paid" | "pending") => {
     const paidStyles = {
       paid: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
@@ -97,7 +96,10 @@ export const authorPaymentColumns: ColumnDef<SaleListItem>[] = [
 /**
  * Map of column ID to column definition for fast lookup
  */
-const paymentColumnMap = new Map<AuthorPaymentColumnId, ColumnDef<SaleListItem>>();
+const paymentColumnMap = new Map<
+  AuthorPaymentColumnId,
+  ColumnDef<SaleListItem>
+>();
 authorPaymentColumns.forEach((col) => {
   paymentColumnMap.set(col.key as AuthorPaymentColumnId, col);
 });
