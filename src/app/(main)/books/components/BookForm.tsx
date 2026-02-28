@@ -98,10 +98,10 @@ export default function BookForm({
   useEffect(() => {
     if (initialData && mode === "edit" && !formInitializedRef.current) {
       const month = initialData.publicationDate
-        ? String(initialData.publicationDate.getMonth() + 1).padStart(2, "0")
+        ? String(initialData.publicationDate.getUTCMonth() + 1).padStart(2, "0")
         : "";
       const year = initialData.publicationDate
-        ? initialData.publicationDate.getFullYear().toString()
+        ? initialData.publicationDate.getUTCFullYear().toString()
         : "";
       setFormData({
         title: initialData.title,
@@ -296,7 +296,7 @@ export default function BookForm({
 
     // Validate publication year if provided (books: 1000 to current year + 1)
     const BOOK_PUBLICATION_YEAR_MIN = 1000;
-    const BOOK_PUBLICATION_YEAR_MAX = new Date().getFullYear() + 1;
+    const BOOK_PUBLICATION_YEAR_MAX = new Date().getUTCFullYear() + 1;
     const publicationYear = formData.publicationYear
       ? parseInt(formData.publicationYear)
       : undefined;
@@ -327,7 +327,7 @@ export default function BookForm({
 
     const publicationDate =
       publicationYear && formData.publicationMonth
-        ? new Date(publicationYear, parseInt(formData.publicationMonth, 10) - 1, 1)
+        ? new Date(Date.UTC(publicationYear, parseInt(formData.publicationMonth, 10) - 1, 1))
         : null;
 
     // Required fields: isbn13, publicationDate, coverPrice, printCost
@@ -708,7 +708,7 @@ export default function BookForm({
             )}
             placeholder="2024"
             min="1000"
-            max={new Date().getFullYear() + 1}
+            max={new Date().getUTCFullYear() + 1}
           />
         </div>
 

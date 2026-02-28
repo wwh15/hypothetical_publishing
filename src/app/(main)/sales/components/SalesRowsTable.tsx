@@ -22,7 +22,7 @@ import { cn } from "@/lib/utils";
  */
 interface SalesRowsTableProps {
   rows: SaleListItem[];
-  preset?: "full" | "bookDetail" | "minimal";
+  preset?: "full" | "bookDetail" | "pending";
   visibleColumns?: SalesColumnId[];
   navigationContext?: Record<string, string | number>;
 
