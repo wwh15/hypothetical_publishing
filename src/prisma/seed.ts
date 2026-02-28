@@ -81,7 +81,7 @@ async function main() {
       handSoldAuthorRoyaltyRate: 0.2,
       coverPrice: new Decimal("19.99"),
       printCost: new Decimal("4.50"),
-      publicationDate: new Date(2024, 0, 1),
+      publicationDate: new Date(Date.UTC(2024, 0, 1)),
       seriesId: null,
       seriesOrder: null,
     },
@@ -96,7 +96,7 @@ async function main() {
       handSoldAuthorRoyaltyRate: 0.2,
       coverPrice: new Decimal("14.99"),
       printCost: new Decimal("3.00"),
-      publicationDate: new Date(2024, 5, 1),
+      publicationDate: new Date(Date.UTC(2024, 5, 1)),
       seriesId: null,
       seriesOrder: null,
     },
@@ -111,7 +111,7 @@ async function main() {
       handSoldAuthorRoyaltyRate: 0.2,
       coverPrice: new Decimal("24.99"),
       printCost: new Decimal("5.00"),
-      publicationDate: new Date(2023, 0, 1),
+      publicationDate: new Date(Date.UTC(2023, 0, 1)),
       seriesId: starshipSaga.id,
       seriesOrder: 1,
     },
@@ -126,7 +126,7 @@ async function main() {
       handSoldAuthorRoyaltyRate: 0.2,
       coverPrice: new Decimal("24.99"),
       printCost: new Decimal("5.00"),
-      publicationDate: new Date(2024, 2, 1),
+      publicationDate: new Date(Date.UTC(2024, 2, 1)),
       seriesId: starshipSaga.id,
       seriesOrder: 2,
     },
@@ -141,7 +141,7 @@ async function main() {
       handSoldAuthorRoyaltyRate: 0.2,
       coverPrice: new Decimal("16.99"),
       printCost: new Decimal("3.50"),
-      publicationDate: new Date(2023, 8, 1),
+      publicationDate: new Date(Date.UTC(2023, 8, 1)),
       seriesId: mysteryHollow.id,
       seriesOrder: 1,
     },
@@ -156,7 +156,7 @@ async function main() {
       handSoldAuthorRoyaltyRate: 0.2,
       coverPrice: new Decimal("15.99"),
       printCost: new Decimal("4.00"),
-      publicationDate: new Date(2024, 1, 1),
+      publicationDate: new Date(Date.UTC(2024, 1, 1)),
       seriesId: null,
       seriesOrder: null,
     },
@@ -171,7 +171,7 @@ async function main() {
       handSoldAuthorRoyaltyRate: 0.2,
       coverPrice: new Decimal("18.99"),
       printCost: new Decimal("4.50"),
-      publicationDate: new Date(2023, 4, 1),
+      publicationDate: new Date(Date.UTC(2023, 4, 1)),
       seriesId: null,
       seriesOrder: null,
     },
@@ -186,7 +186,7 @@ async function main() {
       handSoldAuthorRoyaltyRate: 0.2,
       coverPrice: new Decimal("20.99"),
       printCost: new Decimal("5.00"),
-      publicationDate: new Date(2023, 6, 1),
+      publicationDate: new Date(Date.UTC(2023, 6, 1)),
       seriesId: null,
       seriesOrder: null,
     },
@@ -201,7 +201,7 @@ async function main() {
       handSoldAuthorRoyaltyRate: 0.2,
       coverPrice: new Decimal("17.99"),
       printCost: new Decimal("4.00"),
-      publicationDate: new Date(2024, 0, 1),
+      publicationDate: new Date(Date.UTC(2024, 0, 1)),
       seriesId: null,
       seriesOrder: null,
     },
@@ -216,7 +216,7 @@ async function main() {
       handSoldAuthorRoyaltyRate: 0.2,
       coverPrice: new Decimal("21.99"),
       printCost: new Decimal("5.50"),
-      publicationDate: new Date(2023, 10, 1),
+      publicationDate: new Date(Date.UTC(2023, 10, 1)),
       seriesId: null,
       seriesOrder: null,
     },
@@ -246,7 +246,7 @@ async function main() {
         handSoldAuthorRoyaltyRate: 0.2,
         coverPrice: new Decimal("18.99"),
         printCost: new Decimal("4.00"),
-        publicationDate: new Date(b.year, b.month, 1),
+        publicationDate: new Date(Date.UTC(b.year, b.month, 1)),
         seriesId: null,
         seriesOrder: null,
       },
@@ -261,7 +261,7 @@ async function main() {
   await prisma.sale.create({
     data: {
       bookId: ingramTestBook.id,
-      date: new Date(2025, 0, 1),
+      date: new Date(Date.UTC(2025, 0, 1)),
       quantity: 10,
       publisherRevenue: new Decimal("125.50"),
       authorRoyalty: new Decimal("62.75"),
@@ -273,7 +273,7 @@ async function main() {
   await prisma.sale.create({
     data: {
       bookId: ingramTestBook.id,
-      date: new Date(2025, 1, 1),
+      date: new Date(Date.UTC(2025, 1, 1)),
       quantity: 5,
       publisherRevenue: new Decimal("77.45"), // (19.99 - 4.50) * 5
       authorRoyalty: new Decimal("15.49"),   // 77.45 * 0.2
@@ -287,7 +287,7 @@ async function main() {
   await prisma.sale.create({
     data: {
       bookId: starshipDawn.id,
-      date: new Date(2025, 0, 1),
+      date: new Date(Date.UTC(2025, 0, 1)),
       quantity: 20,
       publisherRevenue: new Decimal("180.00"),
       authorRoyalty: new Decimal("90.00"),
@@ -299,7 +299,7 @@ async function main() {
   await prisma.sale.create({
     data: {
       bookId: starshipDawn.id,
-      date: new Date(2025, 1, 1),
+      date: new Date(Date.UTC(2025, 1, 1)),
       quantity: 8,
       publisherRevenue: new Decimal("159.92"), // (24.99 - 5) * 8
       authorRoyalty: new Decimal("31.98"),
@@ -311,7 +311,7 @@ async function main() {
   await prisma.sale.create({
     data: {
       bookId: starshipDawn.id,
-      date: new Date(2025, 2, 1),
+      date: new Date(Date.UTC(2025, 2, 1)),
       quantity: 15,
       publisherRevenue: new Decimal("112.50"),
       authorRoyalty: new Decimal("56.25"),
@@ -325,7 +325,7 @@ async function main() {
   await prisma.sale.create({
     data: {
       bookId: starshipExodus.id,
-      date: new Date(2025, 1, 1),
+      date: new Date(Date.UTC(2025, 1, 1)),
       quantity: 12,
       publisherRevenue: new Decimal("150.00"),
       authorRoyalty: new Decimal("75.00"),
@@ -339,7 +339,7 @@ async function main() {
   await prisma.sale.create({
     data: {
       bookId: mysteryAtHollow.id,
-      date: new Date(2024, 10, 1),
+      date: new Date(Date.UTC(2024, 10, 1)),
       quantity: 7,
       publisherRevenue: new Decimal("85.00"),
       authorRoyalty: new Decimal("42.50"),
@@ -351,7 +351,7 @@ async function main() {
   await prisma.sale.create({
     data: {
       bookId: mysteryAtHollow.id,
-      date: new Date(2025, 0, 1),
+      date: new Date(Date.UTC(2025, 0, 1)),
       quantity: 4,
       publisherRevenue: new Decimal("53.96"), // (16.99 - 3.50) * 4
       authorRoyalty: new Decimal("10.79"),
@@ -365,7 +365,7 @@ async function main() {
   await prisma.sale.create({
     data: {
       bookId: standaloneOne.id,
-      date: new Date(2024, 11, 1),
+      date: new Date(Date.UTC(2024, 11, 1)),
       quantity: 6,
       publisherRevenue: new Decimal("72.00"),
       authorRoyalty: new Decimal("36.00"),
@@ -379,7 +379,7 @@ async function main() {
   await prisma.sale.create({
     data: {
       bookId: archiveVol1.id,
-      date: new Date(2024, 8, 1),
+      date: new Date(Date.UTC(2024, 8, 1)),
       quantity: 9,
       publisherRevenue: new Decimal("130.00"),
       authorRoyalty: new Decimal("65.00"),
@@ -393,7 +393,7 @@ async function main() {
   await prisma.sale.create({
     data: {
       bookId: legacyVol1.id,
-      date: new Date(2024, 6, 1),
+      date: new Date(Date.UTC(2024, 6, 1)),
       quantity: 3,
       publisherRevenue: new Decimal("45.00"),
       authorRoyalty: new Decimal("22.50"),
@@ -407,7 +407,7 @@ async function main() {
   await prisma.sale.create({
     data: {
       bookId: perspectiveVol1.id,
-      date: new Date(2025, 0, 1),
+      date: new Date(Date.UTC(2025, 0, 1)),
       quantity: 11,
       publisherRevenue: new Decimal("99.00"),
       authorRoyalty: new Decimal("49.50"),
@@ -421,7 +421,7 @@ async function main() {
   await prisma.sale.create({
     data: {
       bookId: chronicleVol1.id,
-      date: new Date(2024, 9, 1),
+      date: new Date(Date.UTC(2024, 9, 1)),
       quantity: 5,
       publisherRevenue: new Decimal("82.50"),
       authorRoyalty: new Decimal("41.25"),
