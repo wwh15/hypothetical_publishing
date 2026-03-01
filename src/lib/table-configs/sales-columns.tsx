@@ -297,7 +297,7 @@ export const salesTablePresets = {
   bookDetail: {
     columnIds: [
       "id", "quantity", "publisherRevenue", "authorRoyalty", 
-      "date", "source", "paid"
+      "date", "source", "paid", "comment"
     ] as SalesColumnId[],
     defaultSortField: "date" as const,
     defaultSortDirection: "desc" as const,

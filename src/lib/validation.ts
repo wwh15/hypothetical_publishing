@@ -119,6 +119,19 @@ export const validateISBN = (val: string): ValidationResult<string> => {
     : { success: false, error: "ISBN must be 10 digits (0-9, X) or 13 digits" };
 };
 
+/** ISBN-10: optional field; if provided, must be 9 digits + check digit (digit or X). */
+export const validateISBN10 = (val: string | null | undefined): ValidationResult<string | null> => {
+  const clean = val != null ? normalizeISBN(val) : null;
+  if (!clean) return { success: true, data: null };
+  if (clean.length !== 10) {
+    return { success: false, error: "ISBN-10 must be exactly 10 characters" };
+  }
+  if (!/^\d{9}[\dX]$/.test(clean)) {
+    return { success: false, error: "ISBN-10 must be 9 digits followed by a digit or X" };
+  }
+  return { success: true, data: clean };
+};
+
 /** * Comparison Helpers and Business Logic
  */
 export const validateEquals = (v1: number, v2: number): boolean => v1 === v2;
