@@ -21,6 +21,7 @@ import { AuthorSelectBox } from "../../authors/components/AuthorSelectBox";
 import { getAllAuthors } from "../../authors/actions";
 import { Author } from "@prisma/client";
 import MonthYearSelector from "@/components/MonthYearSelector";
+import { validateISBN10 } from "@/lib/validation";
 
 interface BookFormProps {
   bookId?: number;
@@ -261,18 +262,17 @@ export default function BookForm({
 
     // Validate ISBN formats (remove dashes/spaces)
     const isbn13 = formData.isbn13.replace(/[-\s]/g, "") || undefined;
-    const isbn10 = formData.isbn10.replace(/[-\s]/g, "") || undefined;
+    const isbn10Result = validateISBN10(formData.isbn10);
+    if (!isbn10Result.success) {
+      setError(isbn10Result.error);
+      setIsSubmitting(false);
+      return;
+    }
+    const isbn10 = isbn10Result.data ?? undefined;
 
     // Validate ISBN-13 length (should be 13 digits)
     if (isbn13 && isbn13.length !== 13) {
       setError("ISBN-13 must be exactly 13 digits");
-      setIsSubmitting(false);
-      return;
-    }
-
-    // Validate ISBN-10 length (should be 10 characters, can include X)
-    if (isbn10 && isbn10.length !== 10) {
-      setError("ISBN-10 must be exactly 10 characters");
       setIsSubmitting(false);
       return;
     }
