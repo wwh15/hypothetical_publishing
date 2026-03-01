@@ -20,6 +20,7 @@ import SeriesOrderModal, { CURRENT_BOOK_SENTINEL } from "./SeriesOrderModal";
 import { AuthorSelectBox } from "../../authors/components/AuthorSelectBox";
 import { getAllAuthors } from "../../authors/actions";
 import { Author } from "@prisma/client";
+import MonthYearSelector from "@/components/MonthYearSelector";
 
 interface BookFormProps {
   bookId?: number;
@@ -69,8 +70,7 @@ export default function BookForm({
     email: "",
     isbn13: "",
     isbn10: "",
-    publicationMonth: "",
-    publicationYear: "",
+    publicationDate: "", // YYYY-MM or empty
     distRoyaltyRate: "50", // Default 50%
     handSoldRoyaltyRate: "20", // Default 20%
     coverPrice: "",
@@ -97,11 +97,9 @@ export default function BookForm({
   // Populate form with initial data if editing (only once per book/mode)
   useEffect(() => {
     if (initialData && mode === "edit" && !formInitializedRef.current) {
-      const month = initialData.publicationDate
-        ? String(initialData.publicationDate.getUTCMonth() + 1).padStart(2, "0")
-        : "";
-      const year = initialData.publicationDate
-        ? initialData.publicationDate.getUTCFullYear().toString()
+      const pubDate = initialData.publicationDate;
+      const publicationDate = pubDate
+        ? `${pubDate.getUTCFullYear()}-${String(pubDate.getUTCMonth() + 1).padStart(2, "0")}`
         : "";
       setFormData({
         title: initialData.title,
@@ -109,8 +107,7 @@ export default function BookForm({
         email: initialData.email,
         isbn13: initialData.isbn13 || "",
         isbn10: initialData.isbn10 || "",
-        publicationMonth: month,
-        publicationYear: year,
+        publicationDate,
         distRoyaltyRate: initialData.distRoyaltyRate.toString(),
         handSoldRoyaltyRate: initialData.handSoldRoyaltyRate.toString(),
         coverPrice: initialData.coverPrice?.toString() ?? "",
@@ -204,6 +201,12 @@ export default function BookForm({
         setSelectedAuthorId(matchedAuthor ? data.matchedAuthorId : null);
         setSelectedSeriesId(matchedSeries ? data.matchedSeriesId : null);
         setSeriesOrderOverride(null); // Default to add-on-top; user can reorder in modal
+        const year = data.publicationYear;
+        const month = data.publicationMonth;
+        const publicationDate =
+          year != null && month
+            ? `${year}-${String(month).padStart(2, "0").slice(-2)}`
+            : "";
         setFormData((prev) => ({
           ...prev,
           title: data.title || "",
@@ -211,8 +214,7 @@ export default function BookForm({
           email: matchedAuthor ? (data.matchedAuthorEmail ?? "") : "",
           isbn13: data.isbn13 || "",
           isbn10: data.isbn10 || "",
-          publicationMonth: data.publicationMonth || "",
-          publicationYear: data.publicationYear?.toString() || "",
+          publicationDate,
           distRoyaltyRate: "50",
           handSoldRoyaltyRate: "20",
           coverPrice: "",
@@ -294,41 +296,34 @@ export default function BookForm({
       return;
     }
 
-    // Validate publication year if provided (books: 1000 to current year + 1)
+    // Validate publication date (YYYY-MM): year 1000 to current year + 1
     const BOOK_PUBLICATION_YEAR_MIN = 1000;
     const BOOK_PUBLICATION_YEAR_MAX = new Date().getUTCFullYear() + 1;
-    const publicationYear = formData.publicationYear
-      ? parseInt(formData.publicationYear)
-      : undefined;
-
-    if (
-      publicationYear !== undefined &&
-      (publicationYear < BOOK_PUBLICATION_YEAR_MIN ||
-        publicationYear > BOOK_PUBLICATION_YEAR_MAX)
-    ) {
-      setError(
-        `Publication year must be between ${BOOK_PUBLICATION_YEAR_MIN} and ${BOOK_PUBLICATION_YEAR_MAX}`
-      );
-      setIsSubmitting(false);
-      return;
-    }
-
-    // Validate publication month if year is provided
-    if (publicationYear && !formData.publicationMonth) {
-      setError(
-        "Publication month is required when publication year is provided",
-      );
-      setIsSubmitting(false);
-      return;
+    const pubDateStr = formData.publicationDate?.trim() || null;
+    let publicationDate: Date | null = null;
+    if (pubDateStr) {
+      const [yStr, mStr] = pubDateStr.split("-");
+      const y = parseInt(yStr, 10);
+      const m = parseInt(mStr, 10);
+      if (
+        !Number.isFinite(y) ||
+        !Number.isFinite(m) ||
+        m < 1 ||
+        m > 12 ||
+        y < BOOK_PUBLICATION_YEAR_MIN ||
+        y > BOOK_PUBLICATION_YEAR_MAX
+      ) {
+        setError(
+          `Publication date must be between ${BOOK_PUBLICATION_YEAR_MIN} and ${BOOK_PUBLICATION_YEAR_MAX}`
+        );
+        setIsSubmitting(false);
+        return;
+      }
+      publicationDate = new Date(Date.UTC(y, m - 1, 1));
     }
 
     // Handle series data (order is auto-assigned or set via reorder modal)
     const seriesId = selectedSeriesId;
-
-    const publicationDate =
-      publicationYear && formData.publicationMonth
-        ? new Date(Date.UTC(publicationYear, parseInt(formData.publicationMonth, 10) - 1, 1))
-        : null;
 
     // Required fields: isbn13, publicationDate, coverPrice, printCost
     if (!isbn13?.trim()) {
@@ -649,66 +644,21 @@ export default function BookForm({
           />
         </div>
 
-        {/* Publication Month */}
-        <div className="space-y-2">
+        {/* Publication Date (Month/Year) */}
+        <div className="space-y-3">
           <label
-            htmlFor="publicationMonth"
-            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+            htmlFor="publicationDate"
+            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 block"
           >
-            Publication Month
+            Publication Date
           </label>
-          <select
-            id="publicationMonth"
-            value={formData.publicationMonth}
-            onChange={(e) =>
-              handleInputChange("publicationMonth", e.target.value)
-            }
-            className={cn(
-              "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background",
-              "file:border-0 file:bg-transparent file:text-sm file:font-medium",
-              "placeholder:text-muted-foreground",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-              "disabled:cursor-not-allowed disabled:opacity-50",
-              "dark:bg-gray-700",
-            )}
-          >
-            <option value="">Select Month</option>
-            {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-              <option key={m} value={m.toString().padStart(2, "0")}>
-                {new Date(2000, m - 1).toLocaleString("default", {
-                  month: "long",
-                })}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Publication Year */}
-        <div className="space-y-2">
-          <label
-            htmlFor="publicationYear"
-            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-          >
-            Publication Year
-          </label>
-          <input
-            id="publicationYear"
-            type="number"
-            value={formData.publicationYear}
-            onChange={(e) =>
-              handleInputChange("publicationYear", e.target.value)
-            }
-            className={cn(
-              "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background",
-              "file:border-0 file:bg-transparent file:text-sm file:font-medium",
-              "placeholder:text-muted-foreground",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-              "disabled:cursor-not-allowed disabled:opacity-50",
-              "dark:bg-gray-700",
-            )}
-            placeholder="2024"
-            min="1000"
-            max={new Date().getUTCFullYear() + 1}
+          <MonthYearSelector
+            value={formData.publicationDate || null}
+            onChange={(v) => handleInputChange("publicationDate", v ?? "")}
+            placeholder="Select month & year"
+            ariaLabel="Publication date"
+            min="1000-01"
+            max={`${new Date().getUTCFullYear() + 1}-12`}
           />
         </div>
 
