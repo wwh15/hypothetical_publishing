@@ -7,6 +7,7 @@ import "dotenv/config";
 import Papa from "papaparse";
 import { PrismaClient } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
+import { convertCurrency } from "@/lib/currency-conversion";
 
 const prisma = new PrismaClient();
 
@@ -32,7 +33,8 @@ function parseMonthYear(str: string): Date {
   const monthStr = parts[0];
   const year = parseInt(parts[1], 10);
   const month = MONTH_NAMES[monthStr];
-  if (month === undefined || !Number.isFinite(year)) throw new Error(`Invalid month/year: ${str}`);
+  if (month === undefined || !Number.isFinite(year))
+    throw new Error(`Invalid month/year: ${str}`);
   return new Date(Date.UTC(year, month, 1));
 }
 
@@ -114,16 +116,26 @@ const SALES_CSV = `isbn13,source,record_month_year,units_sold,total_revenue,roya
 9780765397546,distributor,August 2023,36,323.64,y,
 `;
 
+const currencies = ["USD", "GBP", "EUR", "CAD", "JPY", "AUD"];
+
 // ─── Seed execution ─────────────────────────────────────────────────────────
 
 async function main() {
   console.log("🌱 Starting seed (ev2-sample-data content, inline)...");
 
-  const booksResult = Papa.parse<BooksRow>(BOOKS_CSV, { header: true, skipEmptyLines: true });
-  const salesResult = Papa.parse<SalesRow>(SALES_CSV, { header: true, skipEmptyLines: true });
+  const booksResult = Papa.parse<BooksRow>(BOOKS_CSV, {
+    header: true,
+    skipEmptyLines: true,
+  });
+  const salesResult = Papa.parse<SalesRow>(SALES_CSV, {
+    header: true,
+    skipEmptyLines: true,
+  });
 
   const booksRows = booksResult.data.filter((r) => r.isbn13?.trim());
-  const salesRows = salesResult.data.filter((r) => r.isbn13?.trim() && r.record_month_year?.trim());
+  const salesRows = salesResult.data.filter(
+    (r) => r.isbn13?.trim() && r.record_month_year?.trim()
+  );
 
   await prisma.sale.deleteMany();
   await prisma.book.deleteMany();
@@ -132,7 +144,9 @@ async function main() {
   await prisma.user.deleteMany();
 
   // ─── AUTHORS (unique by name from books) ───
-  const authorNames = [...new Set(booksRows.map((r) => r.author.trim()).filter(Boolean))];
+  const authorNames = [
+    ...new Set(booksRows.map((r) => r.author.trim()).filter(Boolean)),
+  ];
   const authorMap: Record<string, { id: number }> = {};
   for (const name of authorNames) {
     const canonicalName = seedCanonicalName(name);
@@ -147,7 +161,9 @@ async function main() {
   console.log(`✅ Authors: ${authorNames.length} (${authorNames.join(", ")})`);
 
   // ─── SERIES (unique non-empty series_name from books) ───
-  const seriesNames = [...new Set(booksRows.map((r) => r.series_name?.trim()).filter(Boolean))] as string[];
+  const seriesNames = [
+    ...new Set(booksRows.map((r) => r.series_name?.trim()).filter(Boolean)),
+  ] as string[];
   const seriesMap: Record<string, number> = {};
   for (const name of seriesNames) {
     const series = await prisma.series.upsert({
@@ -160,16 +176,29 @@ async function main() {
   console.log(`✅ Series: ${seriesNames.length}`);
 
   // ─── BOOKS ───────────────────────────────────────────────────────────────
-  const bookByIsbn13: Record<string, { id: number; coverPrice: Decimal; printCost: Decimal; distRate: number; handSoldRate: number }> = {};
+  const bookByIsbn13: Record<
+    string,
+    {
+      id: number;
+      coverPrice: Decimal;
+      printCost: Decimal;
+      distRate: number;
+      handSoldRate: number;
+    }
+  > = {};
   for (const row of booksRows) {
     const authorId = authorMap[row.author.trim()]?.id;
     if (!authorId) throw new Error(`Unknown author: ${row.author}`);
     const seriesName = row.series_name?.trim();
     const seriesId = seriesName ? seriesMap[seriesName] ?? null : null;
-    const seriesOrder = row.series_index?.trim() ? parseInt(row.series_index, 10) : null;
+    const seriesOrder = row.series_index?.trim()
+      ? parseInt(row.series_index, 10)
+      : null;
     const publicationDate = parseMonthYear(row.publication_month_year);
-    const distRate = parseInt(row.distribution_royalty_percent || "50", 10) / 100;
-    const handSoldRate = parseInt(row.hand_sold_royalty_percent || "20", 10) / 100;
+    const distRate =
+      parseInt(row.distribution_royalty_percent || "50", 10) / 100;
+    const handSoldRate =
+      parseInt(row.hand_sold_royalty_percent || "20", 10) / 100;
     const coverPrice = new Decimal(row.cover_price?.trim() || "0");
     const printCost = new Decimal(row.print_cost?.trim() || "0");
 
@@ -185,7 +214,10 @@ async function main() {
         printCost,
         publicationDate,
         seriesId,
-        seriesOrder: seriesOrder != null && !Number.isNaN(seriesOrder) ? seriesOrder : null,
+        seriesOrder:
+          seriesOrder != null && !Number.isNaN(seriesOrder)
+            ? seriesOrder
+            : null,
       },
     });
     bookByIsbn13[book.isbn13] = {
@@ -209,30 +241,65 @@ async function main() {
     const date = parseMonthYear(row.record_month_year);
     const quantity = parseInt(row.units_sold, 10) || 0;
     if (quantity <= 0) continue;
-    const source = row.source?.toLowerCase().includes("hand") ? "HAND_SOLD" : "DISTRIBUTOR";
+
+    const source = row.source?.toLowerCase().includes("hand")
+      ? "HAND_SOLD"
+      : "DISTRIBUTOR";
     const paid = row.royalty_paid?.toLowerCase() === "y";
     const comment = row.comment?.trim() || null;
 
-    let publisherRevenue: Decimal;
-    let authorRoyalty: Decimal;
-    const totalRevenueStr = row.total_revenue?.trim();
-    if (totalRevenueStr && !Number.isNaN(parseFloat(totalRevenueStr))) {
-      publisherRevenue = new Decimal(totalRevenueStr);
-      const rate = source === "HAND_SOLD" ? book.handSoldRate : book.distRate;
-      authorRoyalty = new Decimal(new Decimal(totalRevenueStr).mul(rate).toFixed(2));
-    } else {
+    // 1. Helper to simulate a random currency from your supported list
+    const selectedCurrency =
+      currencies[Math.floor(Math.random() * currencies.length)];
+
+    let publisherRevenueOriginal: Decimal;
+    let publisherRevenueUSD: Decimal;
+    let finalCurrency: string;
+
+    // 2. Determine Revenue based on Source
+    if (source === "HAND_SOLD") {
+      // Hand-sold formula: (Price - Cost) * Qty
       const netPerCopy = new Decimal(book.coverPrice).sub(book.printCost);
-      publisherRevenue = netPerCopy.mul(quantity);
-      const rate = source === "HAND_SOLD" ? book.handSoldRate : book.distRate;
-      authorRoyalty = new Decimal(publisherRevenue.mul(rate).toFixed(2));
+      const rev = netPerCopy.mul(quantity);
+
+      publisherRevenueOriginal = rev;
+      publisherRevenueUSD = rev; // Hand-sold is always USD
+      // Override currency to USD for hand-sold logic
+      finalCurrency = "USD";
+    } else {
+      // Distributor: Treat the total_revenue as the "Original" foreign amount
+      const totalRevenueStr = row.total_revenue?.trim();
+      const rawAmount =
+        totalRevenueStr && !Number.isNaN(parseFloat(totalRevenueStr))
+          ? new Decimal(totalRevenueStr)
+          : new Decimal(0);
+
+      publisherRevenueOriginal = rawAmount;
+
+      // Convert to USD for system management
+      // We use your convertCurrency helper here
+      const convertedAmount = convertCurrency(
+        rawAmount.toNumber(),
+        selectedCurrency
+      );
+      publisherRevenueUSD = new Decimal(convertedAmount);
+      finalCurrency = selectedCurrency;
     }
+
+    // 3. Calculate Royalty based on the USD managed value 
+    const rate = source === "HAND_SOLD" ? book.handSoldRate : book.distRate;
+    // Per your earlier code, we multiply USD revenue by the decimal rate
+    const authorRoyalty = new Decimal(publisherRevenueUSD.mul(rate).toFixed(2));
 
     await prisma.sale.create({
       data: {
         bookId: book.id,
         date,
         quantity,
-        publisherRevenue,
+        // Map the same value to both fields for consistency in USD-based samples
+        publisherRevenueUSD: publisherRevenueUSD,
+        publisherRevenueOriginal: publisherRevenueOriginal,
+        currency: finalCurrency,
         authorRoyalty,
         source,
         paid,

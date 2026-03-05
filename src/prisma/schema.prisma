@@ -90,7 +90,9 @@ model Sale {
   bookId           Int        @map("book_id")
   date             DateTime   @db.Timestamptz @map("date") // First day of sale month (e.g. 2025-01-01)
   quantity         Int
-  publisherRevenue Decimal @default(0)    @map("publisher_revenue")
+  publisherRevenueUSD Decimal @default(0)    @map("publisher_revenue_USD")
+  publisherRevenueOriginal Decimal @default(0) @map("publisher_revenue_original")
+  currency String @db.VarChar(3) @map("currency")
   authorRoyalty    Decimal @default(0)    @map("author_royalty")
   royaltyOverridden Boolean @default(false) @map("royalty_overridden") // Track if manually set
   paid             Boolean  @default(false) // Payment status
