@@ -40,7 +40,9 @@ export default function SalesInputClient({
         bookId: record.bookId,
         date: record.date,
         quantity: record.quantity,
-        publisherRevenue: record.publisherRevenue,
+        publisherRevenueUSD: record.publisherRevenueUSD,
+        publisherRevenueOriginal: record.publisherRevenueOriginal,
+        currency: record.currency,
         authorRoyalty: record.authorRoyalty,
         royaltyOverridden: record.royaltyOverridden,
         paid: record.paid,
@@ -74,7 +76,9 @@ export default function SalesInputClient({
           r.bookId === row.bookId &&
           r.date === row.date &&
           r.quantity === row.quantity &&
-          r.publisherRevenue === row.publisherRevenue,
+          r.publisherRevenueUSD === row.publisherRevenueUSD &&
+          r.publisherRevenueOriginal === row.publisherRevenueOriginal &&
+          r.currency === row.currency
       );
       return index !== -1 ? prev.filter((_, i) => i !== index) : prev;
     });
@@ -86,7 +90,9 @@ export default function SalesInputClient({
         r.bookId === row.bookId &&
         r.date === row.date &&
         r.quantity === row.quantity &&
-        r.publisherRevenue === row.publisherRevenue
+        r.publisherRevenueUSD === row.publisherRevenueUSD &&
+        r.publisherRevenueOriginal === row.publisherRevenueOriginal &&
+        r.currency === row.currency
           ? { ...r, paid: !r.paid }
           : r,
       ),
