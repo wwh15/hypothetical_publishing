@@ -7,6 +7,8 @@ import { ColumnDef } from "@/components/BaseDataTable";
 import { SaleListItem, PendingSaleItem } from "@/lib/data/records";
 import Link from "next/link";
 import { X } from "lucide-react";
+import { CURRENCY_SYMBOLS } from "../currency-conversion";
+import { cn } from "../utils";
 
 /**
  * Stable column IDs for type-safe column selection.
@@ -27,8 +29,16 @@ export type SalesColumnId =
 // ─── REUSABLE CELL RENDERERS ──────────────────────────────────────────────
 
 export const salesCellRenderers = {
-  currency: (value: number) => (
-    <span className="font-medium">${value.toFixed(2)}</span>
+  currency: (
+    value: number,
+    currencyCode: string,
+    original: boolean = false,
+    colorClass?: string
+  ) => (
+    <span className={cn("font-medium", colorClass)}>
+      {original ? CURRENCY_SYMBOLS[currencyCode] : `$`}
+      {value.toFixed(2)}
+    </span>
   ),
 
   paidStatus: (status: "paid" | "pending") => {
@@ -51,12 +61,16 @@ export const salesCellRenderers = {
 
   source: (value: "DISTRIBUTOR" | "HAND_SOLD") => {
     const styles = {
-      DISTRIBUTOR: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
-      HAND_SOLD: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
+      DISTRIBUTOR:
+        "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+      HAND_SOLD:
+        "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
     } as const;
     const label = value === "HAND_SOLD" ? "Hand Sold" : "Distributor";
     return (
-      <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${styles[value]}`}>
+      <span
+        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${styles[value]}`}
+      >
         {label}
       </span>
     );
@@ -107,14 +121,31 @@ export const salesColumns: ColumnDef<SaleListItem>[] = [
     render: (row) => salesCellRenderers.quantity(row.quantity),
   },
   {
-    key: "publisherRevenue",
-    header: "Publisher Revenue",
-    render: (row) => salesCellRenderers.currency(row.publisherRevenue),
+    key: "currency",
+    header: "Original Currency",
+    render: (row) => row.currency,
+  },
+  {
+    key: "publisherRevenueOriginal",
+    header: "Pub. Revenue (Original)",
+    render: (row) =>
+      salesCellRenderers.currency(
+        row.publisherRevenueOriginal,
+        row.currency,
+        true
+      ),
+  },
+  {
+    key: "publisherRevenueUSD",
+    header: "Pub. Revenue (USD)",
+    render: (row) =>
+      salesCellRenderers.currency(row.publisherRevenueUSD, row.currency),
   },
   {
     key: "authorRoyalty",
     header: "Author Royalty",
-    render: (row) => salesCellRenderers.currency(row.authorRoyalty),
+    render: (row) =>
+      salesCellRenderers.currency(row.authorRoyalty, row.currency),
   },
   {
     key: "date",
@@ -137,13 +168,14 @@ export const salesColumns: ColumnDef<SaleListItem>[] = [
     render: (row) => {
       const MAX_LENGTH = 30; // Define your character limit here
       const comment = row.comment;
-  
+
       if (!comment) return <span className="text-muted-foreground">—</span>;
-  
-      const displayComment = comment.length > MAX_LENGTH 
-        ? `${comment.slice(0, MAX_LENGTH)}...` 
-        : comment;
-  
+
+      const displayComment =
+        comment.length > MAX_LENGTH
+          ? `${comment.slice(0, MAX_LENGTH)}...`
+          : comment;
+
       return (
         <span className="text-muted-foreground" title={comment}>
           {displayComment}
@@ -161,7 +193,7 @@ export const salesColumns: ColumnDef<SaleListItem>[] = [
  */
 export function getPendingColumns(
   onTogglePaid: (row: PendingSaleItem) => void,
-  onRemove: (row: PendingSaleItem) => void,
+  onRemove: (row: PendingSaleItem) => void
 ): ColumnDef<PendingSaleItem>[] {
   return [
     {
@@ -185,14 +217,31 @@ export function getPendingColumns(
       render: (row) => salesCellRenderers.quantity(row.quantity),
     },
     {
-      key: "publisherRevenue",
-      header: "Publisher Revenue",
-      render: (row) => salesCellRenderers.currency(row.publisherRevenue),
+      key: "currency",
+      header: "Original Currency",
+      render: (row) => row.currency,
+    },
+    {
+      key: "publisherRevenueOriginal",
+      header: "Pub. Revenue (Original)",
+      render: (row) =>
+        salesCellRenderers.currency(
+          row.publisherRevenueOriginal,
+          row.currency,
+          true
+        ),
+    },
+    {
+      key: "publisherRevenueUSD",
+      header: "Pub. Revenue (USD)",
+      render: (row) =>
+        salesCellRenderers.currency(row.publisherRevenueUSD, row.currency),
     },
     {
       key: "authorRoyalty",
       header: "Author Royalty",
-      render: (row) => salesCellRenderers.currency(row.authorRoyalty),
+      render: (row) =>
+        salesCellRenderers.currency(row.authorRoyalty, row.currency),
     },
     {
       key: "source",
@@ -222,13 +271,14 @@ export function getPendingColumns(
       render: (row) => {
         const MAX_LENGTH = 30; // Define your character limit here
         const comment = row.comment;
-    
+
         if (!comment) return <span className="text-muted-foreground">—</span>;
-    
-        const displayComment = comment.length > MAX_LENGTH 
-          ? `${comment.slice(0, MAX_LENGTH)}...` 
-          : comment;
-    
+
+        const displayComment =
+          comment.length > MAX_LENGTH
+            ? `${comment.slice(0, MAX_LENGTH)}...`
+            : comment;
+
         return (
           <span className="text-muted-foreground" title={comment}>
             {displayComment}
@@ -262,7 +312,9 @@ salesColumns.forEach((col) => {
   columnMap.set(col.key as SalesColumnId, col);
 });
 
-function getColumnsByIds(columnIds: SalesColumnId[]): ColumnDef<SaleListItem>[] {
+function getColumnsByIds(
+  columnIds: SalesColumnId[]
+): ColumnDef<SaleListItem>[] {
   return columnIds.map((id) => {
     const col = columnMap.get(id);
     if (!col) throw new Error(`Unknown column ID: ${id}`);
@@ -274,8 +326,18 @@ export const salesTablePresets = {
   // Full table with all columns (for the main sales listing page)
   full: {
     columnIds: [
-      "id", "title", "author", "quantity", "publisherRevenue", 
-      "authorRoyalty", "date", "source", "paid", "comment"
+      "id",
+      "title",
+      "author",
+      "quantity",
+      "currency",
+      "publisherRevenueOriginal",
+      "publisherRevenueUSD",
+      "authorRoyalty",
+      "date",
+      "source",
+      "paid",
+      "comment",
     ] as SalesColumnId[],
     defaultSortField: "date" as const,
     defaultSortDirection: "desc" as const,
@@ -285,8 +347,18 @@ export const salesTablePresets = {
   // Staging table for adding new records (adds 'actions', hides 'id')
   pending: {
     columnIds: [
-      "title", "author", "quantity", "publisherRevenue", 
-      "authorRoyalty", "date", "source", "paid", "comment", "actions"
+      "title",
+      "author",
+      "quantity",
+      "currency",
+      "publisherRevenueOriginal",
+      "publisherRevenueUSD",
+      "authorRoyalty",
+      "date",
+      "source",
+      "paid",
+      "comment",
+      "actions",
     ] as SalesColumnId[],
     defaultSortField: "date" as const,
     defaultSortDirection: "desc" as const,
@@ -296,8 +368,14 @@ export const salesTablePresets = {
   // Book detail view (hides redundant title/author info)
   bookDetail: {
     columnIds: [
-      "id", "quantity", "publisherRevenue", "authorRoyalty", 
-      "date", "source", "paid", "comment"
+      "id",
+      "quantity",
+      "publisherRevenue",
+      "authorRoyalty",
+      "date",
+      "source",
+      "paid",
+      "comment",
     ] as SalesColumnId[],
     defaultSortField: "date" as const,
     defaultSortDirection: "desc" as const,
