@@ -6,6 +6,7 @@ import { ColumnDef } from "@/components/BaseDataTable";
 import { cn } from "@/lib/utils";
 import { SaleListItem } from "../data/records";
 import Link from "next/link";
+import { CURRENCY_SYMBOLS } from "../currency-conversion";
 
 /**
  * Stable column IDs for type-safe column selection
@@ -21,8 +22,8 @@ export type AuthorPaymentColumnId =
 
 // Reusable cell renderers specific to payments
 export const authorPaymentCellRenderers = {
-  currency: (value: number, colorClass?: string) => (
-    <span className={cn("font-medium", colorClass)}>${value.toFixed(2)}</span>
+  currency: (value: number, currencyCode: string, original: boolean = false, colorClass?: string) => (
+    <span className={cn("font-medium", colorClass)}>{original ? CURRENCY_SYMBOLS[currencyCode] : `$`}{value.toFixed(2)}</span>
   ),
 
   date: (date: Date) =>
@@ -77,14 +78,24 @@ export const authorPaymentColumns: ColumnDef<SaleListItem>[] = [
     render: (row) => row.quantity,
   },
   {
-    key: "publisherRevenue",
-    header: "Pub. Revenue",
-    render: (row) => authorPaymentCellRenderers.currency(row.publisherRevenue),
+    key: "currency",
+    header: "Original Currency",
+    render: (row) => row.currency
+  },
+  {
+    key: "publisherRevenueOriginal",
+    header: "Pub. Revenue (Original)",
+    render: (row) => authorPaymentCellRenderers.currency(row.publisherRevenueOriginal, row.currency, true),
+  },
+  {
+    key: "publisherRevenueUSD",
+    header: "Pub. Revenue (USD)",
+    render: (row) => authorPaymentCellRenderers.currency(row.publisherRevenueUSD, row.currency),
   },
   {
     key: "authorRoyalty",
     header: "Royalty",
-    render: (row) => authorPaymentCellRenderers.currency(row.authorRoyalty),
+    render: (row) => authorPaymentCellRenderers.currency(row.authorRoyalty, row.currency),
   },
   {
     key: "paid",
@@ -127,7 +138,9 @@ export const authorPaymentTablePresets = {
     columnIds: [
       "title",
       "quantity",
-      "publisherRevenue",
+      "currency",
+      "publisherRevenueOriginal",
+      "publisherRevenueUSD",
       "authorRoyalty",
       "date",
       "paid",

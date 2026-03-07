@@ -11,6 +11,7 @@ import asyncGetSalesData, {
   SaleDetailPayload,
   asyncAddSale,
   asyncGetSaleById,
+  UpdateSaleItem,
 } from "@/lib/data/records";
 import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
@@ -29,17 +30,7 @@ export async function addSale(data: Prisma.SaleUncheckedCreateInput) {
 
 export async function updateSale(
   id: number,
-  data: {
-    bookId?: number;
-    date?: Date;
-    quantity?: number;
-    publisherRevenue?: number;
-    authorRoyalty?: number;
-    royaltyOverridden?: boolean;
-    paid?: boolean;
-    comment?: string | null;
-    source?: "DISTRIBUTOR" | "HAND_SOLD";
-  }
+  data: UpdateSaleItem
 ) {
   try {
     await asyncUpdateSale(id, data);

@@ -10,6 +10,7 @@ import { useSalesForm } from "../hooks/useSalesForm";
 import { BookSelectBox } from "@/components/BookSelectBox";
 import { BookListItem } from "@/lib/data/books";
 import MonthYearSelector from "@/components/MonthYearSelector";
+import { SUPPORTED_CURRENCIES } from "@/lib/currency-conversion";
 
 interface InputRecordFormProps {
   onAddRecord: (record: PendingSaleItem) => void;
@@ -100,19 +101,40 @@ export default function InputRecordForm({
           />
         </FormField>
 
+        <FormField label="Currency" required>
+          <select
+            /* Requirement 3.4.1: Force USD for Hand Sold */
+            value={formData.source === "HAND_SOLD" ? "USD" : formData.currency}
+            disabled={formData.source === "HAND_SOLD"}
+            onChange={(e) => handleInputChange("currency", e.target.value)}
+            className={`flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ${
+              formData.source === "HAND_SOLD"
+                ? "opacity-50 cursor-not-allowed"
+                : ""
+            }`}
+          >
+            {SUPPORTED_CURRENCIES.map((curr) => (
+              <option key={curr.code} value={curr.code}>
+                {curr.code} - {curr.name} ({curr.symbol})
+              </option>
+            ))}
+          </select>
+        </FormField>
+
+        {/* Original Revenue Input */}
         <FormField
-          label="Publisher Revenue ($)"
+          label={`Publisher Revenue (${formData.currency})`}
           required
           error={formErrors.publisherRevenue}
         >
           <Input
             type="text"
-            value={formData.publisherRevenue}
+            value={formData.publisherRevenueOriginal}
             placeholder="0.00"
             onChange={(e) =>
-              handleInputChange("publisherRevenue", e.target.value)
+              handleInputChange("publisherRevenueOriginal", e.target.value)
             }
-            onBlur={() => handleBlur("publisherRevenue")}
+            onBlur={() => handleBlur("publisherRevenueOriginal")}
             readOnly={formData.source === "HAND_SOLD"}
             className={
               formData.source === "HAND_SOLD"
@@ -120,6 +142,23 @@ export default function InputRecordForm({
                 : ""
             }
           />
+        </FormField>
+
+        {/* Converted USD Display (Non-Modifiable) */}
+        <FormField label="Publisher Revenue (USD Equivalent)">
+          <Input
+            type="text"
+            value={formData.publisherRevenueUSD}
+            placeholder="0.00"
+            /* Always read-only as it's a derived/converted value */
+            readOnly
+            className="bg-muted cursor-default font-medium"
+          />
+          <p className="text-xs text-muted-foreground mt-1">
+            {formData.source === "HAND_SOLD"
+              ? "Calculated automatically from book costs."
+              : `Converted from ${formData.currency} to USD using current exchange rates.`}
+          </p>
         </FormField>
 
         <FormField

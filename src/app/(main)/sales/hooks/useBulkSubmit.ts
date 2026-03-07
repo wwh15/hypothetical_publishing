@@ -96,7 +96,9 @@ export function useBulkPasteSubmit(
         date: dateCheck.data,
         // Ensure final rounding to integers and cents
         quantity: normalizeQuantity(qtyCheck.data), 
-        publisherRevenue: normalizeCurrency(revenueCheck.data),
+        publisherRevenueUSD: normalizeCurrency(revenueCheck.data),
+        publisherRevenueOriginal: normalizeCurrency(revenueCheck.data),
+        currency: "USD",
         authorRoyalty: normalizeCurrency(royaltyCheck.data),
         royaltyOverridden: false,
         paid: false,

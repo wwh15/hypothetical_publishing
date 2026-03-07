@@ -439,7 +439,7 @@ export async function getBookById(id: number): Promise<BookDetail | null> {
   const [totals, unpaidAgg, paidAgg] = await Promise.all([
     prisma.sale.aggregate({
       where: { bookId: id },
-      _sum: { quantity: true, publisherRevenue: true, authorRoyalty: true },
+      _sum: { quantity: true, publisherRevenueUSD: true, authorRoyalty: true },
     }),
     prisma.sale.aggregate({
       where: { bookId: id, paid: false },
@@ -454,7 +454,7 @@ export async function getBookById(id: number): Promise<BookDetail | null> {
   const totalSales = totals._sum.quantity ?? 0; // Quantity is usually an Int, so this is fine
 
   // For currency/royalty fields (Decimal types), convert to number for the UI
-  const totalPublisherRevenue = new Prisma.Decimal(totals._sum.publisherRevenue ?? 0).toNumber();
+  const totalPublisherRevenue = new Prisma.Decimal(totals._sum.publisherRevenueUSD ?? 0).toNumber();
   const unpaidAuthorRoyalty = new Prisma.Decimal(unpaidAgg._sum.authorRoyalty ?? 0).toNumber();
   const paidAuthorRoyalty = new Prisma.Decimal(paidAgg._sum.authorRoyalty ?? 0).toNumber();
   const totalAuthorRoyalty = new Prisma.Decimal(totals._sum.authorRoyalty ?? 0).toNumber();
