@@ -11,14 +11,23 @@ jobs:
 
     steps:
       - name: Install pg_dump
-        run: sudo apt-get install -y postgresql-client-16
+        run: |
+          sudo apt-get install -y curl ca-certificates && \
+          sudo install -d /usr/share/postgresql-common/pgdg && \
+          sudo curl -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc --fail https://www.postgresql.org/media/keys/ACCC4CF8.asc && \
+          sudo sh -c 'echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list' && \
+          sudo apt-get update && \
+          sudo apt-get install -y postgresql-client-17
 
       - name: Run backup
         env:
           DATABASE_URL: ${{ secrets.QA_DATABASE_URL }}
           B2_APPLICATION_KEY_ID: ${{ secrets.QA_B2_APPLICATION_KEY_ID }}
           B2_APPLICATION_KEY: ${{ secrets.QA_B2_APPLICATION_KEY }}
-          B2_BUCKET_NAME: ${{ secrets.QA_B2_BUCKET_NAME }}
+          B2_BACKUP_BUCKET: ${{ secrets.QA_B2_BACKUP_BUCKET }}
+          B2_MEDIA_BUCKET: ${{ secrets.QA_B2_MEDIA_BUCKET }}
+          SUPABASE_URL: ${{ secrets.QA_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.QA_SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           set -e
 
@@ -29,81 +38,150 @@ jobs:
           MONTH=$(date +%Y_%m)
 
           pip install b2 --break-system-packages
-          b2 authorize-account "$B2_APPLICATION_KEY_ID" "$B2_APPLICATION_KEY"
+          b2 account authorize "$B2_APPLICATION_KEY_ID" "$B2_APPLICATION_KEY"
 
+          # ──────────────────────────────────────────
+          # 1. DUMP DATABASE
+          # ──────────────────────────────────────────
           DB_FILENAME="hyp_qa_daily_${TODAY}.dump"
           echo "Dumping database to $DB_FILENAME..."
-          pg_dump -Fc "$DATABASE_URL" -f "/tmp/$DB_FILENAME"
-          pg_restore --list "/tmp/$DB_FILENAME" > /dev/null
+          /usr/lib/postgresql/17/bin/pg_dump -Fc "$DATABASE_URL" -f "/tmp/$DB_FILENAME"
+          /usr/lib/postgresql/17/bin/pg_restore --list "/tmp/$DB_FILENAME" > /dev/null
           echo "Database dump verified"
 
-          b2 upload-file "$B2_BUCKET_NAME" "/tmp/$DB_FILENAME" "db/daily/$DB_FILENAME"
+          # ──────────────────────────────────────────
+          # 2. UPLOAD DAILY DB BACKUP
+          # ──────────────────────────────────────────
+          b2 file upload "$B2_BACKUP_BUCKET" "/tmp/$DB_FILENAME" "db/daily/$DB_FILENAME"
           echo "Uploaded daily DB backup"
 
+          # ──────────────────────────────────────────
+          # 3. UPLOAD WEEKLY DB BACKUP (Sundays only)
+          # ──────────────────────────────────────────
           if [ "$DAY_OF_WEEK" = "7" ]; then
             WEEKLY_DB_FILENAME="hyp_qa_weekly_${WEEK_NUM}.dump"
             cp "/tmp/$DB_FILENAME" "/tmp/$WEEKLY_DB_FILENAME"
-            b2 upload-file "$B2_BUCKET_NAME" "/tmp/$WEEKLY_DB_FILENAME" "db/weekly/$WEEKLY_DB_FILENAME"
+            b2 file upload "$B2_BACKUP_BUCKET" "/tmp/$WEEKLY_DB_FILENAME" "db/weekly/$WEEKLY_DB_FILENAME"
             echo "Uploaded weekly DB backup"
             rm "/tmp/$WEEKLY_DB_FILENAME"
           fi
 
+          # ──────────────────────────────────────────
+          # 4. UPLOAD MONTHLY DB BACKUP (1st of month only)
+          # ──────────────────────────────────────────
           if [ "$DAY_OF_MONTH" = "01" ]; then
             MONTHLY_DB_FILENAME="hyp_qa_monthly_${MONTH}.dump"
             cp "/tmp/$DB_FILENAME" "/tmp/$MONTHLY_DB_FILENAME"
-            b2 upload-file "$B2_BUCKET_NAME" "/tmp/$MONTHLY_DB_FILENAME" "db/monthly/$MONTHLY_DB_FILENAME"
+            b2 file upload "$B2_BACKUP_BUCKET" "/tmp/$MONTHLY_DB_FILENAME" "db/monthly/$MONTHLY_DB_FILENAME"
             echo "Uploaded monthly DB backup"
             rm "/tmp/$MONTHLY_DB_FILENAME"
           fi
 
           rm "/tmp/$DB_FILENAME"
 
-          echo "Syncing media bucket..."
-          b2 sync "b2://$B2_BUCKET_NAME" "b2://$B2_BUCKET_NAME/media/daily/$TODAY/" --includeRegex "^(?!media/).*"
-          echo "Media sync complete"
+          # ──────────────────────────────────────────
+          # 5. SYNC COVER ART FROM SUPABASE TO B2
+          # ──────────────────────────────────────────
+          echo "Downloading cover art from Supabase Storage..."
+          mkdir -p /tmp/cover-art
 
+          # List all files in Cover-Art bucket
+          FILES=$(curl -s \
+            "${SUPABASE_URL}/storage/v1/object/list/Cover-Art" \
+            -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
+            -H "Content-Type: application/json" \
+            -d '{"limit": 1000, "offset": 0}' \
+            | python3 -c "import sys,json; [print(f['name']) for f in json.load(sys.stdin)]")
+
+          if [ -z "$FILES" ]; then
+            echo "No cover art files found, skipping sync"
+          else
+            # Download each file
+            for FILE in $FILES; do
+              mkdir -p "/tmp/cover-art/$(dirname $FILE)"
+              curl -s \
+                "${SUPABASE_URL}/storage/v1/object/Cover-Art/${FILE}" \
+                -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
+                -o "/tmp/cover-art/${FILE}"
+              echo "Downloaded: $FILE"
+            done
+
+            echo "Uploading cover art to B2 media bucket..."
+            b2 sync "/tmp/cover-art/" "b2://$B2_MEDIA_BUCKET/daily/$TODAY/"
+            echo "Cover art sync complete"
+          fi
+
+          rm -rf /tmp/cover-art
+
+      - name: Run cleanup
+        id: cleanup
+        continue-on-error: true
+        env:
+          B2_BACKUP_BUCKET: ${{ secrets.QA_B2_BACKUP_BUCKET }}
+          B2_APPLICATION_KEY_ID: ${{ secrets.QA_B2_APPLICATION_KEY_ID }}
+          B2_APPLICATION_KEY: ${{ secrets.QA_B2_APPLICATION_KEY }}
+        run: |
+          pip install b2 --break-system-packages
+          b2 account authorize "$B2_APPLICATION_KEY_ID" "$B2_APPLICATION_KEY"
+
+          # ──────────────────────────────────────────
+          # RETENTION CLEANUP — DAILY (keep 7)
+          # ──────────────────────────────────────────
           echo "Cleaning up old daily backups..."
           CUTOFF_DAILY=$(date -d '7 days ago' +%Y%m%d)
-          b2 ls "$B2_BUCKET_NAME" "db/daily/" | while read -r file; do
+          b2 ls "b2://$B2_BACKUP_BUCKET/db/daily/" | while read -r file; do
             FILEDATE=$(echo "$file" | grep -oP '\d{8}')
             if [ -n "$FILEDATE" ] && [ "$FILEDATE" -lt "$CUTOFF_DAILY" ]; then
-              b2 delete-file-version "$B2_BUCKET_NAME" "$file"
+              b2 file delete "b2://$B2_BACKUP_BUCKET/$file"
               echo "Deleted old daily: $file"
             fi
           done
 
+          # ──────────────────────────────────────────
+          # RETENTION CLEANUP — WEEKLY (keep 4)
+          # ──────────────────────────────────────────
           echo "Cleaning up old weekly backups..."
           CUTOFF_WEEKLY=$(date -d '28 days ago' +%Y%m%d)
-          b2 ls "$B2_BUCKET_NAME" "db/weekly/" | while read -r file; do
+          b2 ls "b2://$B2_BACKUP_BUCKET/db/weekly/" | while read -r file; do
             FILEDATE=$(echo "$file" | grep -oP '\d{8}')
             if [ -n "$FILEDATE" ] && [ "$FILEDATE" -lt "$CUTOFF_WEEKLY" ]; then
-              b2 delete-file-version "$B2_BUCKET_NAME" "$file"
+              b2 file delete "b2://$B2_BACKUP_BUCKET/$file"
               echo "Deleted old weekly: $file"
             fi
           done
 
+          # ──────────────────────────────────────────
+          # RETENTION CLEANUP — MONTHLY (keep 12)
+          # ──────────────────────────────────────────
           echo "Cleaning up old monthly backups..."
           CUTOFF_MONTHLY=$(date -d '365 days ago' +%Y%m%d)
-          b2 ls "$B2_BUCKET_NAME" "db/monthly/" | while read -r file; do
+          b2 ls "b2://$B2_BACKUP_BUCKET/db/monthly/" | while read -r file; do
             FILEDATE=$(echo "$file" | grep -oP '\d{8}')
             if [ -n "$FILEDATE" ] && [ "$FILEDATE" -lt "$CUTOFF_MONTHLY" ]; then
-              b2 delete-file-version "$B2_BUCKET_NAME" "$file"
+              b2 file delete "b2://$B2_BACKUP_BUCKET/$file"
               echo "Deleted old monthly: $file"
             fi
           done
 
-          echo "All done"
+          echo "Cleanup complete"
+
+      - name: Notify cleanup failure
+        if: steps.cleanup.outcome == 'failure'
+        run: |
+          curl -X POST "${{ secrets.QA_DISCORD_WEBHOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"content\": \"⚠️ QA backup cleanup failed (backup itself succeeded). Check logs: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}"
 
       - name: Notify success
         if: success()
         run: |
           curl -X POST "${{ secrets.QA_DISCORD_WEBHOOK_URL }}" \
             -H "Content-Type: application/json" \
-            -d "{\"content\": \"QA backup succeeded! Run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}"
+            -d "{\"content\": \"✅ QA backup succeeded! Run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}"
 
       - name: Notify failure
         if: failure()
         run: |
           curl -X POST "${{ secrets.QA_DISCORD_WEBHOOK_URL }}" \
             -H "Content-Type: application/json" \
-            -d "{\"content\": \"QA backup FAILED! Check logs: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}"
+            -d "{\"content\": \"❌ QA backup FAILED! Check logs: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}"

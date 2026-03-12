@@ -10,7 +10,9 @@ export interface SaleListItem {
   author: string;
   date: Date; // First day of sale month
   quantity: number;
-  publisherRevenue: number;
+  publisherRevenueUSD: number;
+  publisherRevenueOriginal: number;
+  currency: string;
   authorRoyalty: number;
   paid: "paid" | "pending";
   comment: string | null;
@@ -24,7 +26,9 @@ export interface PendingSaleItem {
   author: string;
   date: Date; // MM-YYYY format
   quantity: number;
-  publisherRevenue: number;
+  publisherRevenueUSD: number;
+  publisherRevenueOriginal: number;
+  currency: string;
   authorRoyalty: number;
   royaltyOverridden: boolean; // Whether user manually overrode the calculated royalty
   paid: boolean; // Always false for pending, but included for consistency
@@ -37,7 +41,9 @@ export type SaleDetailPayload = {
   id: number;
   date: Date;
   quantity: number;
-  publisherRevenue: number; // Changed from Decimal to number
+  publisherRevenueUSD: number;
+  publisherRevenueOriginal: number;
+  currency: string;
   authorRoyalty: number; // Changed from Decimal to number
   paid: boolean;
   royaltyOverridden: boolean;
@@ -53,6 +59,20 @@ export type SaleDetailPayload = {
   };
 };
 
+export interface UpdateSaleItem {
+  bookId?: number;
+  date?: Date;
+  quantity?: number;
+  publisherRevenueUSD?: number;
+  publisherRevenueOriginal?: number;
+  currency?: string;
+  authorRoyalty?: number;
+  royaltyOverridden?: boolean;
+  paid?: boolean;
+  comment?: string | null;
+  source?: "DISTRIBUTOR" | "HAND_SOLD";
+}
+
 // Sort field map for server-side sorting (column key -> Prisma orderBy asc)
 const SORT_ASC: Record<string, Prisma.SaleOrderByWithRelationInput> = {
   id: { id: "asc" },
@@ -60,7 +80,9 @@ const SORT_ASC: Record<string, Prisma.SaleOrderByWithRelationInput> = {
   author: { book: { author: { name: "asc" } } },
   date: { date: "asc" },
   quantity: { quantity: "asc" },
-  publisherRevenue: { publisherRevenue: "asc" },
+  publisherRevenueUSD: { publisherRevenueUSD: "asc" },
+  publisherRevenueOriginal: { publisherRevenueOriginal: "desc"},
+  currency: { currency: "asc"},
   authorRoyalty: { authorRoyalty: "asc" },
   paid: { paid: "asc" },
   source: { source: "asc" },
@@ -72,7 +94,9 @@ const SORT_DESC: Record<string, Prisma.SaleOrderByWithRelationInput> = {
   author: { book: { author: { name: "desc" } } },
   date: { date: "desc" },
   quantity: { quantity: "desc" },
-  publisherRevenue: { publisherRevenue: "desc" },
+  publisherRevenueUSD: { publisherRevenueUSD: "desc" },
+  publisherRevenueOriginal: { publisherRevenueOriginal: "desc"},
+  currency: { currency: "desc"},
   authorRoyalty: { authorRoyalty: "desc" },
   paid: { paid: "desc" },
   source: { source: "desc" },
@@ -81,8 +105,17 @@ const SORT_DESC: Record<string, Prisma.SaleOrderByWithRelationInput> = {
 function buildOrderBy(
   sortBy: string,
   sortDir: "asc" | "desc"
-): Prisma.SaleOrderByWithRelationInput {
+): Prisma.SaleOrderByWithRelationInput | Prisma.SaleOrderByWithRelationInput[] {
   const map = sortDir === "desc" ? SORT_DESC : SORT_ASC;
+  
+  // Requirement 3.1.1: Sort first by currency type, then by amount
+  if (sortBy === "publisherRevenueOriginal") {
+    return [
+      { currency: "asc" },           
+      { publisherRevenueOriginal: sortDir } 
+    ];
+  }
+  
   return (
     map[sortBy] ?? (sortDir === "desc" ? { date: "desc" } : { date: "asc" })
   );
@@ -277,7 +310,9 @@ export async function asyncGetSaleById(
     id: sale.id,
     date: sale.date,
     quantity: sale.quantity,
-    publisherRevenue: sale.publisherRevenue.toNumber(),
+    publisherRevenueUSD: sale.publisherRevenueUSD.toNumber(),
+    publisherRevenueOriginal: sale.publisherRevenueOriginal.toNumber(),
+    currency: sale.currency,
     authorRoyalty: sale.authorRoyalty.toNumber(),
     royaltyOverridden: sale.royaltyOverridden,
     paid: sale.paid,
@@ -300,7 +335,9 @@ export function toSaleListItem(sale: {
   bookId: number;
   date: Date;
   quantity: number;
-  publisherRevenue: Decimal;
+  publisherRevenueUSD: Decimal;
+  publisherRevenueOriginal: Decimal;
+  currency: string;
   authorRoyalty: Decimal;
   paid: boolean;
   comment: string | null;
@@ -314,7 +351,9 @@ export function toSaleListItem(sale: {
     author: sale.book.author.name,
     date: sale.date,
     quantity: sale.quantity,
-    publisherRevenue: sale.publisherRevenue.toNumber(),
+    publisherRevenueUSD: sale.publisherRevenueUSD.toNumber(),
+    publisherRevenueOriginal: sale.publisherRevenueOriginal.toNumber(),
+    currency: sale.currency,
     authorRoyalty: sale.authorRoyalty.toNumber(),
     paid: sale.paid ? "paid" : "pending",
     comment: sale.comment ?? null,
@@ -329,17 +368,7 @@ export async function asyncAddSale(data: Prisma.SaleUncheckedCreateInput) {
 // write ops moved here
 export async function asyncUpdateSale(
   id: number,
-  data: {
-    bookId?: number;
-    date?: Date;
-    quantity?: number;
-    publisherRevenue?: number;
-    authorRoyalty?: number;
-    royaltyOverridden?: boolean;
-    paid?: boolean;
-    comment?: string | null;
-    source?: "DISTRIBUTOR" | "HAND_SOLD";
-  }
+  data: UpdateSaleItem
 ) {
   return await prisma.sale.update({
     where: { id },

@@ -24,6 +24,7 @@ import {
 } from "@/lib/validation";
 import { cn } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
+import { convertCurrency, CURRENCY_SYMBOLS } from "@/lib/currency-conversion";
 
 /** Get the royalty rate (as percentage) for a book based on sale source */
 function getRateForSource(
@@ -71,9 +72,9 @@ function initialDateYear(date: Date): string {
   if (!date || !Number.isFinite(date.getTime())) {
     return "";
   }
-  
+
   const year = date.getUTCFullYear(); // Use UTC
-  
+
   if (year < SALES_YEAR_MIN || year > SALES_YEAR_MAX) {
     return "";
   }
@@ -88,7 +89,11 @@ export default function EditForm({ sale, books }: EditFormProps) {
     dateMonth: initialDateMonth(sale.date),
     dateYear: initialDateYear(sale.date),
     quantity: sale.quantity,
-    publisherRevenue: new Decimal(sale.publisherRevenue).toNumber(),
+    publisherRevenueOriginal: new Decimal(
+      sale.publisherRevenueOriginal
+    ).toNumber(),
+    publisherRevenueUSD: new Decimal(sale.publisherRevenueUSD).toNumber(),
+    currency: sale.currency,
     authorRoyalty: new Decimal(sale.authorRoyalty).toNumber(),
     royaltyOverridden: sale.royaltyOverridden,
     comment: sale.comment ?? "",
@@ -98,13 +103,20 @@ export default function EditForm({ sale, books }: EditFormProps) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [togglingPaid, setTogglingPaid] = useState(false);
-  
+
   // Validation States
   const [dateError, setDateError] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const [displayRevenue, setDisplayRevenue] = useState(
-    formData.publisherRevenue !== 0 ? formData.publisherRevenue.toFixed(2) : ""
+  const [displayRevenueOriginal, setDisplayRevenueOriginal] = useState(
+    formData.publisherRevenueOriginal !== 0
+      ? formData.publisherRevenueOriginal.toFixed(2)
+      : ""
+  );
+  const [displayRevenueUSD, setDisplayRevenueUSD] = useState(
+    formData.publisherRevenueUSD !== 0
+      ? formData.publisherRevenueUSD.toFixed(2)
+      : ""
   );
   const [displayRoyalty, setDisplayRoyalty] = useState(
     formData.authorRoyalty.toFixed(2)
@@ -117,41 +129,44 @@ export default function EditForm({ sale, books }: EditFormProps) {
     setErrors({});
     setDateError(null);
     const newErrors: Record<string, string> = {};
-  
+
     // 1. Run validations
     const dateCheck = validateDatePeriod(formData.dateYear, formData.dateMonth);
     const qtyCheck = validateQuantity(displayQuantity);
-    const revenueCheck = validateCurrency(displayRevenue);
-  
+    const revenueOriginalCheck = validateCurrency(displayRevenueOriginal);
+
     // 2. Accumulate errors
     if (!dateCheck.success) {
       setDateError(dateCheck.error);
       newErrors.date = dateCheck.error;
     }
     if (!qtyCheck.success) newErrors.quantity = qtyCheck.error;
-    if (!revenueCheck.success) newErrors.publisherRevenue = revenueCheck.error;
-  
+    if (!revenueOriginalCheck.success)
+      newErrors.publisherRevenue = revenueOriginalCheck.error;
+
     // 3. Stop if there are errors (This handles the UI)
     if (Object.keys(newErrors).length > 0) {
       setErrors({ ...newErrors, global: "Please fix the errors above." });
       return;
     }
-  
+
     // 4. FINAL GUARD (This satisfies TypeScript)
     // By checking .success here, TypeScript "narrows" the type inside the block
-    if (dateCheck.success && qtyCheck.success && revenueCheck.success) {
+    if (dateCheck.success && qtyCheck.success && revenueOriginalCheck.success) {
       setLoading(true);
       try {
         const result = await updateSale(sale.id, {
           bookId: formData.bookId,
-          date: dateCheck.data,       // ✅ TypeScript now knows .data exists
-          quantity: qtyCheck.data,   // ✅ TypeScript now knows .data exists
-          publisherRevenue: revenueCheck.data, // ✅ TypeScript now knows .data exists
+          date: dateCheck.data, // ✅ TypeScript now knows .data exists
+          quantity: qtyCheck.data, // ✅ TypeScript now knows .data exists
+          publisherRevenueOriginal: revenueOriginalCheck.data, // ✅ TypeScript now knows .data exists
+          publisherRevenueUSD: normalizeCurrency(displayRevenueUSD),
           authorRoyalty: parseFloat(displayRoyalty) || 0,
           source: formData.source,
           comment: formData.comment.trim() || null,
+          currency: formData.currency,
         });
-  
+
         if (result.success) {
           setIsEditing(false);
         } else {
@@ -176,14 +191,21 @@ export default function EditForm({ sale, books }: EditFormProps) {
       dateMonth: initialDateMonth(sale.date),
       dateYear: initialDateYear(sale.date),
       quantity: sale.quantity,
-      publisherRevenue: new Decimal(sale.publisherRevenue).toNumber(),
+      publisherRevenueOriginal: new Decimal(
+        sale.publisherRevenueOriginal
+      ).toNumber(),
+      publisherRevenueUSD: new Decimal(sale.publisherRevenueUSD).toNumber(),
       authorRoyalty: new Decimal(sale.authorRoyalty).toNumber(),
       royaltyOverridden: sale.royaltyOverridden,
       comment: sale.comment ?? "",
+      currency: sale.currency,
       source: sale.source,
     });
 
-    setDisplayRevenue(new Decimal(sale.publisherRevenue).toFixed(2));
+    setDisplayRevenueOriginal(
+      new Decimal(sale.publisherRevenueOriginal).toFixed(2)
+    );
+    setDisplayRevenueUSD(new Decimal(sale.publisherRevenueUSD).toFixed(2));
     setDisplayRoyalty(new Decimal(sale.authorRoyalty).toFixed(2));
     setDisplayQuantity(String(sale.quantity));
 
@@ -204,6 +226,7 @@ export default function EditForm({ sale, books }: EditFormProps) {
     else if (result?.error) alert(result.error);
   };
 
+  {/* --------------------------Sales Detail View-------------------------- */}
   if (!isEditing) {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg border p-6">
@@ -235,7 +258,7 @@ export default function EditForm({ sale, books }: EditFormProps) {
               {new Intl.DateTimeFormat("en-US", {
                 month: "short",
                 year: "numeric",
-                timeZone: "UTC"
+                timeZone: "UTC",
               }).format(sale.date)}
             </p>
           </div>
@@ -249,10 +272,19 @@ export default function EditForm({ sale, books }: EditFormProps) {
 
           <div>
             <label className="text-sm font-medium text-gray-500">
-              Publisher Revenue
+              Publisher Revenue ({CURRENCY_SYMBOLS[sale.currency]}{formData.currency})`
             </label>
             <p className="text-lg font-semibold mt-1 text-green-600">
-              ${new Decimal(sale.publisherRevenue).toFixed(2)}
+              {CURRENCY_SYMBOLS[sale.currency]}{new Decimal(sale.publisherRevenueOriginal).toFixed(2)}
+            </p>
+          </div>
+
+          <div>
+            <label className="text-sm font-medium text-gray-500">
+              Publisher Revenue (USD Equivalent)
+            </label>
+            <p className="text-lg font-semibold mt-1 text-green-600">
+              ${new Decimal(sale.publisherRevenueUSD).toFixed(2)}
             </p>
           </div>
 
@@ -281,12 +313,18 @@ export default function EditForm({ sale, books }: EditFormProps) {
           </div>
 
           <div>
-            <label className="text-sm font-medium text-gray-500">Payment Status</label>
+            <label className="text-sm font-medium text-gray-500">
+              Payment Status
+            </label>
             <div className="mt-1 flex flex-wrap items-center gap-2">
-              <span className={cn(
-                "inline-flex items-center rounded-full px-3 py-1 text-sm font-medium",
-                sale.paid ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300" : "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300"
-              )}>
+              <span
+                className={cn(
+                  "inline-flex items-center rounded-full px-3 py-1 text-sm font-medium",
+                  sale.paid
+                    ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+                    : "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300"
+                )}
+              >
                 {sale.paid ? "Paid" : "Pending"}
               </span>
               <button
@@ -301,7 +339,11 @@ export default function EditForm({ sale, books }: EditFormProps) {
                   togglingPaid && "opacity-70 cursor-not-allowed"
                 )}
               >
-                {togglingPaid ? "Updating…" : sale.paid ? "Mark as unpaid" : "Mark as paid"}
+                {togglingPaid
+                  ? "Updating…"
+                  : sale.paid
+                  ? "Mark as unpaid"
+                  : "Mark as paid"}
               </button>
             </div>
           </div>
@@ -367,6 +409,7 @@ export default function EditForm({ sale, books }: EditFormProps) {
       ? `${formData.dateYear}-${String(formData.dateMonth).padStart(2, "0")}`
       : null;
 
+  {/* --------------------------Edit Form View-------------------------- */}
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg border p-6">
       <h2 className="text-xl font-bold mb-4">Edit Sale Record</h2>
@@ -382,26 +425,48 @@ export default function EditForm({ sale, books }: EditFormProps) {
             selectedBookId={String(formData.bookId)}
             onSelect={(bookId) => {
               const book = books.find((b) => b.id === Number(bookId));
-              let revenue = formData.publisherRevenue;
-              if (formData.source === "HAND_SOLD" && book) {
-                const autoRev = calcHandSoldRevenue(book, formData.quantity);
-                if (autoRev != null) {
-                  revenue = normalizeCurrency(autoRev);
-                  setDisplayRevenue(revenue.toFixed(2));
-                }
+              if (!book) return;
+
+              let revOriginal = formData.publisherRevenueOriginal;
+              let revUSD = formData.publisherRevenueUSD;
+
+              // 1. Handle Hand-Sold Logic
+              if (formData.source === "HAND_SOLD") {
+                const autoRev =
+                  calcHandSoldRevenue(book, formData.quantity) ?? 0;
+                revOriginal = autoRev;
+                revUSD = autoRev; // Hand-sold is always USD
+
+                // Update UI strings for the revenue fields
+                setDisplayRevenueOriginal(revOriginal.toFixed(2));
+                setDisplayRevenueUSD(revUSD.toFixed(2));
+              } else {
+                // 2. Handle Distributor Logic
+                // Recalculate USD equivalent based on the current currency in state
+                revUSD = convertCurrency(revOriginal, formData.currency);
+                setDisplayRevenueUSD(revUSD.toFixed(2));
               }
+
+              // 3. Royalty Calculation
+              // Keeping your existing rate math exactly as is
               const rate = book
                 ? getRateForSource(book, formData.source)
                 : null;
               const newRoyalty =
-                rate != null ? revenue * (rate / 100) : formData.authorRoyalty;
+                rate != null ? revUSD * (rate / 100) : formData.authorRoyalty;
+
               setDisplayRoyalty(newRoyalty.toFixed(2));
-              setFormData({
-                ...formData,
+
+              // 4. Update the actual form state
+              setFormData((prev) => ({
+                ...prev,
                 bookId: Number(bookId),
-                publisherRevenue: revenue,
-                authorRoyalty: normalizeCurrency(newRoyalty),
-              });
+                publisherRevenueOriginal: revOriginal,
+                publisherRevenueUSD: revUSD,
+                authorRoyalty: newRoyalty,
+              }));
+
+              // Clear bookId error if it exists
               if (errors.bookId) setErrors((prev) => ({ ...prev, bookId: "" }));
             }}
           />
@@ -466,48 +531,67 @@ export default function EditForm({ sale, books }: EditFormProps) {
             onChange={(e) => {
               const val = e.target.value;
               setDisplayQuantity(val);
-              if (errors.quantity) setErrors((prev) => ({ ...prev, quantity: "" }));
+              if (errors.quantity)
+                setErrors((prev) => ({ ...prev, quantity: "" }));
 
               const qtyValidation = validateQuantity(val);
               if (qtyValidation.success) {
                 const qty = qtyValidation.data;
+
                 setFormData((prev) => {
                   const next = { ...prev, quantity: qty };
                   const book = books.find((b) => b.id === prev.bookId);
 
+                  // 1. Handle Hand-Sold (Req 3.4.1): Recalculate Revenue + Royalty
                   if (prev.source === "HAND_SOLD" && book) {
                     const autoRev = calcHandSoldRevenue(book, qty) ?? 0;
-                    next.publisherRevenue = normalizeCurrency(autoRev);
-                    setDisplayRevenue(next.publisherRevenue.toFixed(2));
+
+                    // Sync both Original and USD since Hand-sold is always USD
+                    next.publisherRevenueOriginal = autoRev;
+                    next.publisherRevenueUSD = autoRev;
+
+                    // Update UI displays
+                    setDisplayRevenueOriginal(autoRev.toFixed(2));
+                    setDisplayRevenueUSD(autoRev.toFixed(2));
+
                     const rate = getRateForSource(book, "HAND_SOLD");
-                    next.authorRoyalty = normalizeCurrency(next.publisherRevenue * (rate / 100));
-                    setDisplayRoyalty(next.authorRoyalty.toFixed(2));
-                  } else {
-                    const rate = book ? getRateForSource(book, "DISTRIBUTOR") : 0;
-                    const newRoyalty = prev.publisherRevenue * (rate / 100);
-                    next.authorRoyalty = normalizeCurrency(newRoyalty);
+                    next.authorRoyalty = autoRev * (rate / 100);
                     setDisplayRoyalty(next.authorRoyalty.toFixed(2));
                   }
+                  // 2. Handle Distributor: Just update Royalty based on existing USD Revenue
+                  else {
+                    const rate = book
+                      ? getRateForSource(book, "DISTRIBUTOR")
+                      : 0;
+                    // Royalty is always calculated from the USD managed value
+                    const newRoyalty = prev.publisherRevenueUSD * (rate / 100);
+                    next.authorRoyalty = newRoyalty;
+                    setDisplayRoyalty(newRoyalty.toFixed(2));
+                  }
+
                   return next;
                 });
               }
             }}
           />
           {errors.quantity && (
-            <p className="mt-1 text-xs text-red-500 font-medium">{errors.quantity}</p>
+            <p className="mt-1 text-xs text-red-500 font-medium">
+              {errors.quantity}
+            </p>
           )}
         </div>
 
-        {/* Publisher Revenue */}
+        {/* 1. Original Revenue Input */}
         <div>
           <label className="block text-sm font-medium mb-2">
-            Publisher Revenue ($)
+            Publisher Revenue (
+            {CURRENCY_SYMBOLS[sale.currency]}{formData.currency})
           </label>
           <input
             type="text"
             inputMode="decimal"
             placeholder="0.00"
-            value={displayRevenue}
+            value={displayRevenueOriginal}
             readOnly={formData.source === "HAND_SOLD"}
             className={cn(
               "w-full px-3 py-2 border rounded-md transition-colors",
@@ -515,33 +599,51 @@ export default function EditForm({ sale, books }: EditFormProps) {
               formData.source === "HAND_SOLD" &&
                 "bg-gray-100 dark:bg-gray-700 cursor-not-allowed"
             )}
-            tabIndex={formData.source === "HAND_SOLD" ? -1 : undefined}
             onChange={(e) => {
               if (formData.source === "HAND_SOLD") return;
+
               const val = e.target.value;
-              setDisplayRevenue(val);
-              if (errors.publisherRevenue) setErrors((prev) => ({ ...prev, publisherRevenue: "" }));
+              setDisplayRevenueOriginal(val);
+              if (errors.publisherRevenue)
+                setErrors((prev) => ({ ...prev, publisherRevenue: "" }));
 
-              const revenueValidation = validateCurrency(val);
-              if (revenueValidation.success) {
-                const numericRevenue = revenueValidation.data;
-                const book = books.find((b) => b.id === Number(formData.bookId));
+              const revCheck = validateCurrency(val);
+              if (revCheck.success) {
+                const originalValue = revCheck.data;
+
+                // Convert to USD for system management
+                const usdValue = convertCurrency(
+                  originalValue,
+                  formData.currency
+                );
+                setDisplayRevenueUSD(usdValue.toFixed(2));
+
+                const book = books.find(
+                  (b) => b.id === Number(formData.bookId)
+                );
                 const rate = book ? getRateForSource(book, formData.source) : 0;
-                const newRoyalty = normalizeCurrency(numericRevenue * (rate / 100));
 
+                // Royalty calculated from USD value
+                const newRoyalty = usdValue * (rate / 100);
                 setDisplayRoyalty(newRoyalty.toFixed(2));
+
                 setFormData((prev) => ({
                   ...prev,
-                  publisherRevenue: numericRevenue,
+                  publisherRevenueOriginal: originalValue,
+                  publisherRevenueUSD: usdValue,
                   authorRoyalty: newRoyalty,
                 }));
               }
             }}
             onBlur={() => {
-              if (formData.source === "HAND_SOLD" || displayRevenue === "") return;
-              const revenueValidation = validateCurrency(displayRevenue);
-              if (revenueValidation.success) {
-                setDisplayRevenue(revenueValidation.data.toFixed(2));
+              if (
+                formData.source === "HAND_SOLD" ||
+                displayRevenueOriginal === ""
+              )
+                return;
+              const revCheck = validateCurrency(displayRevenueOriginal);
+              if (revCheck.success) {
+                setDisplayRevenueOriginal(revCheck.data.toFixed(2));
               }
             }}
           />
@@ -550,6 +652,25 @@ export default function EditForm({ sale, books }: EditFormProps) {
               {errors.publisherRevenue}
             </p>
           )}
+        </div>
+
+        {/* 2. USD Equivalent Display (Non-modifiable) */}
+        <div>
+          <label className="block text-sm font-medium mb-2 text-gray-500">
+            Publisher Revenue (USD Equivalent)
+          </label>
+          <input
+            type="text"
+            value={displayRevenueUSD}
+            readOnly
+            tabIndex={-1}
+            className="w-full px-3 py-2 border rounded-md bg-gray-50 dark:bg-gray-800 text-gray-500 cursor-not-allowed"
+          />
+          <p className="text-xs text-muted-foreground mt-1">
+            {formData.source === "HAND_SOLD"
+              ? "Calculated automatically from book costs."
+              : `Converted from ${formData.currency} to USD using current exchange rates.`}
+          </p>
         </div>
 
         {/* Author Royalty (read-only, auto-calculated) */}
@@ -568,7 +689,9 @@ export default function EditForm({ sale, books }: EditFormProps) {
             tabIndex={-1}
           />
           {errors.authorRoyalty && (
-            <p className="mt-1 text-xs text-red-500 font-medium">{errors.authorRoyalty}</p>
+            <p className="mt-1 text-xs text-red-500 font-medium">
+              {errors.authorRoyalty}
+            </p>
           )}
         </div>
 
@@ -604,8 +727,6 @@ export default function EditForm({ sale, books }: EditFormProps) {
             Cancel
           </button>
         </div>
-        
-        
       </div>
     </div>
   );
