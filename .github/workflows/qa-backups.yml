@@ -88,7 +88,7 @@ jobs:
           echo "Downloading cover art from Supabase Storage..."
           mkdir -p /tmp/cover-art
 
-          supabase login --token "$SUPABASE_SERVICE_ROLE_KEY"
+          supabase login --token "$SUPABASE_ACCESS_TOKEN"
           supabase storage cp \
             "ss://Cover-Art/" \
             "/tmp/cover-art/" \
