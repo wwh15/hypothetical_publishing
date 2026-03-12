@@ -84,46 +84,64 @@ jobs:
           b2 sync "b2://$B2_MEDIA_BUCKET" "b2://$B2_BACKUP_BUCKET/media/daily/$TODAY/"
           echo "Media sync complete"
 
+      - name: Run cleanup
+        id: cleanup
+        continue-on-error: true
+        env:
+          B2_BACKUP_BUCKET: ${{ secrets.QA_B2_BACKUP_BUCKET }}
+          B2_APPLICATION_KEY_ID: ${{ secrets.QA_B2_APPLICATION_KEY_ID }}
+          B2_APPLICATION_KEY: ${{ secrets.QA_B2_APPLICATION_KEY }}
+        run: |
+          pip install b2 --break-system-packages
+          b2 account authorize "$B2_APPLICATION_KEY_ID" "$B2_APPLICATION_KEY"
+
           # ──────────────────────────────────────────
-          # 6. RETENTION CLEANUP — DAILY (keep 7)
+          # RETENTION CLEANUP — DAILY (keep 7)
           # ──────────────────────────────────────────
           echo "Cleaning up old daily backups..."
           CUTOFF_DAILY=$(date -d '7 days ago' +%Y%m%d)
-          b2 ls "$B2_BACKUP_BUCKET" "db/daily/" | while read -r file; do
+          b2 ls "b2://$B2_BACKUP_BUCKET/db/daily/" | while read -r file; do
             FILEDATE=$(echo "$file" | grep -oP '\d{8}')
             if [ -n "$FILEDATE" ] && [ "$FILEDATE" -lt "$CUTOFF_DAILY" ]; then
-              b2 delete-file-version "$B2_BACKUP_BUCKET" "$file"
+              b2 file delete "b2://$B2_BACKUP_BUCKET/$file"
               echo "Deleted old daily: $file"
             fi
           done
 
           # ──────────────────────────────────────────
-          # 7. RETENTION CLEANUP — WEEKLY (keep 4)
+          # RETENTION CLEANUP — WEEKLY (keep 4)
           # ──────────────────────────────────────────
           echo "Cleaning up old weekly backups..."
           CUTOFF_WEEKLY=$(date -d '28 days ago' +%Y%m%d)
-          b2 ls "$B2_BACKUP_BUCKET" "db/weekly/" | while read -r file; do
+          b2 ls "b2://$B2_BACKUP_BUCKET/db/weekly/" | while read -r file; do
             FILEDATE=$(echo "$file" | grep -oP '\d{8}')
             if [ -n "$FILEDATE" ] && [ "$FILEDATE" -lt "$CUTOFF_WEEKLY" ]; then
-              b2 delete-file-version "$B2_BACKUP_BUCKET" "$file"
+              b2 file delete "b2://$B2_BACKUP_BUCKET/$file"
               echo "Deleted old weekly: $file"
             fi
           done
 
           # ──────────────────────────────────────────
-          # 8. RETENTION CLEANUP — MONTHLY (keep 12)
+          # RETENTION CLEANUP — MONTHLY (keep 12)
           # ──────────────────────────────────────────
           echo "Cleaning up old monthly backups..."
           CUTOFF_MONTHLY=$(date -d '365 days ago' +%Y%m%d)
-          b2 ls "$B2_BACKUP_BUCKET" "db/monthly/" | while read -r file; do
+          b2 ls "b2://$B2_BACKUP_BUCKET/db/monthly/" | while read -r file; do
             FILEDATE=$(echo "$file" | grep -oP '\d{8}')
             if [ -n "$FILEDATE" ] && [ "$FILEDATE" -lt "$CUTOFF_MONTHLY" ]; then
-              b2 delete-file-version "$B2_BACKUP_BUCKET" "$file"
+              b2 file delete "b2://$B2_BACKUP_BUCKET/$file"
               echo "Deleted old monthly: $file"
             fi
           done
 
-          echo "All done"
+          echo "Cleanup complete"
+
+      - name: Notify cleanup failure
+        if: steps.cleanup.outcome == 'failure'
+        run: |
+          curl -X POST "${{ secrets.QA_DISCORD_WEBHOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"content\": \"⚠️ QA backup cleanup failed (backup itself succeeded). Check logs: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}"
 
       - name: Notify success
         if: success()
