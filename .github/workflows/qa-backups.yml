@@ -85,18 +85,30 @@ jobs:
           echo "Downloading cover art from Supabase Storage..."
           mkdir -p /tmp/cover-art
 
-          # List all files in Cover-Art bucket
-          FILES=$(curl -s \
+          RESPONSE=$(curl -s \
+            -X POST \
             "${SUPABASE_URL}/storage/v1/object/list/Cover-Art" \
             -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
             -H "Content-Type: application/json" \
-            -d '{"limit": 1000, "offset": 0}' \
-            | python3 -c "import sys,json; [print(f['name']) for f in json.load(sys.stdin)]")
+            -d '{"limit": 1000, "offset": 0, "prefix": ""}')
+
+          echo "Supabase response: $RESPONSE"
+
+          FILES=$(echo "$RESPONSE" | python3 -c "
+          import sys, json
+          data = json.load(sys.stdin)
+          if isinstance(data, list):
+              for f in data:
+                  if isinstance(f, dict) and 'name' in f:
+                      print(f['name'])
+          elif isinstance(data, dict) and 'error' in data:
+              print('ERROR: ' + str(data), file=sys.stderr)
+              sys.exit(1)
+          ")
 
           if [ -z "$FILES" ]; then
             echo "No cover art files found, skipping sync"
           else
-            # Download each file
             for FILE in $FILES; do
               mkdir -p "/tmp/cover-art/$(dirname $FILE)"
               curl -s \
