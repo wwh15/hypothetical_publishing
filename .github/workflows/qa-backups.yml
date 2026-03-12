@@ -26,8 +26,8 @@ jobs:
           B2_APPLICATION_KEY: ${{ secrets.QA_B2_APPLICATION_KEY }}
           B2_BACKUP_BUCKET: ${{ secrets.QA_B2_BACKUP_BUCKET }}
           B2_MEDIA_BUCKET: ${{ secrets.QA_B2_MEDIA_BUCKET }}
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.QA_SUPABASE_ACCESS_TOKEN }}
-          SUPABASE_PROJECT_REF: ${{ secrets.QA_SUPABASE_PROJECT_REF }}
+          SUPABASE_URL: ${{ secrets.QA_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.QA_SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           set -e
 
@@ -82,23 +82,34 @@ jobs:
           # ──────────────────────────────────────────
           # 5. SYNC COVER ART FROM SUPABASE TO B2
           # ──────────────────────────────────────────
-          echo "Installing Supabase CLI..."
-          curl -fsSL https://github.com/supabase/cli/releases/latest/download/supabase_linux_amd64.tar.gz | tar -xz -C /usr/local/bin
-
           echo "Downloading cover art from Supabase Storage..."
           mkdir -p /tmp/cover-art
 
-          supabase login --token "$SUPABASE_ACCESS_TOKEN"
-          supabase storage cp \
-            "ss://Cover-Art/" \
-            "/tmp/cover-art/" \
-            --project-ref "$SUPABASE_PROJECT_REF" \
-            --recursive \
-            --experimental
+          # List all files in Cover-Art bucket
+          FILES=$(curl -s \
+            "${SUPABASE_URL}/storage/v1/object/list/Cover-Art" \
+            -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
+            -H "Content-Type: application/json" \
+            -d '{"limit": 1000, "offset": 0}' \
+            | python3 -c "import sys,json; [print(f['name']) for f in json.load(sys.stdin)]")
 
-          echo "Uploading cover art to B2 media bucket..."
-          b2 sync "/tmp/cover-art/" "b2://$B2_MEDIA_BUCKET/daily/$TODAY/"
-          echo "Cover art sync complete"
+          if [ -z "$FILES" ]; then
+            echo "No cover art files found, skipping sync"
+          else
+            # Download each file
+            for FILE in $FILES; do
+              mkdir -p "/tmp/cover-art/$(dirname $FILE)"
+              curl -s \
+                "${SUPABASE_URL}/storage/v1/object/Cover-Art/${FILE}" \
+                -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
+                -o "/tmp/cover-art/${FILE}"
+              echo "Downloaded: $FILE"
+            done
+
+            echo "Uploading cover art to B2 media bucket..."
+            b2 sync "/tmp/cover-art/" "b2://$B2_MEDIA_BUCKET/daily/$TODAY/"
+            echo "Cover art sync complete"
+          fi
 
           rm -rf /tmp/cover-art
 
@@ -159,18 +170,18 @@ jobs:
         run: |
           curl -X POST "${{ secrets.QA_DISCORD_WEBHOOK_URL }}" \
             -H "Content-Type: application/json" \
-            -d "{\"content\": \"QA backup cleanup failed (backup itself succeeded). Check logs: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}"
+            -d "{\"content\": \"⚠️ QA backup cleanup failed (backup itself succeeded). Check logs: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}"
 
       - name: Notify success
         if: success()
         run: |
           curl -X POST "${{ secrets.QA_DISCORD_WEBHOOK_URL }}" \
             -H "Content-Type: application/json" \
-            -d "{\"content\": \"✅ QA backup SUCCEEDED! Run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}"
+            -d "{\"content\": \"✅ QA backup succeeded! Run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}"
 
       - name: Notify failure
         if: failure()
         run: |
           curl -X POST "${{ secrets.QA_DISCORD_WEBHOOK_URL }}" \
             -H "Content-Type: application/json" \
-            -d "{\"content\": \"QA backup FAILED! Check logs: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}"
+            -d "{\"content\": \"❌ QA backup FAILED! Check logs: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}"
