@@ -75,13 +75,16 @@ jobs:
           # ──────────────────────────────────────────
           echo "Downloading cover art from Supabase Storage..."
           mkdir -p /tmp/cover-art
-          RESPONSE=$(curl -s \
+          RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}" \
             -X POST \
             "${SUPABASE_URL}/storage/v1/object/list/Cover-Art" \
             -H "apikey: ${SUPABASE_SERVICE_ROLE_KEY}" \
             -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
             -H "Content-Type: application/json" \
             -d '{"limit": 1000, "offset": 0, "prefix": ""}')
+          HTTP_STATUS=$(echo "$RESPONSE" | tail -1 | sed 's/HTTP_STATUS://')
+          RESPONSE=$(echo "$RESPONSE" | sed '$d')
+          echo "Supabase HTTP status: $HTTP_STATUS"
           echo "Supabase response: $RESPONSE"
           FILES=$(echo "$RESPONSE" | python3 -c "
           import sys, json
