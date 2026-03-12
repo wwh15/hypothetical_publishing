@@ -86,10 +86,11 @@ jobs:
           mkdir -p /tmp/cover-art
 
           RESPONSE=$(curl -s \
+            -X POST \
             "${SUPABASE_URL}/storage/v1/object/list/Cover-Art" \
             -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
             -H "Content-Type: application/json" \
-            -d '{"limit": 1000, "offset": 0}')
+            -d '{"limit": 1000, "offset": 0, "prefix": ""}')
 
           echo "Supabase response: $RESPONSE"
 
@@ -181,7 +182,7 @@ jobs:
         run: |
           curl -X POST "${{ secrets.QA_DISCORD_WEBHOOK_URL }}" \
             -H "Content-Type: application/json" \
-            -d "{\"content\": \"QA backup cleanup failed (backup itself succeeded). Check logs: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}"
+            -d "{\"content\": \"⚠️ QA backup cleanup failed (backup itself succeeded). Check logs: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}"
 
       - name: Notify success
         if: success()
@@ -195,4 +196,4 @@ jobs:
         run: |
           curl -X POST "${{ secrets.QA_DISCORD_WEBHOOK_URL }}" \
             -H "Content-Type: application/json" \
-            -d "{\"content\": \"QA backup FAILED! Check logs: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}"
+            -d "{\"content\": \"❌ QA backup FAILED! Check logs: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}"
