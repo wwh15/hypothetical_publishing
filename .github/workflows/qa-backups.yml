@@ -25,7 +25,7 @@ jobs:
           B2_APPLICATION_KEY_ID: ${{ secrets.QA_B2_APPLICATION_KEY_ID }}
           B2_APPLICATION_KEY: ${{ secrets.QA_B2_APPLICATION_KEY }}
           B2_BACKUP_BUCKET: ${{ secrets.QA_B2_BACKUP_BUCKET }}
-          SUPABASE_URL: ${{ secrets.QA_SUPABASE_URL }}
+          B2_MEDIA_BUCKET: ${{ secrets.QA_B2_MEDIA_BUCKET }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.QA_SUPABASE_SERVICE_ROLE_KEY }}
           SUPABASE_PROJECT_REF: ${{ secrets.QA_SUPABASE_PROJECT_REF }}
         run: |
@@ -96,8 +96,8 @@ jobs:
             --recursive \
             --experimental
 
-          echo "Uploading cover art to B2..."
-          b2 sync "/tmp/cover-art/" "b2://$B2_BACKUP_BUCKET/media/daily/$TODAY/"
+          echo "Uploading cover art to B2 media bucket..."
+          b2 sync "/tmp/cover-art/" "b2://$B2_MEDIA_BUCKET/daily/$TODAY/"
           echo "Cover art sync complete"
 
           rm -rf /tmp/cover-art
@@ -166,11 +166,11 @@ jobs:
         run: |
           curl -X POST "${{ secrets.QA_DISCORD_WEBHOOK_URL }}" \
             -H "Content-Type: application/json" \
-            -d "{\"content\": \"QA backup succeeded! Run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}"
+            -d "{\"content\": \"✅ QA backup SUCCEEDED! Run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}"
 
       - name: Notify failure
         if: failure()
         run: |
           curl -X POST "${{ secrets.QA_DISCORD_WEBHOOK_URL }}" \
             -H "Content-Type: application/json" \
-            -d "{\"content\": \"❌ QA backup FAILED! Check logs: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}"
+            -d "{\"content\": \"QA backup FAILED! Check logs: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}"
