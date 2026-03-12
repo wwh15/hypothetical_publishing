@@ -18,7 +18,6 @@ jobs:
           sudo sh -c 'echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list' && \
           sudo apt-get update && \
           sudo apt-get install -y postgresql-client-17
-
       - name: Run backup
         env:
           DATABASE_URL: ${{ secrets.QA_DATABASE_URL }}
@@ -30,16 +29,13 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.QA_SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           set -e
-
           TODAY=$(date +%Y%m%d)
           DAY_OF_WEEK=$(date +%u)
           DAY_OF_MONTH=$(date +%d)
           WEEK_NUM=$(date +%Y_W%V)
           MONTH=$(date +%Y_%m)
-
           pip install b2 --break-system-packages
           b2 account authorize "$B2_APPLICATION_KEY_ID" "$B2_APPLICATION_KEY"
-
           # ──────────────────────────────────────────
           # 1. DUMP DATABASE
           # ──────────────────────────────────────────
@@ -48,13 +44,11 @@ jobs:
           /usr/lib/postgresql/17/bin/pg_dump -Fc "$DATABASE_URL" -f "/tmp/$DB_FILENAME"
           /usr/lib/postgresql/17/bin/pg_restore --list "/tmp/$DB_FILENAME" > /dev/null
           echo "Database dump verified"
-
           # ──────────────────────────────────────────
           # 2. UPLOAD DAILY DB BACKUP
           # ──────────────────────────────────────────
           b2 file upload "$B2_BACKUP_BUCKET" "/tmp/$DB_FILENAME" "db/daily/$DB_FILENAME"
           echo "Uploaded daily DB backup"
-
           # ──────────────────────────────────────────
           # 3. UPLOAD WEEKLY DB BACKUP (Sundays only)
           # ──────────────────────────────────────────
@@ -65,7 +59,6 @@ jobs:
             echo "Uploaded weekly DB backup"
             rm "/tmp/$WEEKLY_DB_FILENAME"
           fi
-
           # ──────────────────────────────────────────
           # 4. UPLOAD MONTHLY DB BACKUP (1st of month only)
           # ──────────────────────────────────────────
@@ -76,23 +69,19 @@ jobs:
             echo "Uploaded monthly DB backup"
             rm "/tmp/$MONTHLY_DB_FILENAME"
           fi
-
           rm "/tmp/$DB_FILENAME"
-
           # ──────────────────────────────────────────
           # 5. SYNC COVER ART FROM SUPABASE TO B2
           # ──────────────────────────────────────────
           echo "Downloading cover art from Supabase Storage..."
           mkdir -p /tmp/cover-art
-
           RESPONSE=$(curl -s \
+            -X POST \
             "${SUPABASE_URL}/storage/v1/object/list/Cover-Art" \
             -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
             -H "Content-Type: application/json" \
-            -d '{"limit": 1000, "offset": 0}')
-
+            -d '{"limit": 1000, "offset": 0, "prefix": ""}')
           echo "Supabase response: $RESPONSE"
-
           FILES=$(echo "$RESPONSE" | python3 -c "
           import sys, json
           data = json.load(sys.stdin)
@@ -104,7 +93,6 @@ jobs:
               print('ERROR: ' + str(data), file=sys.stderr)
               sys.exit(1)
           ")
-
           if [ -z "$FILES" ]; then
             echo "No cover art files found, skipping sync"
           else
@@ -116,14 +104,11 @@ jobs:
                 -o "/tmp/cover-art/${FILE}"
               echo "Downloaded: $FILE"
             done
-
             echo "Uploading cover art to B2 media bucket..."
             b2 sync "/tmp/cover-art/" "b2://$B2_MEDIA_BUCKET/daily/$TODAY/"
             echo "Cover art sync complete"
           fi
-
           rm -rf /tmp/cover-art
-
       - name: Run cleanup
         id: cleanup
         continue-on-error: true
@@ -134,7 +119,6 @@ jobs:
         run: |
           pip install b2 --break-system-packages
           b2 account authorize "$B2_APPLICATION_KEY_ID" "$B2_APPLICATION_KEY"
-
           # ──────────────────────────────────────────
           # RETENTION CLEANUP — DAILY (keep 7)
           # ──────────────────────────────────────────
@@ -147,7 +131,6 @@ jobs:
               echo "Deleted old daily: $file"
             fi
           done
-
           # ──────────────────────────────────────────
           # RETENTION CLEANUP — WEEKLY (keep 4)
           # ──────────────────────────────────────────
@@ -160,7 +143,6 @@ jobs:
               echo "Deleted old weekly: $file"
             fi
           done
-
           # ──────────────────────────────────────────
           # RETENTION CLEANUP — MONTHLY (keep 12)
           # ──────────────────────────────────────────
@@ -173,23 +155,19 @@ jobs:
               echo "Deleted old monthly: $file"
             fi
           done
-
           echo "Cleanup complete"
-
       - name: Notify cleanup failure
         if: steps.cleanup.outcome == 'failure'
         run: |
           curl -X POST "${{ secrets.QA_DISCORD_WEBHOOK_URL }}" \
             -H "Content-Type: application/json" \
             -d "{\"content\": \"QA backup cleanup failed (backup itself succeeded). Check logs: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}"
-
       - name: Notify success
         if: success()
         run: |
           curl -X POST "${{ secrets.QA_DISCORD_WEBHOOK_URL }}" \
             -H "Content-Type: application/json" \
             -d "{\"content\": \"✅ QA backup succeeded! Run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}"
-
       - name: Notify failure
         if: failure()
         run: |
