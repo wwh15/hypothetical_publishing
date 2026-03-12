@@ -24,7 +24,8 @@ jobs:
           DATABASE_URL: ${{ secrets.QA_DATABASE_URL }}
           B2_APPLICATION_KEY_ID: ${{ secrets.QA_B2_APPLICATION_KEY_ID }}
           B2_APPLICATION_KEY: ${{ secrets.QA_B2_APPLICATION_KEY }}
-          B2_BUCKET_NAME: ${{ secrets.QA_B2_BUCKET_NAME }}
+          B2_BACKUP_BUCKET: ${{ secrets.QA_B2_BACKUP_BUCKET }}
+          B2_MEDIA_BUCKET: ${{ secrets.QA_B2_MEDIA_BUCKET }}
         run: |
           set -e
 
@@ -37,63 +38,87 @@ jobs:
           pip install b2 --break-system-packages
           b2 account authorize "$B2_APPLICATION_KEY_ID" "$B2_APPLICATION_KEY"
 
+          # ──────────────────────────────────────────
+          # 1. DUMP DATABASE
+          # ──────────────────────────────────────────
           DB_FILENAME="hyp_qa_daily_${TODAY}.dump"
           echo "Dumping database to $DB_FILENAME..."
           /usr/lib/postgresql/17/bin/pg_dump -Fc "$DATABASE_URL" -f "/tmp/$DB_FILENAME"
           /usr/lib/postgresql/17/bin/pg_restore --list "/tmp/$DB_FILENAME" > /dev/null
           echo "Database dump verified"
 
-          b2 file upload "$B2_BUCKET_NAME" "/tmp/$DB_FILENAME" "db/daily/$DB_FILENAME"
+          # ──────────────────────────────────────────
+          # 2. UPLOAD DAILY DB BACKUP
+          # ──────────────────────────────────────────
+          b2 file upload "$B2_BACKUP_BUCKET" "/tmp/$DB_FILENAME" "db/daily/$DB_FILENAME"
           echo "Uploaded daily DB backup"
 
+          # ──────────────────────────────────────────
+          # 3. UPLOAD WEEKLY DB BACKUP (Sundays only)
+          # ──────────────────────────────────────────
           if [ "$DAY_OF_WEEK" = "7" ]; then
             WEEKLY_DB_FILENAME="hyp_qa_weekly_${WEEK_NUM}.dump"
             cp "/tmp/$DB_FILENAME" "/tmp/$WEEKLY_DB_FILENAME"
-            b2 file upload "$B2_BUCKET_NAME" "/tmp/$WEEKLY_DB_FILENAME" "db/weekly/$WEEKLY_DB_FILENAME"
+            b2 file upload "$B2_BACKUP_BUCKET" "/tmp/$WEEKLY_DB_FILENAME" "db/weekly/$WEEKLY_DB_FILENAME"
             echo "Uploaded weekly DB backup"
             rm "/tmp/$WEEKLY_DB_FILENAME"
           fi
 
+          # ──────────────────────────────────────────
+          # 4. UPLOAD MONTHLY DB BACKUP (1st of month only)
+          # ──────────────────────────────────────────
           if [ "$DAY_OF_MONTH" = "01" ]; then
             MONTHLY_DB_FILENAME="hyp_qa_monthly_${MONTH}.dump"
             cp "/tmp/$DB_FILENAME" "/tmp/$MONTHLY_DB_FILENAME"
-            b2 file upload "$B2_BUCKET_NAME" "/tmp/$MONTHLY_DB_FILENAME" "db/monthly/$MONTHLY_DB_FILENAME"
+            b2 file upload "$B2_BACKUP_BUCKET" "/tmp/$MONTHLY_DB_FILENAME" "db/monthly/$MONTHLY_DB_FILENAME"
             echo "Uploaded monthly DB backup"
             rm "/tmp/$MONTHLY_DB_FILENAME"
           fi
 
           rm "/tmp/$DB_FILENAME"
 
+          # ──────────────────────────────────────────
+          # 5. SYNC MEDIA BUCKET
+          # ──────────────────────────────────────────
           echo "Syncing media bucket..."
-          b2 sync "b2://$B2_BUCKET_NAME" "b2://$B2_BUCKET_NAME/media/daily/$TODAY/" --includeRegex "^(?!media/).*"
+          b2 sync "b2://$B2_MEDIA_BUCKET" "b2://$B2_BACKUP_BUCKET/media/daily/$TODAY/"
           echo "Media sync complete"
 
+          # ──────────────────────────────────────────
+          # 6. RETENTION CLEANUP — DAILY (keep 7)
+          # ──────────────────────────────────────────
           echo "Cleaning up old daily backups..."
           CUTOFF_DAILY=$(date -d '7 days ago' +%Y%m%d)
-          b2 ls "$B2_BUCKET_NAME" "db/daily/" | while read -r file; do
+          b2 ls "$B2_BACKUP_BUCKET" "db/daily/" | while read -r file; do
             FILEDATE=$(echo "$file" | grep -oP '\d{8}')
             if [ -n "$FILEDATE" ] && [ "$FILEDATE" -lt "$CUTOFF_DAILY" ]; then
-              b2 delete-file-version "$B2_BUCKET_NAME" "$file"
+              b2 delete-file-version "$B2_BACKUP_BUCKET" "$file"
               echo "Deleted old daily: $file"
             fi
           done
 
+          # ──────────────────────────────────────────
+          # 7. RETENTION CLEANUP — WEEKLY (keep 4)
+          # ──────────────────────────────────────────
           echo "Cleaning up old weekly backups..."
           CUTOFF_WEEKLY=$(date -d '28 days ago' +%Y%m%d)
-          b2 ls "$B2_BUCKET_NAME" "db/weekly/" | while read -r file; do
+          b2 ls "$B2_BACKUP_BUCKET" "db/weekly/" | while read -r file; do
             FILEDATE=$(echo "$file" | grep -oP '\d{8}')
             if [ -n "$FILEDATE" ] && [ "$FILEDATE" -lt "$CUTOFF_WEEKLY" ]; then
-              b2 delete-file-version "$B2_BUCKET_NAME" "$file"
+              b2 delete-file-version "$B2_BACKUP_BUCKET" "$file"
               echo "Deleted old weekly: $file"
             fi
           done
 
+          # ──────────────────────────────────────────
+          # 8. RETENTION CLEANUP — MONTHLY (keep 12)
+          # ──────────────────────────────────────────
           echo "Cleaning up old monthly backups..."
           CUTOFF_MONTHLY=$(date -d '365 days ago' +%Y%m%d)
-          b2 ls "$B2_BUCKET_NAME" "db/monthly/" | while read -r file; do
+          b2 ls "$B2_BACKUP_BUCKET" "db/monthly/" | while read -r file; do
             FILEDATE=$(echo "$file" | grep -oP '\d{8}')
             if [ -n "$FILEDATE" ] && [ "$FILEDATE" -lt "$CUTOFF_MONTHLY" ]; then
-              b2 delete-file-version "$B2_BUCKET_NAME" "$file"
+              b2 delete-file-version "$B2_BACKUP_BUCKET" "$file"
               echo "Deleted old monthly: $file"
             fi
           done
@@ -105,11 +130,11 @@ jobs:
         run: |
           curl -X POST "${{ secrets.QA_DISCORD_WEBHOOK_URL }}" \
             -H "Content-Type: application/json" \
-            -d "{\"content\": \"QA backup succeeded! Run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}"
+            -d "{\"content\": \"✅ QA backup succeeded! Run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}"
 
       - name: Notify failure
         if: failure()
         run: |
           curl -X POST "${{ secrets.QA_DISCORD_WEBHOOK_URL }}" \
             -H "Content-Type: application/json" \
-            -d "{\"content\": \"QA backup FAILED! Check logs: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}"
+            -d "{\"content\": \"❌ QA backup FAILED! Check logs: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}"
