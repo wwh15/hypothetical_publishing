@@ -26,7 +26,7 @@ jobs:
           B2_APPLICATION_KEY: ${{ secrets.QA_B2_APPLICATION_KEY }}
           B2_BACKUP_BUCKET: ${{ secrets.QA_B2_BACKUP_BUCKET }}
           B2_MEDIA_BUCKET: ${{ secrets.QA_B2_MEDIA_BUCKET }}
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.QA_SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.QA_SUPABASE_SERVICE_ROLE_KEY }}
           SUPABASE_PROJECT_REF: ${{ secrets.QA_SUPABASE_PROJECT_REF }}
         run: |
           set -e
