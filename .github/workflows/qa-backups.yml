@@ -35,7 +35,7 @@ jobs:
           MONTH=$(date +%Y_%m)
 
           pip install b2 --break-system-packages
-          b2 authorize-account "$B2_APPLICATION_KEY_ID" "$B2_APPLICATION_KEY"
+          b2 account authorize "$B2_APPLICATION_KEY_ID" "$B2_APPLICATION_KEY"
 
           DB_FILENAME="hyp_qa_daily_${TODAY}.dump"
           echo "Dumping database to $DB_FILENAME..."
@@ -43,13 +43,13 @@ jobs:
           /usr/lib/postgresql/17/bin/pg_restore --list "/tmp/$DB_FILENAME" > /dev/null
           echo "Database dump verified"
 
-          b2 upload-file "$B2_BUCKET_NAME" "/tmp/$DB_FILENAME" "db/daily/$DB_FILENAME"
+          b2 file upload "$B2_BUCKET_NAME" "/tmp/$DB_FILENAME" "db/daily/$DB_FILENAME"
           echo "Uploaded daily DB backup"
 
           if [ "$DAY_OF_WEEK" = "7" ]; then
             WEEKLY_DB_FILENAME="hyp_qa_weekly_${WEEK_NUM}.dump"
             cp "/tmp/$DB_FILENAME" "/tmp/$WEEKLY_DB_FILENAME"
-            b2 upload-file "$B2_BUCKET_NAME" "/tmp/$WEEKLY_DB_FILENAME" "db/weekly/$WEEKLY_DB_FILENAME"
+            b2 file upload "$B2_BUCKET_NAME" "/tmp/$WEEKLY_DB_FILENAME" "db/weekly/$WEEKLY_DB_FILENAME"
             echo "Uploaded weekly DB backup"
             rm "/tmp/$WEEKLY_DB_FILENAME"
           fi
@@ -57,7 +57,7 @@ jobs:
           if [ "$DAY_OF_MONTH" = "01" ]; then
             MONTHLY_DB_FILENAME="hyp_qa_monthly_${MONTH}.dump"
             cp "/tmp/$DB_FILENAME" "/tmp/$MONTHLY_DB_FILENAME"
-            b2 upload-file "$B2_BUCKET_NAME" "/tmp/$MONTHLY_DB_FILENAME" "db/monthly/$MONTHLY_DB_FILENAME"
+            b2 file upload "$B2_BUCKET_NAME" "/tmp/$MONTHLY_DB_FILENAME" "db/monthly/$MONTHLY_DB_FILENAME"
             echo "Uploaded monthly DB backup"
             rm "/tmp/$MONTHLY_DB_FILENAME"
           fi
