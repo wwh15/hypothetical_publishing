@@ -74,46 +74,55 @@ jobs:
           # 5. SYNC COVER ART FROM SUPABASE TO B2
           # ──────────────────────────────────────────
           echo "Downloading cover art from Supabase Storage..."
-          echo "SUPABASE_URL is set: ${SUPABASE_URL:+yes}"
-          echo "SUPABASE_SERVICE_ROLE_KEY is set: ${SUPABASE_SERVICE_ROLE_KEY:+yes}"
-          echo "Target URL: ${SUPABASE_URL}/storage/v1/object/list/Cover-Art"
           mkdir -p /tmp/cover-art
-          set +e
-          RESPONSE=$(curl -sv -w "\nHTTP_STATUS:%{http_code}" \
+
+          # List top-level folders in Cover-Art bucket
+          FOLDERS=$(curl -s \
             -X POST \
             "${SUPABASE_URL}/storage/v1/object/list/Cover-Art" \
             -H "apikey: ${SUPABASE_SERVICE_ROLE_KEY}" \
             -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
             -H "Content-Type: application/json" \
-            -d '{"limit": 1000, "offset": 0, "prefix": ""}' 2>&1)
-          CURL_EXIT=$?
-          set -e
-          echo "Curl exit code: $CURL_EXIT"
-          echo "Curl output: $RESPONSE"
-          echo "Supabase response: $RESPONSE"
-          FILES=$(echo "$RESPONSE" | python3 -c "
+            -d '{"limit": 1000, "offset": 0, "prefix": ""}' \
+            | python3 -c "
           import sys, json
           data = json.load(sys.stdin)
-          if isinstance(data, list):
-              for f in data:
-                  if isinstance(f, dict) and 'name' in f:
-                      print(f['name'])
-          elif isinstance(data, dict) and 'error' in data:
-              print('ERROR: ' + str(data), file=sys.stderr)
-              sys.exit(1)
+          for f in data:
+              if isinstance(f, dict) and 'name' in f:
+                  print(f['name'])
           ")
-          if [ -z "$FILES" ]; then
-            echo "No cover art files found, skipping sync"
-          else
+          echo "Found folders: $FOLDERS"
+
+          # List and download files within each folder
+          for FOLDER in $FOLDERS; do
+            FILES=$(curl -s \
+              -X POST \
+              "${SUPABASE_URL}/storage/v1/object/list/Cover-Art" \
+              -H "apikey: ${SUPABASE_SERVICE_ROLE_KEY}" \
+              -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
+              -H "Content-Type: application/json" \
+              -d "{\"limit\": 1000, \"offset\": 0, \"prefix\": \"${FOLDER}\"}" \
+              | python3 -c "
+          import sys, json
+          data = json.load(sys.stdin)
+          for f in data:
+              if isinstance(f, dict) and 'name' in f and f.get('id') is not None:
+                  print(f['name'])
+          ")
             for FILE in $FILES; do
-              mkdir -p "/tmp/cover-art/$(dirname $FILE)"
+              mkdir -p "/tmp/cover-art/${FOLDER}"
               curl -s \
-                "${SUPABASE_URL}/storage/v1/object/Cover-Art/${FILE}" \
+                "${SUPABASE_URL}/storage/v1/object/Cover-Art/${FOLDER}/${FILE}" \
                 -H "apikey: ${SUPABASE_SERVICE_ROLE_KEY}" \
                 -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
-                -o "/tmp/cover-art/${FILE}"
-              echo "Downloaded: $FILE"
+                -o "/tmp/cover-art/${FOLDER}/${FILE}"
+              echo "Downloaded: ${FOLDER}/${FILE}"
             done
+          done
+
+          if [ -z "$(ls -A /tmp/cover-art 2>/dev/null)" ]; then
+            echo "No cover art files found, skipping sync"
+          else
             echo "Uploading cover art to B2 media bucket..."
             b2 sync "/tmp/cover-art/" "b2://$B2_MEDIA_BUCKET/daily/$TODAY/"
             echo "Cover art sync complete"
