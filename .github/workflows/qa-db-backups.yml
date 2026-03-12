@@ -1,0 +1,195 @@
+name: QA Database Backup
+
+on:
+  schedule:
+    - cron: '0 2 * * *'  # every day at 2am UTC
+  workflow_dispatch:
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Install pg_dump
+        run: |
+          sudo apt-get install -y curl ca-certificates && \
+          sudo install -d /usr/share/postgresql-common/pgdg && \
+          sudo curl -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc --fail https://www.postgresql.org/media/keys/ACCC4CF8.asc && \
+          sudo sh -c 'echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list' && \
+          sudo apt-get update && \
+          sudo apt-get install -y postgresql-client-17
+      - name: Run backup
+        env:
+          DATABASE_URL: ${{ secrets.QA_DATABASE_URL }}
+          B2_APPLICATION_KEY_ID: ${{ secrets.QA_B2_APPLICATION_KEY_ID }}
+          B2_APPLICATION_KEY: ${{ secrets.QA_B2_APPLICATION_KEY }}
+          B2_BACKUP_BUCKET: ${{ secrets.QA_B2_BACKUP_BUCKET }}
+          B2_MEDIA_BUCKET: ${{ secrets.QA_B2_MEDIA_BUCKET }}
+          SUPABASE_URL: ${{ secrets.QA_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.QA_SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          set -e
+          TODAY=$(date +%Y%m%d)
+          DAY_OF_WEEK=$(date +%u)
+          DAY_OF_MONTH=$(date +%d)
+          WEEK_NUM=$(date +%Y_W%V)
+          MONTH=$(date +%Y_%m)
+          pip install b2 --break-system-packages
+          b2 account authorize "$B2_APPLICATION_KEY_ID" "$B2_APPLICATION_KEY"
+          # ──────────────────────────────────────────
+          # 1. DUMP DATABASE
+          # ──────────────────────────────────────────
+          DB_FILENAME="hyp_qa_daily_${TODAY}.dump"
+          echo "Dumping database to $DB_FILENAME..."
+          /usr/lib/postgresql/17/bin/pg_dump -Fc "$DATABASE_URL" -f "/tmp/$DB_FILENAME"
+          /usr/lib/postgresql/17/bin/pg_restore --list "/tmp/$DB_FILENAME" > /dev/null
+          echo "Database dump verified"
+          # ──────────────────────────────────────────
+          # 2. UPLOAD DAILY DB BACKUP
+          # ──────────────────────────────────────────
+          b2 file upload "$B2_BACKUP_BUCKET" "/tmp/$DB_FILENAME" "db/daily/$DB_FILENAME"
+          echo "Uploaded daily DB backup"
+          # ──────────────────────────────────────────
+          # 3. UPLOAD WEEKLY DB BACKUP (Sundays only)
+          # ──────────────────────────────────────────
+          if [ "$DAY_OF_WEEK" = "7" ]; then
+            WEEKLY_DB_FILENAME="hyp_qa_weekly_${WEEK_NUM}.dump"
+            cp "/tmp/$DB_FILENAME" "/tmp/$WEEKLY_DB_FILENAME"
+            b2 file upload "$B2_BACKUP_BUCKET" "/tmp/$WEEKLY_DB_FILENAME" "db/weekly/$WEEKLY_DB_FILENAME"
+            echo "Uploaded weekly DB backup"
+            rm "/tmp/$WEEKLY_DB_FILENAME"
+          fi
+          # ──────────────────────────────────────────
+          # 4. UPLOAD MONTHLY DB BACKUP (1st of month only)
+          # ──────────────────────────────────────────
+          if [ "$DAY_OF_MONTH" = "01" ]; then
+            MONTHLY_DB_FILENAME="hyp_qa_monthly_${MONTH}.dump"
+            cp "/tmp/$DB_FILENAME" "/tmp/$MONTHLY_DB_FILENAME"
+            b2 file upload "$B2_BACKUP_BUCKET" "/tmp/$MONTHLY_DB_FILENAME" "db/monthly/$MONTHLY_DB_FILENAME"
+            echo "Uploaded monthly DB backup"
+            rm "/tmp/$MONTHLY_DB_FILENAME"
+          fi
+          rm "/tmp/$DB_FILENAME"
+          # ──────────────────────────────────────────
+          # 5. SYNC COVER ART FROM SUPABASE TO B2
+          # ──────────────────────────────────────────
+          echo "Downloading cover art from Supabase Storage..."
+          mkdir -p /tmp/cover-art
+
+          # List top-level folders in Cover-Art bucket
+          FOLDERS=$(curl -s \
+            -X POST \
+            "${SUPABASE_URL}/storage/v1/object/list/Cover-Art" \
+            -H "apikey: ${SUPABASE_SERVICE_ROLE_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
+            -H "Content-Type: application/json" \
+            -d '{"limit": 1000, "offset": 0, "prefix": ""}' \
+            | python3 -c "
+          import sys, json
+          data = json.load(sys.stdin)
+          for f in data:
+              if isinstance(f, dict) and 'name' in f:
+                  print(f['name'])
+          ")
+          echo "Found folders: $FOLDERS"
+
+          # List and download files within each folder
+          for FOLDER in $FOLDERS; do
+            FILES=$(curl -s \
+              -X POST \
+              "${SUPABASE_URL}/storage/v1/object/list/Cover-Art" \
+              -H "apikey: ${SUPABASE_SERVICE_ROLE_KEY}" \
+              -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
+              -H "Content-Type: application/json" \
+              -d "{\"limit\": 1000, \"offset\": 0, \"prefix\": \"${FOLDER}\"}" \
+              | python3 -c "
+          import sys, json
+          data = json.load(sys.stdin)
+          for f in data:
+              if isinstance(f, dict) and 'name' in f and f.get('id') is not None:
+                  print(f['name'])
+          ")
+            for FILE in $FILES; do
+              mkdir -p "/tmp/cover-art/${FOLDER}"
+              curl -s \
+                "${SUPABASE_URL}/storage/v1/object/Cover-Art/${FOLDER}/${FILE}" \
+                -H "apikey: ${SUPABASE_SERVICE_ROLE_KEY}" \
+                -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
+                -o "/tmp/cover-art/${FOLDER}/${FILE}"
+              echo "Downloaded: ${FOLDER}/${FILE}"
+            done
+          done
+
+          if [ -z "$(ls -A /tmp/cover-art 2>/dev/null)" ]; then
+            echo "No cover art files found, skipping sync"
+          else
+            echo "Uploading cover art to B2 media bucket..."
+            b2 sync "/tmp/cover-art/" "b2://$B2_MEDIA_BUCKET/daily/$TODAY/"
+            echo "Cover art sync complete"
+          fi
+          rm -rf /tmp/cover-art
+      - name: Run cleanup
+        id: cleanup
+        continue-on-error: true
+        env:
+          B2_BACKUP_BUCKET: ${{ secrets.QA_B2_BACKUP_BUCKET }}
+          B2_APPLICATION_KEY_ID: ${{ secrets.QA_B2_APPLICATION_KEY_ID }}
+          B2_APPLICATION_KEY: ${{ secrets.QA_B2_APPLICATION_KEY }}
+        run: |
+          pip install b2 --break-system-packages
+          b2 account authorize "$B2_APPLICATION_KEY_ID" "$B2_APPLICATION_KEY"
+          # ──────────────────────────────────────────
+          # RETENTION CLEANUP — DAILY (keep 7)
+          # ──────────────────────────────────────────
+          echo "Cleaning up old daily backups..."
+          CUTOFF_DAILY=$(date -d '7 days ago' +%Y%m%d)
+          b2 ls "b2://$B2_BACKUP_BUCKET/db/daily/" | while read -r file; do
+            FILEDATE=$(echo "$file" | grep -oP '\d{8}')
+            if [ -n "$FILEDATE" ] && [ "$FILEDATE" -lt "$CUTOFF_DAILY" ]; then
+              b2 file delete "b2://$B2_BACKUP_BUCKET/$file"
+              echo "Deleted old daily: $file"
+            fi
+          done
+          # ──────────────────────────────────────────
+          # RETENTION CLEANUP — WEEKLY (keep 4)
+          # ──────────────────────────────────────────
+          echo "Cleaning up old weekly backups..."
+          CUTOFF_WEEKLY=$(date -d '28 days ago' +%Y%m%d)
+          b2 ls "b2://$B2_BACKUP_BUCKET/db/weekly/" | while read -r file; do
+            FILEDATE=$(echo "$file" | grep -oP '\d{8}')
+            if [ -n "$FILEDATE" ] && [ "$FILEDATE" -lt "$CUTOFF_WEEKLY" ]; then
+              b2 file delete "b2://$B2_BACKUP_BUCKET/$file"
+              echo "Deleted old weekly: $file"
+            fi
+          done
+          # ──────────────────────────────────────────
+          # RETENTION CLEANUP — MONTHLY (keep 12)
+          # ──────────────────────────────────────────
+          echo "Cleaning up old monthly backups..."
+          CUTOFF_MONTHLY=$(date -d '365 days ago' +%Y%m%d)
+          b2 ls "b2://$B2_BACKUP_BUCKET/db/monthly/" | while read -r file; do
+            FILEDATE=$(echo "$file" | grep -oP '\d{8}')
+            if [ -n "$FILEDATE" ] && [ "$FILEDATE" -lt "$CUTOFF_MONTHLY" ]; then
+              b2 file delete "b2://$B2_BACKUP_BUCKET/$file"
+              echo "Deleted old monthly: $file"
+            fi
+          done
+          echo "Cleanup complete"
+      - name: Notify cleanup failure
+        if: steps.cleanup.outcome == 'failure'
+        run: |
+          curl -X POST "${{ secrets.QA_DISCORD_WEBHOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"content\": \"QA backup cleanup failed (backup itself succeeded). Check logs: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}"
+      - name: Notify success
+        if: success()
+        run: |
+          curl -X POST "${{ secrets.QA_DISCORD_WEBHOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"content\": \"✅ QA backup succeeded! Run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}"
+      - name: Notify failure
+        if: failure()
+        run: |
+          curl -X POST "${{ secrets.QA_DISCORD_WEBHOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"content\": \"QA backup FAILED! Check logs: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}"
