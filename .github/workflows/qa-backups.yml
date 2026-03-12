@@ -25,7 +25,9 @@ jobs:
           B2_APPLICATION_KEY_ID: ${{ secrets.QA_B2_APPLICATION_KEY_ID }}
           B2_APPLICATION_KEY: ${{ secrets.QA_B2_APPLICATION_KEY }}
           B2_BACKUP_BUCKET: ${{ secrets.QA_B2_BACKUP_BUCKET }}
-          B2_MEDIA_BUCKET: ${{ secrets.QA_B2_MEDIA_BUCKET }}
+          SUPABASE_URL: ${{ secrets.QA_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.QA_SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_PROJECT_REF: ${{ secrets.QA_SUPABASE_PROJECT_REF }}
         run: |
           set -e
 
@@ -78,11 +80,27 @@ jobs:
           rm "/tmp/$DB_FILENAME"
 
           # ──────────────────────────────────────────
-          # 5. SYNC MEDIA BUCKET
+          # 5. SYNC COVER ART FROM SUPABASE TO B2
           # ──────────────────────────────────────────
-          echo "Syncing media bucket..."
-          b2 sync "b2://$B2_MEDIA_BUCKET" "b2://$B2_BACKUP_BUCKET/media/daily/$TODAY/"
-          echo "Media sync complete"
+          echo "Installing Supabase CLI..."
+          curl -fsSL https://github.com/supabase/cli/releases/latest/download/supabase_linux_amd64.tar.gz | tar -xz -C /usr/local/bin
+
+          echo "Downloading cover art from Supabase Storage..."
+          mkdir -p /tmp/cover-art
+
+          supabase login --token "$SUPABASE_SERVICE_ROLE_KEY"
+          supabase storage cp \
+            "ss://Cover-Art/" \
+            "/tmp/cover-art/" \
+            --project-ref "$SUPABASE_PROJECT_REF" \
+            --recursive \
+            --experimental
+
+          echo "Uploading cover art to B2..."
+          b2 sync "/tmp/cover-art/" "b2://$B2_BACKUP_BUCKET/media/daily/$TODAY/"
+          echo "Cover art sync complete"
+
+          rm -rf /tmp/cover-art
 
       - name: Run cleanup
         id: cleanup
@@ -141,14 +159,14 @@ jobs:
         run: |
           curl -X POST "${{ secrets.QA_DISCORD_WEBHOOK_URL }}" \
             -H "Content-Type: application/json" \
-            -d "{\"content\": \"⚠️ QA backup cleanup failed (backup itself succeeded). Check logs: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}"
+            -d "{\"content\": \"QA backup cleanup failed (backup itself succeeded). Check logs: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}"
 
       - name: Notify success
         if: success()
         run: |
           curl -X POST "${{ secrets.QA_DISCORD_WEBHOOK_URL }}" \
             -H "Content-Type: application/json" \
-            -d "{\"content\": \"✅ QA backup succeeded! Run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}"
+            -d "{\"content\": \"QA backup succeeded! Run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}"
 
       - name: Notify failure
         if: failure()
