@@ -1,0 +1,109 @@
+name: QA Database Backup
+
+on:
+  schedule:
+    - cron: '0 2 * * *'  # every day at 2am UTC
+  workflow_dispatch:
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Install pg_dump
+        run: sudo apt-get install -y postgresql-client-16
+
+      - name: Run backup
+        env:
+          DATABASE_URL: ${{ secrets.QA_DATABASE_URL }}
+          B2_APPLICATION_KEY_ID: ${{ secrets.QA_B2_APPLICATION_KEY_ID }}
+          B2_APPLICATION_KEY: ${{ secrets.QA_B2_APPLICATION_KEY }}
+          B2_BUCKET_NAME: ${{ secrets.QA_B2_BUCKET_NAME }}
+        run: |
+          set -e
+
+          TODAY=$(date +%Y%m%d)
+          DAY_OF_WEEK=$(date +%u)
+          DAY_OF_MONTH=$(date +%d)
+          WEEK_NUM=$(date +%Y_W%V)
+          MONTH=$(date +%Y_%m)
+
+          pip install b2 --break-system-packages
+          b2 authorize-account "$B2_APPLICATION_KEY_ID" "$B2_APPLICATION_KEY"
+
+          DB_FILENAME="hyp_qa_daily_${TODAY}.dump"
+          echo "Dumping database to $DB_FILENAME..."
+          pg_dump -Fc "$DATABASE_URL" -f "/tmp/$DB_FILENAME"
+          pg_restore --list "/tmp/$DB_FILENAME" > /dev/null
+          echo "Database dump verified"
+
+          b2 upload-file "$B2_BUCKET_NAME" "/tmp/$DB_FILENAME" "db/daily/$DB_FILENAME"
+          echo "Uploaded daily DB backup"
+
+          if [ "$DAY_OF_WEEK" = "7" ]; then
+            WEEKLY_DB_FILENAME="hyp_qa_weekly_${WEEK_NUM}.dump"
+            cp "/tmp/$DB_FILENAME" "/tmp/$WEEKLY_DB_FILENAME"
+            b2 upload-file "$B2_BUCKET_NAME" "/tmp/$WEEKLY_DB_FILENAME" "db/weekly/$WEEKLY_DB_FILENAME"
+            echo "Uploaded weekly DB backup"
+            rm "/tmp/$WEEKLY_DB_FILENAME"
+          fi
+
+          if [ "$DAY_OF_MONTH" = "01" ]; then
+            MONTHLY_DB_FILENAME="hyp_qa_monthly_${MONTH}.dump"
+            cp "/tmp/$DB_FILENAME" "/tmp/$MONTHLY_DB_FILENAME"
+            b2 upload-file "$B2_BUCKET_NAME" "/tmp/$MONTHLY_DB_FILENAME" "db/monthly/$MONTHLY_DB_FILENAME"
+            echo "Uploaded monthly DB backup"
+            rm "/tmp/$MONTHLY_DB_FILENAME"
+          fi
+
+          rm "/tmp/$DB_FILENAME"
+
+          echo "Syncing media bucket..."
+          b2 sync "b2://$B2_BUCKET_NAME" "b2://$B2_BUCKET_NAME/media/daily/$TODAY/" --includeRegex "^(?!media/).*"
+          echo "Media sync complete"
+
+          echo "Cleaning up old daily backups..."
+          CUTOFF_DAILY=$(date -d '7 days ago' +%Y%m%d)
+          b2 ls "$B2_BUCKET_NAME" "db/daily/" | while read -r file; do
+            FILEDATE=$(echo "$file" | grep -oP '\d{8}')
+            if [ -n "$FILEDATE" ] && [ "$FILEDATE" -lt "$CUTOFF_DAILY" ]; then
+              b2 delete-file-version "$B2_BUCKET_NAME" "$file"
+              echo "Deleted old daily: $file"
+            fi
+          done
+
+          echo "Cleaning up old weekly backups..."
+          CUTOFF_WEEKLY=$(date -d '28 days ago' +%Y%m%d)
+          b2 ls "$B2_BUCKET_NAME" "db/weekly/" | while read -r file; do
+            FILEDATE=$(echo "$file" | grep -oP '\d{8}')
+            if [ -n "$FILEDATE" ] && [ "$FILEDATE" -lt "$CUTOFF_WEEKLY" ]; then
+              b2 delete-file-version "$B2_BUCKET_NAME" "$file"
+              echo "Deleted old weekly: $file"
+            fi
+          done
+
+          echo "Cleaning up old monthly backups..."
+          CUTOFF_MONTHLY=$(date -d '365 days ago' +%Y%m%d)
+          b2 ls "$B2_BUCKET_NAME" "db/monthly/" | while read -r file; do
+            FILEDATE=$(echo "$file" | grep -oP '\d{8}')
+            if [ -n "$FILEDATE" ] && [ "$FILEDATE" -lt "$CUTOFF_MONTHLY" ]; then
+              b2 delete-file-version "$B2_BUCKET_NAME" "$file"
+              echo "Deleted old monthly: $file"
+            fi
+          done
+
+          echo "All done"
+
+      - name: Notify success
+        if: success()
+        run: |
+          curl -X POST "${{ secrets.QA_DISCORD_WEBHOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"content\": \"QA backup succeeded! Run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}"
+
+      - name: Notify failure
+        if: failure()
+        run: |
+          curl -X POST "${{ secrets.QA_DISCORD_WEBHOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"content\": \"QA backup FAILED! Check logs: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}"
