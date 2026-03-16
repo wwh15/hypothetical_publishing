@@ -271,8 +271,29 @@ export default function EditForm({ sale, books }: EditFormProps) {
           </div>
 
           <div>
+            <label className="text-sm font-medium text-gray-500">KENP</label>
+            <p className="text-lg font-semibold mt-1">
+              {sale.kenp != null ? sale.kenp.toLocaleString() : "—"}
+            </p>
+          </div>
+
+          <div>
+            <label className="text-sm font-medium text-gray-500">Format</label>
+            <p className="text-lg font-semibold mt-1">
+              {sale.format === "KINDLE_UNLIMITED" ? "Kindle Unlimited" : sale.format === "EBOOK" ? "Ebook" : "Print"}
+            </p>
+          </div>
+
+          <div>
+            <label className="text-sm font-medium text-gray-500">Distributor</label>
+            <p className="text-lg font-semibold mt-1">
+              {sale.distributor == null ? "—" : sale.distributor === "INGRAM_SPARK" ? "Ingram Spark" : sale.distributor === "AMAZON" ? "Amazon" : "Other"}
+            </p>
+          </div>
+
+          <div>
             <label className="text-sm font-medium text-gray-500">
-              Publisher Revenue ({CURRENCY_SYMBOLS[sale.currency]}{formData.currency})`
+              Publisher Revenue ({CURRENCY_SYMBOLS[sale.currency]}{formData.currency})
             </label>
             <p className="text-lg font-semibold mt-1 text-green-600">
               {CURRENCY_SYMBOLS[sale.currency]}{new Decimal(sale.publisherRevenueOriginal).toFixed(2)}
