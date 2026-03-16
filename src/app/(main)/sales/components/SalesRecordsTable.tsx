@@ -47,6 +47,8 @@ export interface SalesRecordsTableProps {
   source?: string;
   /** Distributor filter (INGRAM_SPARK, AMAZON, OTHER) */
   distributor?: string;
+  /** Format filter (PRINT, EBOOK, KINDLE_UNLIMITED) */
+  format?: string;
 
   /** Preset for column selection; default "full" */
   preset?: SalesTablePreset;
@@ -76,6 +78,7 @@ export default function SalesRecordsTable({
   showAll = false,
   source,
   distributor,
+  format,
   preset = "full",
   visibleColumns,
   onRowClick,
@@ -101,6 +104,7 @@ export default function SalesRecordsTable({
         showAll?: boolean;
         source?: string;
         distributor?: string;
+        format?: string;
       } = {}
     ) => {
       const params = new URLSearchParams();
@@ -114,6 +118,7 @@ export default function SalesRecordsTable({
       const sa = overrides.showAll !== undefined ? overrides.showAll : showAll;
       const src = overrides.source !== undefined ? overrides.source : source;
       const dist = overrides.distributor !== undefined ? overrides.distributor : distributor;
+      const fmt = overrides.format !== undefined ? overrides.format : format;
 
       if (q) params.set("q", q);
       params.set("page", String(p));
@@ -124,9 +129,10 @@ export default function SalesRecordsTable({
       if (sa) params.set("showAll", "true");
       if (src) params.set("source", src);
       if (dist) params.set("distributor", dist);
+      if (fmt) params.set("format", fmt);
       return params;
     },
-    [search, page, sortBy, sortDir, dateFrom, dateTo, showAll, source, distributor]
+    [search, page, sortBy, sortDir, dateFrom, dateTo, showAll, source, distributor, format]
   );
 
   const handleSearchSubmit = (e: React.FormEvent) => {
@@ -193,6 +199,7 @@ export default function SalesRecordsTable({
   const hasDateFilter = !!(dateFrom || dateTo);
   const hasSourceFilter = !!source;
   const hasDistributorFilter = !!distributor;
+  const hasFormatFilter = !!format;
   const normalPageSize = 20;
   const startRecord = showAll ? 1 : (page - 1) * normalPageSize + 1;
   const endRecord = showAll ? total : Math.min(page * normalPageSize, total);
@@ -315,6 +322,24 @@ export default function SalesRecordsTable({
         <option value="OTHER">Other</option>
       </select>
 
+      <select
+        value={format ?? ""}
+        onChange={(e) => {
+          const params = buildQueryParams({ format: e.target.value || undefined, page: 1 });
+          router.push(`/sales/records?${params.toString()}`);
+        }}
+        className={cn(
+          "block w-full sm:w-48 px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg",
+          "bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100",
+          "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        )}
+      >
+        <option value="">All Formats</option>
+        <option value="PRINT">Print</option>
+        <option value="EBOOK">Ebook</option>
+        <option value="KINDLE_UNLIMITED">Kindle Unlimited</option>
+      </select>
+
       <MonthYearFilter
         startDate={dateFrom} // Ensure the initial prop from server is YYYY-MM
         endDate={dateTo}
@@ -339,7 +364,7 @@ export default function SalesRecordsTable({
         columns={columns}
         data={rows}
         emptyMessage={
-          hasSearch || hasDateFilter || hasSourceFilter || hasDistributorFilter
+          hasSearch || hasDateFilter || hasSourceFilter || hasDistributorFilter || hasFormatFilter
             ? "No records match your filters"
             : "No sales records"
         }
