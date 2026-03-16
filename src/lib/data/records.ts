@@ -170,6 +170,7 @@ export interface GetSalesDataParams {
   dateFrom?: string; // YYYY-MM (parsed in parseDate)
   dateTo?: string; // YYYY-MM (parsed in parseDate)
   source?: "DISTRIBUTOR" | "HAND_SOLD";
+  distributor?: "INGRAM_SPARK" | "AMAZON" | "OTHER";
 }
 
 export interface GetSalesDataResult {
@@ -189,6 +190,7 @@ export async function getSalesData({
   dateFrom,
   dateTo,
   source,
+  distributor,
 }: GetSalesDataParams): Promise<GetSalesDataResult> {
   const currentPage = Math.max(1, page);
   const limit = Math.max(1, Math.min(pageSize, 100));
@@ -198,6 +200,11 @@ export async function getSalesData({
   // Source filter
   if (source) {
     where.source = source;
+  }
+
+  // Distributor filter (only applies to distributor sales)
+  if (distributor) {
+    where.distributor = distributor;
   }
 
   // 1. Build Filter Logic
