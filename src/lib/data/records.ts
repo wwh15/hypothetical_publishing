@@ -66,7 +66,7 @@ export type SaleDetailPayload = {
 export interface UpdateSaleItem {
   bookId?: number;
   date?: Date;
-  quantity?: number;
+  quantity?: number | null;
   kenp?: number | null;
   publisherRevenueUSD?: number;
   publisherRevenueOriginal?: number;
