@@ -296,7 +296,8 @@ async function main() {
         bookId: book.id,
         date,
         quantity,
-        // Map the same value to both fields for consistency in USD-based samples
+        format: "PRINT", // Handsold is always print; distributor seed data is print
+        distributor: source === "DISTRIBUTOR" ? "OTHER" : null,
         publisherRevenueUSD: publisherRevenueUSD,
         publisherRevenueOriginal: publisherRevenueOriginal,
         currency: finalCurrency,

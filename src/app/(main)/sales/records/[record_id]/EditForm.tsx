@@ -88,14 +88,13 @@ export default function EditForm({ sale, books }: EditFormProps) {
     bookId: sale.book.id,
     dateMonth: initialDateMonth(sale.date),
     dateYear: initialDateYear(sale.date),
-    quantity: sale.quantity,
+    quantity: sale.quantity ?? 0,
     publisherRevenueOriginal: new Decimal(
       sale.publisherRevenueOriginal
     ).toNumber(),
     publisherRevenueUSD: new Decimal(sale.publisherRevenueUSD).toNumber(),
     currency: sale.currency,
     authorRoyalty: new Decimal(sale.authorRoyalty).toNumber(),
-    royaltyOverridden: sale.royaltyOverridden,
     comment: sale.comment ?? "",
     source: sale.source,
   });
@@ -190,13 +189,12 @@ export default function EditForm({ sale, books }: EditFormProps) {
       bookId: sale.book.id,
       dateMonth: initialDateMonth(sale.date),
       dateYear: initialDateYear(sale.date),
-      quantity: sale.quantity,
+      quantity: sale.quantity ?? 0,
       publisherRevenueOriginal: new Decimal(
         sale.publisherRevenueOriginal
       ).toNumber(),
       publisherRevenueUSD: new Decimal(sale.publisherRevenueUSD).toNumber(),
       authorRoyalty: new Decimal(sale.authorRoyalty).toNumber(),
-      royaltyOverridden: sale.royaltyOverridden,
       comment: sale.comment ?? "",
       currency: sale.currency,
       source: sale.source,
@@ -207,7 +205,7 @@ export default function EditForm({ sale, books }: EditFormProps) {
     );
     setDisplayRevenueUSD(new Decimal(sale.publisherRevenueUSD).toFixed(2));
     setDisplayRoyalty(new Decimal(sale.authorRoyalty).toFixed(2));
-    setDisplayQuantity(String(sale.quantity));
+    setDisplayQuantity(String(sale.quantity ?? ""));
 
     setErrors({});
     setDateError(null);
@@ -267,7 +265,9 @@ export default function EditForm({ sale, books }: EditFormProps) {
             <label className="text-sm font-medium text-gray-500">
               Quantity
             </label>
-            <p className="text-lg font-semibold mt-1">{sale.quantity} units</p>
+            <p className="text-lg font-semibold mt-1">
+              {sale.quantity != null ? `${sale.quantity} units` : "—"}
+            </p>
           </div>
 
           <div>

@@ -21,7 +21,6 @@ interface FormData {
   publisherRevenueUSD: string;
   publisherRevenueOriginal: string;
   authorRoyalty: string;
-  royaltyOverridden: boolean;
   comment: string;
   currency: string;
   source: "DISTRIBUTOR" | "HAND_SOLD";
@@ -62,7 +61,6 @@ export function useSalesForm(
     publisherRevenueUSD: "",
     publisherRevenueOriginal: "",
     authorRoyalty: "",
-    royaltyOverridden: false,
     comment: "",
     currency: "USD",
     source: "DISTRIBUTOR",
@@ -210,7 +208,6 @@ export function useSalesForm(
       publisherRevenueOriginal: originalRevCheck.data,
       publisherRevenueUSD: normalizeCurrency(formData.publisherRevenueUSD),
       authorRoyalty: royaltyAmount,
-      royaltyOverridden: formData.royaltyOverridden,
       paid: false,
       currency: formData.currency,
       comment: formData.comment.trim() || undefined,
@@ -221,7 +218,8 @@ export function useSalesForm(
     setFormData((prev) => ({
       ...prev,
       quantity: "",
-      publisherRevenue: "",
+      publisherRevenueOriginal: "",
+      publisherRevenueUSD: "",
       authorRoyalty: "",
       comment: "",
     }));

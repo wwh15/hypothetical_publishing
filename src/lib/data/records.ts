@@ -9,7 +9,10 @@ export interface SaleListItem {
   title: string;
   author: string;
   date: Date; // First day of sale month
-  quantity: number;
+  quantity: number | null;
+  kenp: number | null;
+  format: "PRINT" | "EBOOK" | "KINDLE_UNLIMITED";
+  distributor: "INGRAM_SPARK" | "AMAZON" | "OTHER" | null;
   publisherRevenueUSD: number;
   publisherRevenueOriginal: number;
   currency: string;
@@ -30,7 +33,6 @@ export interface PendingSaleItem {
   publisherRevenueOriginal: number;
   currency: string;
   authorRoyalty: number;
-  royaltyOverridden: boolean; // Whether user manually overrode the calculated royalty
   paid: boolean; // Always false for pending, but included for consistency
   comment?: string | null;
   source: "DISTRIBUTOR" | "HAND_SOLD";
@@ -40,13 +42,15 @@ export interface PendingSaleItem {
 export type SaleDetailPayload = {
   id: number;
   date: Date;
-  quantity: number;
+  quantity: number | null;
+  kenp: number | null;
+  format: "PRINT" | "EBOOK" | "KINDLE_UNLIMITED";
+  distributor: "INGRAM_SPARK" | "AMAZON" | "OTHER" | null;
   publisherRevenueUSD: number;
   publisherRevenueOriginal: number;
   currency: string;
-  authorRoyalty: number; // Changed from Decimal to number
+  authorRoyalty: number;
   paid: boolean;
-  royaltyOverridden: boolean;
   comment: string | null;
   source: "DISTRIBUTOR" | "HAND_SOLD";
   book: {
@@ -63,11 +67,11 @@ export interface UpdateSaleItem {
   bookId?: number;
   date?: Date;
   quantity?: number;
+  kenp?: number | null;
   publisherRevenueUSD?: number;
   publisherRevenueOriginal?: number;
   currency?: string;
   authorRoyalty?: number;
-  royaltyOverridden?: boolean;
   paid?: boolean;
   comment?: string | null;
   source?: "DISTRIBUTOR" | "HAND_SOLD";
@@ -310,11 +314,13 @@ export async function asyncGetSaleById(
     id: sale.id,
     date: sale.date,
     quantity: sale.quantity,
+    kenp: sale.kenp != null ? sale.kenp.toNumber() : null,
+    format: sale.format,
+    distributor: sale.distributor,
     publisherRevenueUSD: sale.publisherRevenueUSD.toNumber(),
     publisherRevenueOriginal: sale.publisherRevenueOriginal.toNumber(),
     currency: sale.currency,
     authorRoyalty: sale.authorRoyalty.toNumber(),
-    royaltyOverridden: sale.royaltyOverridden,
     paid: sale.paid,
     comment: sale.comment ?? null,
     source: sale.source,
@@ -334,7 +340,10 @@ export function toSaleListItem(sale: {
   id: number;
   bookId: number;
   date: Date;
-  quantity: number;
+  quantity: number | null;
+  kenp: Decimal | null;
+  format: "PRINT" | "EBOOK" | "KINDLE_UNLIMITED";
+  distributor: "INGRAM_SPARK" | "AMAZON" | "OTHER" | null;
   publisherRevenueUSD: Decimal;
   publisherRevenueOriginal: Decimal;
   currency: string;
@@ -351,6 +360,9 @@ export function toSaleListItem(sale: {
     author: sale.book.author.name,
     date: sale.date,
     quantity: sale.quantity,
+    kenp: sale.kenp != null ? sale.kenp.toNumber() : null,
+    format: sale.format,
+    distributor: sale.distributor,
     publisherRevenueUSD: sale.publisherRevenueUSD.toNumber(),
     publisherRevenueOriginal: sale.publisherRevenueOriginal.toNumber(),
     currency: sale.currency,

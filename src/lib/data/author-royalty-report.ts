@@ -127,7 +127,7 @@ async function fetchSalesForReport(authorId: number) {
     bookId: s.bookId,
     year: s.date.getFullYear(),
     quarter: quarterFromDate(s.date),
-    quantity: s.quantity,
+    quantity: s.quantity ?? 0,
     handsold: s.source === "HAND_SOLD",
     paid: s.paid,
     authorRoyalty: new Decimal(s.authorRoyalty.toString()),

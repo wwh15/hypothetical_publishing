@@ -100,7 +100,6 @@ export function useBulkPasteSubmit(
         publisherRevenueOriginal: normalizeCurrency(revenueCheck.data),
         currency: "USD",
         authorRoyalty: normalizeCurrency(royaltyCheck.data),
-        royaltyOverridden: false,
         paid: false,
         source: source,
         comment: comment,
