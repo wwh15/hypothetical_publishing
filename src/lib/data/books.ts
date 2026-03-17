@@ -220,7 +220,7 @@ export async function getAllBooks(): Promise<BookListItem[]> {
   });
 
   return books.map((book) => {
-    const totalSales = book.sales.reduce((sum, sale) => sum + sale.quantity, 0);
+    const totalSales = book.sales.reduce((sum, sale) => sum + (sale.quantity ?? 0), 0);
     const distRoyaltyRate = Math.round(book.distAuthorRoyaltyRate * 100);
     const handSoldRoyaltyRate = Math.round(book.handSoldAuthorRoyaltyRate * 100);
     const publicationSortKey = publicationSortKeyFromDate(book.publicationDate as Date);
@@ -350,7 +350,7 @@ export async function getBooksData({
   ]);
 
   const items: BookListItem[] = books.map((book) => {
-    const totalSales = book.sales.reduce((sum, sale) => sum + sale.quantity, 0);
+    const totalSales = book.sales.reduce((sum, sale) => sum + (sale.quantity ?? 0), 0);
     const distRoyaltyRate = Math.round(book.distAuthorRoyaltyRate * 100);
     const handSoldRoyaltyRate = Math.round(book.handSoldAuthorRoyaltyRate * 100);
     const publicationSortKey = publicationSortKeyFromDate(book.publicationDate as Date);
@@ -396,7 +396,7 @@ export async function getBooksByAuthorId(
   });
 
   return books.map((book) => {
-    const totalSales = book.sales.reduce((sum, sale) => sum + sale.quantity, 0);
+    const totalSales = book.sales.reduce((sum, sale) => sum + (sale.quantity ?? 0), 0);
     const distRoyaltyRate = Math.round(book.distAuthorRoyaltyRate * 100);
     const handSoldRoyaltyRate = Math.round(book.handSoldAuthorRoyaltyRate * 100);
     const publicationSortKey = publicationSortKeyFromDate(

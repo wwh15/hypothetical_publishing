@@ -239,7 +239,7 @@ export async function asyncGetAuthorBooks(
     // 2. Map and Calculate totals for each book
     const data: AuthorBookItem[] = books.map((book) => {
       // Calculate sums from the sales array
-      const totalSales = book.sales.reduce((sum, s) => sum + s.quantity, 0);
+      const totalSales = book.sales.reduce((sum, s) => sum + (s.quantity ?? 0), 0);
 
       const totalAuthorRoyalty = book.sales.reduce(
         (sum, s) => sum.plus(new Decimal(s.authorRoyalty.toString())),

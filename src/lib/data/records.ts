@@ -9,7 +9,10 @@ export interface SaleListItem {
   title: string;
   author: string;
   date: Date; // First day of sale month
-  quantity: number;
+  quantity: number | null;
+  kenp: number | null;
+  format: "PRINT" | "EBOOK" | "KINDLE_UNLIMITED";
+  distributor: "INGRAM_SPARK" | "AMAZON" | "OTHER" | null;
   publisherRevenueUSD: number;
   publisherRevenueOriginal: number;
   currency: string;
@@ -30,7 +33,6 @@ export interface PendingSaleItem {
   publisherRevenueOriginal: number;
   currency: string;
   authorRoyalty: number;
-  royaltyOverridden: boolean; // Whether user manually overrode the calculated royalty
   paid: boolean; // Always false for pending, but included for consistency
   comment?: string | null;
   source: "DISTRIBUTOR" | "HAND_SOLD";
@@ -40,13 +42,15 @@ export interface PendingSaleItem {
 export type SaleDetailPayload = {
   id: number;
   date: Date;
-  quantity: number;
+  quantity: number | null;
+  kenp: number | null;
+  format: "PRINT" | "EBOOK" | "KINDLE_UNLIMITED";
+  distributor: "INGRAM_SPARK" | "AMAZON" | "OTHER" | null;
   publisherRevenueUSD: number;
   publisherRevenueOriginal: number;
   currency: string;
-  authorRoyalty: number; // Changed from Decimal to number
+  authorRoyalty: number;
   paid: boolean;
-  royaltyOverridden: boolean;
   comment: string | null;
   source: "DISTRIBUTOR" | "HAND_SOLD";
   book: {
@@ -62,12 +66,12 @@ export type SaleDetailPayload = {
 export interface UpdateSaleItem {
   bookId?: number;
   date?: Date;
-  quantity?: number;
+  quantity?: number | null;
+  kenp?: number | null;
   publisherRevenueUSD?: number;
   publisherRevenueOriginal?: number;
   currency?: string;
   authorRoyalty?: number;
-  royaltyOverridden?: boolean;
   paid?: boolean;
   comment?: string | null;
   source?: "DISTRIBUTOR" | "HAND_SOLD";
@@ -80,9 +84,12 @@ const SORT_ASC: Record<string, Prisma.SaleOrderByWithRelationInput> = {
   author: { book: { author: { name: "asc" } } },
   date: { date: "asc" },
   quantity: { quantity: "asc" },
+  kenp: { kenp: "asc" },
+  format: { format: "asc" },
+  distributor: { distributor: "asc" },
   publisherRevenueUSD: { publisherRevenueUSD: "asc" },
-  publisherRevenueOriginal: { publisherRevenueOriginal: "desc"},
-  currency: { currency: "asc"},
+  publisherRevenueOriginal: { publisherRevenueOriginal: "desc" },
+  currency: { currency: "asc" },
   authorRoyalty: { authorRoyalty: "asc" },
   paid: { paid: "asc" },
   source: { source: "asc" },
@@ -94,9 +101,12 @@ const SORT_DESC: Record<string, Prisma.SaleOrderByWithRelationInput> = {
   author: { book: { author: { name: "desc" } } },
   date: { date: "desc" },
   quantity: { quantity: "desc" },
+  kenp: { kenp: "desc" },
+  format: { format: "desc" },
+  distributor: { distributor: "desc" },
   publisherRevenueUSD: { publisherRevenueUSD: "desc" },
-  publisherRevenueOriginal: { publisherRevenueOriginal: "desc"},
-  currency: { currency: "desc"},
+  publisherRevenueOriginal: { publisherRevenueOriginal: "desc" },
+  currency: { currency: "desc" },
   authorRoyalty: { authorRoyalty: "desc" },
   paid: { paid: "desc" },
   source: { source: "desc" },
@@ -160,6 +170,8 @@ export interface GetSalesDataParams {
   dateFrom?: string; // YYYY-MM (parsed in parseDate)
   dateTo?: string; // YYYY-MM (parsed in parseDate)
   source?: "DISTRIBUTOR" | "HAND_SOLD";
+  distributor?: "INGRAM_SPARK" | "AMAZON" | "OTHER";
+  format?: "PRINT" | "EBOOK" | "KINDLE_UNLIMITED";
 }
 
 export interface GetSalesDataResult {
@@ -179,6 +191,8 @@ export async function getSalesData({
   dateFrom,
   dateTo,
   source,
+  distributor,
+  format,
 }: GetSalesDataParams): Promise<GetSalesDataResult> {
   const currentPage = Math.max(1, page);
   const limit = Math.max(1, Math.min(pageSize, 100));
@@ -188,6 +202,16 @@ export async function getSalesData({
   // Source filter
   if (source) {
     where.source = source;
+  }
+
+  // Distributor filter (only applies to distributor sales)
+  if (distributor) {
+    where.distributor = distributor;
+  }
+
+  // Format filter
+  if (format) {
+    where.format = format;
   }
 
   // 1. Build Filter Logic
@@ -310,11 +334,13 @@ export async function asyncGetSaleById(
     id: sale.id,
     date: sale.date,
     quantity: sale.quantity,
+    kenp: sale.kenp != null ? sale.kenp.toNumber() : null,
+    format: sale.format,
+    distributor: sale.distributor,
     publisherRevenueUSD: sale.publisherRevenueUSD.toNumber(),
     publisherRevenueOriginal: sale.publisherRevenueOriginal.toNumber(),
     currency: sale.currency,
     authorRoyalty: sale.authorRoyalty.toNumber(),
-    royaltyOverridden: sale.royaltyOverridden,
     paid: sale.paid,
     comment: sale.comment ?? null,
     source: sale.source,
@@ -334,7 +360,10 @@ export function toSaleListItem(sale: {
   id: number;
   bookId: number;
   date: Date;
-  quantity: number;
+  quantity: number | null;
+  kenp: Decimal | null;
+  format: "PRINT" | "EBOOK" | "KINDLE_UNLIMITED";
+  distributor: "INGRAM_SPARK" | "AMAZON" | "OTHER" | null;
   publisherRevenueUSD: Decimal;
   publisherRevenueOriginal: Decimal;
   currency: string;
@@ -351,6 +380,9 @@ export function toSaleListItem(sale: {
     author: sale.book.author.name,
     date: sale.date,
     quantity: sale.quantity,
+    kenp: sale.kenp != null ? sale.kenp.toNumber() : null,
+    format: sale.format,
+    distributor: sale.distributor,
     publisherRevenueUSD: sale.publisherRevenueUSD.toNumber(),
     publisherRevenueOriginal: sale.publisherRevenueOriginal.toNumber(),
     currency: sale.currency,

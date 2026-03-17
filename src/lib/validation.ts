@@ -94,6 +94,22 @@ export const validateQuantity = (val: string | number): ValidationResult<number>
 
 export const isValidQuantityInput = (value: string): boolean => /^\d*$/.test(value) || value === "";
 
+/** Non-negative number (e.g. for KENP). Allows 0 and decimals. */
+export const validateNonNegativeNumber = (
+  val: string | number,
+  label: string = "Value"
+): ValidationResult<number> => {
+  const cleanStr = cleanNumericString(val);
+  const num = Number(cleanStr);
+  if (cleanStr === "" || isNaN(num)) {
+    return { success: false, error: `${label} must be a valid number.` };
+  }
+  if (num < 0) {
+    return { success: false, error: `${label} must be non-negative.` };
+  }
+  return { success: true, data: num };
+};
+
 /** * Date & ISBN 
  */
 

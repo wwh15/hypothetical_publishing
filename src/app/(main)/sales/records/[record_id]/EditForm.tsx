@@ -19,6 +19,7 @@ import {
   normalizeCurrency,
   validateCurrency,
   validateDatePeriod,
+  validateNonNegativeNumber,
   validateQuantity,
   validateRoyaltyLimit,
 } from "@/lib/validation";
@@ -88,14 +89,14 @@ export default function EditForm({ sale, books }: EditFormProps) {
     bookId: sale.book.id,
     dateMonth: initialDateMonth(sale.date),
     dateYear: initialDateYear(sale.date),
-    quantity: sale.quantity,
+    quantity: sale.quantity ?? 0,
+    kenp: sale.kenp ?? null,
     publisherRevenueOriginal: new Decimal(
       sale.publisherRevenueOriginal
     ).toNumber(),
     publisherRevenueUSD: new Decimal(sale.publisherRevenueUSD).toNumber(),
     currency: sale.currency,
     authorRoyalty: new Decimal(sale.authorRoyalty).toNumber(),
-    royaltyOverridden: sale.royaltyOverridden,
     comment: sale.comment ?? "",
     source: sale.source,
   });
@@ -124,6 +125,9 @@ export default function EditForm({ sale, books }: EditFormProps) {
   const [displayQuantity, setDisplayQuantity] = useState(
     formData.quantity !== 0 ? formData.quantity.toFixed(0) : ""
   );
+  const [displayKenp, setDisplayKenp] = useState(
+    formData.kenp != null ? String(formData.kenp) : ""
+  );
 
   const handleSave = async () => {
     setErrors({});
@@ -132,7 +136,9 @@ export default function EditForm({ sale, books }: EditFormProps) {
 
     // 1. Run validations
     const dateCheck = validateDatePeriod(formData.dateYear, formData.dateMonth);
-    const qtyCheck = validateQuantity(displayQuantity);
+    const isKindleUnlimited = sale.format === "KINDLE_UNLIMITED";
+    const qtyCheck = isKindleUnlimited ? null : validateQuantity(displayQuantity);
+    const kenpCheck = isKindleUnlimited ? validateNonNegativeNumber(displayKenp, "KENP") : null;
     const revenueOriginalCheck = validateCurrency(displayRevenueOriginal);
 
     // 2. Accumulate errors
@@ -140,7 +146,8 @@ export default function EditForm({ sale, books }: EditFormProps) {
       setDateError(dateCheck.error);
       newErrors.date = dateCheck.error;
     }
-    if (!qtyCheck.success) newErrors.quantity = qtyCheck.error;
+    if (!isKindleUnlimited && qtyCheck && !qtyCheck.success) newErrors.quantity = qtyCheck.error;
+    if (isKindleUnlimited && kenpCheck && !kenpCheck.success) newErrors.kenp = kenpCheck.error;
     if (!revenueOriginalCheck.success)
       newErrors.publisherRevenue = revenueOriginalCheck.error;
 
@@ -151,15 +158,17 @@ export default function EditForm({ sale, books }: EditFormProps) {
     }
 
     // 4. FINAL GUARD (This satisfies TypeScript)
-    // By checking .success here, TypeScript "narrows" the type inside the block
-    if (dateCheck.success && qtyCheck.success && revenueOriginalCheck.success) {
+    const qtyOk = isKindleUnlimited || (qtyCheck?.success ?? false);
+    const kenpOk = !isKindleUnlimited || (kenpCheck?.success ?? false);
+    if (dateCheck.success && qtyOk && kenpOk && revenueOriginalCheck.success) {
       setLoading(true);
       try {
         const result = await updateSale(sale.id, {
           bookId: formData.bookId,
-          date: dateCheck.data, // ✅ TypeScript now knows .data exists
-          quantity: qtyCheck.data, // ✅ TypeScript now knows .data exists
-          publisherRevenueOriginal: revenueOriginalCheck.data, // ✅ TypeScript now knows .data exists
+          date: dateCheck.data,
+          quantity: isKindleUnlimited ? null : (qtyCheck!.success ? qtyCheck!.data : undefined),
+          kenp: isKindleUnlimited ? (kenpCheck!.success ? kenpCheck!.data : undefined) : null,
+          publisherRevenueOriginal: revenueOriginalCheck.data,
           publisherRevenueUSD: normalizeCurrency(displayRevenueUSD),
           authorRoyalty: parseFloat(displayRoyalty) || 0,
           source: formData.source,
@@ -190,13 +199,13 @@ export default function EditForm({ sale, books }: EditFormProps) {
       bookId: sale.book.id,
       dateMonth: initialDateMonth(sale.date),
       dateYear: initialDateYear(sale.date),
-      quantity: sale.quantity,
+      quantity: sale.quantity ?? 0,
+      kenp: sale.kenp ?? null,
       publisherRevenueOriginal: new Decimal(
         sale.publisherRevenueOriginal
       ).toNumber(),
       publisherRevenueUSD: new Decimal(sale.publisherRevenueUSD).toNumber(),
       authorRoyalty: new Decimal(sale.authorRoyalty).toNumber(),
-      royaltyOverridden: sale.royaltyOverridden,
       comment: sale.comment ?? "",
       currency: sale.currency,
       source: sale.source,
@@ -207,7 +216,8 @@ export default function EditForm({ sale, books }: EditFormProps) {
     );
     setDisplayRevenueUSD(new Decimal(sale.publisherRevenueUSD).toFixed(2));
     setDisplayRoyalty(new Decimal(sale.authorRoyalty).toFixed(2));
-    setDisplayQuantity(String(sale.quantity));
+    setDisplayQuantity(String(sale.quantity ?? ""));
+    setDisplayKenp(sale.kenp != null ? String(sale.kenp) : "");
 
     setErrors({});
     setDateError(null);
@@ -267,12 +277,35 @@ export default function EditForm({ sale, books }: EditFormProps) {
             <label className="text-sm font-medium text-gray-500">
               Quantity
             </label>
-            <p className="text-lg font-semibold mt-1">{sale.quantity} units</p>
+            <p className="text-lg font-semibold mt-1">
+              {sale.quantity != null ? `${sale.quantity} units` : "—"}
+            </p>
+          </div>
+
+          <div>
+            <label className="text-sm font-medium text-gray-500">KENP</label>
+            <p className="text-lg font-semibold mt-1">
+              {sale.kenp != null ? sale.kenp.toLocaleString() : "—"}
+            </p>
+          </div>
+
+          <div>
+            <label className="text-sm font-medium text-gray-500">Format</label>
+            <p className="text-lg font-semibold mt-1">
+              {sale.format === "KINDLE_UNLIMITED" ? "Kindle Unlimited" : sale.format === "EBOOK" ? "Ebook" : "Print"}
+            </p>
+          </div>
+
+          <div>
+            <label className="text-sm font-medium text-gray-500">Distributor</label>
+            <p className="text-lg font-semibold mt-1">
+              {sale.distributor == null ? "—" : sale.distributor === "INGRAM_SPARK" ? "Ingram Spark" : sale.distributor === "AMAZON" ? "Amazon" : "Other"}
+            </p>
           </div>
 
           <div>
             <label className="text-sm font-medium text-gray-500">
-              Publisher Revenue ({CURRENCY_SYMBOLS[sale.currency]}{formData.currency})`
+              Publisher Revenue ({CURRENCY_SYMBOLS[sale.currency]}{formData.currency})
             </label>
             <p className="text-lg font-semibold mt-1 text-green-600">
               {CURRENCY_SYMBOLS[sale.currency]}{new Decimal(sale.publisherRevenueOriginal).toFixed(2)}
@@ -580,6 +613,39 @@ export default function EditForm({ sale, books }: EditFormProps) {
             </p>
           )}
         </div>
+
+        {/* KENP (only for Kindle Unlimited) */}
+        {sale.format === "KINDLE_UNLIMITED" && (
+          <div>
+            <label className="block text-sm font-medium mb-2">
+              KENP
+            </label>
+            <input
+              type="text"
+              inputMode="decimal"
+              placeholder="0"
+              value={displayKenp}
+              className={cn(
+                "w-full px-3 py-2 border rounded-md transition-colors",
+                errors.kenp ? "border-red-500" : "border-gray-300 dark:border-gray-600"
+              )}
+              onChange={(e) => {
+                const val = e.target.value;
+                setDisplayKenp(val);
+                if (errors.kenp) setErrors((prev) => ({ ...prev, kenp: "" }));
+                const kenpValidation = validateNonNegativeNumber(val, "KENP");
+                if (kenpValidation.success) {
+                  setFormData((prev) => ({ ...prev, kenp: kenpValidation.data }));
+                }
+              }}
+            />
+            {errors.kenp && (
+              <p className="mt-1 text-xs text-red-500 font-medium">
+                {errors.kenp}
+              </p>
+            )}
+          </div>
+        )}
 
         {/* 1. Original Revenue Input */}
         <div>

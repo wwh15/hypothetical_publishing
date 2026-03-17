@@ -18,6 +18,9 @@ export type SalesColumnId =
   | "title"
   | "author"
   | "quantity"
+  | "kenp"
+  | "format"
+  | "distributor"
   | "publisherRevenue"
   | "authorRoyalty"
   | "date"
@@ -57,7 +60,24 @@ export const salesCellRenderers = {
     );
   },
 
-  quantity: (value: number) => <span>{value}</span>,
+  quantity: (value: number | null) => (
+    <span>{value != null ? value : "—"}</span>
+  ),
+
+  kenp: (value: number | null) => (
+    <span>{value != null ? value.toLocaleString() : "—"}</span>
+  ),
+
+  format: (value: "PRINT" | "EBOOK" | "KINDLE_UNLIMITED") => {
+    const labels = { PRINT: "Print", EBOOK: "Ebook", KINDLE_UNLIMITED: "Kindle Unlimited" };
+    return <span>{labels[value]}</span>;
+  },
+
+  distributor: (value: "INGRAM_SPARK" | "AMAZON" | "OTHER" | null) => {
+    if (value == null) return <span className="text-muted-foreground">—</span>;
+    const labels = { INGRAM_SPARK: "Ingram Spark", AMAZON: "Amazon", OTHER: "Other" };
+    return <span>{labels[value]}</span>;
+  },
 
   source: (value: "DISTRIBUTOR" | "HAND_SOLD") => {
     const styles = {
@@ -119,6 +139,21 @@ export const salesColumns: ColumnDef<SaleListItem>[] = [
     key: "quantity",
     header: "Quantity",
     render: (row) => salesCellRenderers.quantity(row.quantity),
+  },
+  {
+    key: "kenp",
+    header: "KENP",
+    render: (row) => salesCellRenderers.kenp(row.kenp),
+  },
+  {
+    key: "format",
+    header: "Format",
+    render: (row) => salesCellRenderers.format(row.format),
+  },
+  {
+    key: "distributor",
+    header: "Distributor",
+    render: (row) => salesCellRenderers.distributor(row.distributor),
   },
   {
     key: "currency",
@@ -330,6 +365,9 @@ export const salesTablePresets = {
       "title",
       "author",
       "quantity",
+      "kenp",
+      "format",
+      "distributor",
       "currency",
       "publisherRevenueOriginal",
       "publisherRevenueUSD",
@@ -370,7 +408,11 @@ export const salesTablePresets = {
     columnIds: [
       "id",
       "quantity",
-      "publisherRevenue",
+      "kenp",
+      "format",
+      "distributor",
+      "publisherRevenueOriginal",
+      "publisherRevenueUSD",
       "authorRoyalty",
       "date",
       "source",

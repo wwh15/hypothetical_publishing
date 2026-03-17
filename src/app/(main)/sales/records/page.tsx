@@ -9,6 +9,9 @@ import { Button } from "@/components/ui/button";
  */
 export const dynamic = "force-dynamic";
 
+const VALID_DISTRIBUTORS = ["INGRAM_SPARK", "AMAZON", "OTHER"] as const;
+const VALID_FORMATS = ["PRINT", "EBOOK", "KINDLE_UNLIMITED"] as const;
+
 interface SalesRecordsPageProps {
   searchParams?: Promise<{
     q?: string;
@@ -19,6 +22,8 @@ interface SalesRecordsPageProps {
     dateTo?: string;
     showAll?: string;
     source?: string;
+    distributor?: string;
+    format?: string;
   }>;
 }
 
@@ -46,6 +51,16 @@ export default async function SalesRecordsPage({
   const rawSource = params?.source;
   const source = (rawSource === "DISTRIBUTOR" || rawSource === "HAND_SOLD") ? rawSource : undefined;
 
+  const rawDistributor = params?.distributor;
+  const distributor = rawDistributor && VALID_DISTRIBUTORS.includes(rawDistributor as (typeof VALID_DISTRIBUTORS)[number])
+    ? (rawDistributor as (typeof VALID_DISTRIBUTORS)[number])
+    : undefined;
+
+  const rawFormat = params?.format;
+  const format = rawFormat && VALID_FORMATS.includes(rawFormat as (typeof VALID_FORMATS)[number])
+    ? (rawFormat as (typeof VALID_FORMATS)[number])
+    : undefined;
+
   // 2. Fetch the data using the optimized Database logic
   // This call handles filtering, sorting, and pagination in a single SQL query.
   const { items, total, page: currentPage, pageSize: effectivePageSize } =
@@ -58,6 +73,8 @@ export default async function SalesRecordsPage({
       dateFrom: dateFrom || undefined,
       dateTo: dateTo || undefined,
       source,
+      distributor,
+      format,
     });
 
   return (
@@ -88,7 +105,7 @@ export default async function SalesRecordsPage({
         remount/reset when the URL changes, preventing "stale" UI states. 
       */}
       <SalesRecordsTable
-        key={`${search}-${sortBy}-${sortDir}-${currentPage}-${dateFrom}-${dateTo}-${showAll}-${source ?? ""}`}
+        key={`${search}-${sortBy}-${sortDir}-${currentPage}-${dateFrom}-${dateTo}-${showAll}-${source ?? ""}-${distributor ?? ""}-${format ?? ""}`}
         rows={items}
         total={total}
         page={currentPage}
@@ -100,6 +117,8 @@ export default async function SalesRecordsPage({
         dateTo={dateTo}
         showAll={showAll}
         source={source}
+        distributor={distributor}
+        format={format}
       />
     </div>
   );
