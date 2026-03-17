@@ -7,7 +7,7 @@ import "dotenv/config";
 import Papa from "papaparse";
 import { PrismaClient } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
-import { convertCurrency } from "@/lib/currency-conversion";
+import { convertCurrency } from "../lib/currency-conversion";
 
 const prisma = new PrismaClient();
 
