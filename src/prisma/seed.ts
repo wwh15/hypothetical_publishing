@@ -7,9 +7,23 @@ import "dotenv/config";
 import Papa from "papaparse";
 import { PrismaClient } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
-import { convertCurrency } from "../lib/currency-conversion";
 
 const prisma = new PrismaClient();
+
+// Inline currency list and conversion (matches @/lib/currency-conversion; no import for Docker/tsx)
+const SEED_CURRENCIES = ["USD", "GBP", "EUR", "CAD", "JPY", "AUD"];
+const EXCHANGE_RATES_TO_USD: Record<string, number> = {
+  USD: 1.0,
+  GBP: 1.34,
+  EUR: 1.16,
+  CAD: 0.73,
+  JPY: 0.0063,
+  AUD: 0.7,
+};
+function seedConvertToUSD(amount: number, currencyCode: string): number {
+  const rate = EXCHANGE_RATES_TO_USD[currencyCode] ?? 1.0;
+  return Math.round(amount * rate * 100) / 100;
+}
 
 const MONTH_NAMES: Record<string, number> = {
   January: 0,
@@ -116,9 +130,11 @@ const SALES_CSV = `isbn13,source,record_month_year,units_sold,total_revenue,roya
 9780765397546,distributor,August 2023,36,323.64,y,
 `;
 
-const currencies = ["USD", "GBP", "EUR", "CAD", "JPY", "AUD"];
-
 // ─── Seed execution ─────────────────────────────────────────────────────────
+
+function pickRandomCurrency(): string {
+  return SEED_CURRENCIES[Math.floor(Math.random() * SEED_CURRENCIES.length)];
+}
 
 async function main() {
   console.log("🌱 Starting seed (ev2-sample-data content, inline)...");
@@ -248,26 +264,22 @@ async function main() {
     const paid = row.royalty_paid?.toLowerCase() === "y";
     const comment = row.comment?.trim() || null;
 
-    // 1. Helper to simulate a random currency from your supported list
-    const selectedCurrency =
-      currencies[Math.floor(Math.random() * currencies.length)];
+    const selectedCurrency = pickRandomCurrency();
 
     let publisherRevenueOriginal: Decimal;
     let publisherRevenueUSD: Decimal;
     let finalCurrency: string;
 
-    // 2. Determine Revenue based on Source
     if (source === "HAND_SOLD") {
       // Hand-sold formula: (Price - Cost) * Qty
       const netPerCopy = new Decimal(book.coverPrice).sub(book.printCost);
       const rev = netPerCopy.mul(quantity);
 
       publisherRevenueOriginal = rev;
-      publisherRevenueUSD = rev; // Hand-sold is always USD
-      // Override currency to USD for hand-sold logic
+      publisherRevenueUSD = rev;
       finalCurrency = "USD";
     } else {
-      // Distributor: Treat the total_revenue as the "Original" foreign amount
+      // Distributor: treat CSV revenue as amount in selectedCurrency, convert to USD
       const totalRevenueStr = row.total_revenue?.trim();
       const rawAmount =
         totalRevenueStr && !Number.isNaN(parseFloat(totalRevenueStr))
@@ -275,14 +287,8 @@ async function main() {
           : new Decimal(0);
 
       publisherRevenueOriginal = rawAmount;
-
-      // Convert to USD for system management
-      // We use your convertCurrency helper here
-      const convertedAmount = convertCurrency(
-        rawAmount.toNumber(),
-        selectedCurrency
-      );
-      publisherRevenueUSD = new Decimal(convertedAmount);
+      const usdAmount = seedConvertToUSD(rawAmount.toNumber(), selectedCurrency);
+      publisherRevenueUSD = new Decimal(usdAmount);
       finalCurrency = selectedCurrency;
     }
 
