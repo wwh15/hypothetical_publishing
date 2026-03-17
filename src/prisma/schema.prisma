@@ -56,6 +56,7 @@ model Book {
   title                     String
   isbn13                    String    @unique // ISBN-13 format, stored without dashes
   isbn10                    String?   @unique // ISBN-10 format, stored without dashes
+  asin                      String?   @unique @map("asin") // Amazon ASIN for ebook edition (optional)
   distAuthorRoyaltyRate     Float     @default(0.5) @map("dist_author_royalty_rate") // Distributor royalty rate, stored as decimal (0.5 = 50%)
   handSoldAuthorRoyaltyRate Float     @default(0.2) @map("hand_sold_author_royalty_rate") // Hand-sold royalty rate, stored as decimal (0.2 = 20%)
   coverPrice                Decimal   @map("cover_price") // Retail cover price
