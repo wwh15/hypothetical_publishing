@@ -5,6 +5,7 @@
  */
 import "dotenv/config";
 import Papa from "papaparse";
+import type { Prisma } from "@prisma/client";
 import { PrismaClient } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
 
@@ -84,6 +85,12 @@ interface SalesRow {
   total_revenue: string;
   royalty_paid: string;
   comment: string;
+  /** ingram_spark | amazon | other (empty → other for distributor sales) */
+  distributor?: string;
+  /** print | ebook | kindle_unlimited (empty → print) */
+  format?: string;
+  /** Required when format is kindle_unlimited */
+  kenp?: string;
 }
 
 // ─── ev2-sample-data content (embedded; no file reads) ─────────────────────
@@ -107,33 +114,72 @@ The Hitchhiker's Guide to the Galaxy,Douglas Adams,,,9780345391803,0345391802,Oc
 The Night Circus,Erin Morgenstern,,,9780307744432,0307744434,September 2011,50,20,10.99,4.00,9780307744432.jxl
 `;
 
-const SALES_CSV = `isbn13,source,record_month_year,units_sold,total_revenue,royalty_paid,comment
-9780062444141,handsold,October 2024,21,,y,
-9780307744432,handsold,April 2025,31,,y,
-9780765397553,distributor,September 2023,47,382.03,y,recalled for misprints
-9780307744432,handsold,October 2025,21,,n,
-9780765397553,distributor,June 2023,39,299.04,y,
-9780345391803,handsold,July 2024,31,,y,sales from bookcon
-9780062699237,handsold,November 2025,22,,n,
-9780345391803,handsold,December 2023,41,,y,
-9780765397539,distributor,December 2024,27,168.00,y,
-9780765397546,handsold,September 2024,8,,y,
-9780062444134,distributor,April 2023,26,233.74,y,
-9780062444134,distributor,July 2024,35,314.65,y,
-9780547928210,distributor,July 2025,22,197.78,n,
-9780307887436,distributor,April 2023,24,215.76,y,
-9780345391803,handsold,August 2025,15,,n,
-9780345391803,distributor,August 2024,24,132.00,y,
-9780547928203,handsold,October 2025,38,,n,
-9780547928210,distributor,February 2025,28,251.72,y,
-9780062444134,handsold,July 2024,33,,y,sales from bookcon
-9780765397546,distributor,August 2023,36,323.64,y,
+// distributor / format / kenp: covers every valid combo for UI testing (see validateSaleRecord).
+// HAND_SOLD → print only; INGRAM_SPARK → print; AMAZON → print | ebook | kindle_unlimited; OTHER → print | ebook
+const SALES_CSV = `isbn13,source,record_month_year,units_sold,total_revenue,royalty_paid,comment,distributor,format,kenp
+9780062444141,handsold,October 2024,21,,y,,,,
+9780307744432,handsold,April 2025,31,,y,,,,
+9780765397553,distributor,September 2023,47,382.03,y,recalled for misprints,ingram_spark,print,
+9780307744432,handsold,October 2025,21,,n,,,,
+9780765397553,distributor,June 2023,39,299.04,y,,ingram_spark,print,
+9780345391803,handsold,July 2024,31,,y,sales from bookcon,,,
+9780062699237,handsold,November 2025,22,,n,,,,
+9780345391803,handsold,December 2023,41,,y,,,,
+9780765397539,distributor,December 2024,27,168.00,y,,amazon,print,
+9780765397546,handsold,September 2024,8,,y,,,,
+9780062444134,distributor,April 2023,26,233.74,y,,other,print,
+9780062444134,distributor,July 2024,35,314.65,y,,amazon,ebook,
+9780547928210,distributor,July 2025,22,197.78,n,,other,print,
+9780307887436,distributor,April 2023,24,215.76,y,,amazon,print,
+9780345391803,handsold,August 2025,15,,n,,,,
+9780345391803,distributor,August 2024,24,132.00,y,,other,ebook,
+9780547928203,handsold,October 2025,38,,n,,,,
+9780547928210,distributor,February 2025,28,251.72,y,,ingram_spark,print,
+9780062444134,handsold,July 2024,33,,y,sales from bookcon,,,
+9780765397546,distributor,August 2023,36,323.64,y,,amazon,print,
+9780316246620,distributor,March 2025,,112.75,y,seed Amazon Kindle Unlimited,amazon,kindle_unlimited,2400
+9780547928197,distributor,May 2025,,67.20,n,seed Amazon KU unpaid,amazon,kindle_unlimited,1800
 `;
 
 // ─── Seed execution ─────────────────────────────────────────────────────────
 
 function pickRandomCurrency(): string {
   return SEED_CURRENCIES[Math.floor(Math.random() * SEED_CURRENCIES.length)];
+}
+
+type SeedDistributor = "INGRAM_SPARK" | "AMAZON" | "OTHER";
+type SeedSaleFormat = "PRINT" | "EBOOK" | "KINDLE_UNLIMITED";
+
+function parseSeedDistributor(raw: string | undefined): SeedDistributor {
+  const s = (raw ?? "").trim().toLowerCase().replace(/-/g, "_");
+  if (s.includes("ingram")) return "INGRAM_SPARK";
+  if (s.includes("amazon")) return "AMAZON";
+  return "OTHER";
+}
+
+function parseSeedFormat(raw: string | undefined): SeedSaleFormat {
+  const s = (raw ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/-/g, "_")
+    .replace(/\s+/g, "_");
+  if (s.includes("kindle") || s === "ku") return "KINDLE_UNLIMITED";
+  if (s.includes("ebook")) return "EBOOK";
+  return "PRINT";
+}
+
+/** Enforce spec: KU only on Amazon; Ingram → print only; Other → print or ebook. */
+function normalizeDistributorFormat(
+  distributor: SeedDistributor,
+  format: SeedSaleFormat
+): { distributor: SeedDistributor; format: SeedSaleFormat } {
+  if (format === "KINDLE_UNLIMITED" && distributor !== "AMAZON") {
+    return { distributor, format: "PRINT" };
+  }
+  if (distributor === "INGRAM_SPARK" && format !== "PRINT") {
+    return { distributor, format: "PRINT" };
+  }
+  return { distributor, format };
 }
 
 async function main() {
@@ -247,6 +293,7 @@ async function main() {
   console.log(`✅ Books: ${booksRows.length}`);
 
   // ─── SALES ──────────────────────────────────────────────────────────────
+  let salesCreated = 0;
   for (const row of salesRows) {
     const isbn13 = row.isbn13.trim().replace(/[-\s]/g, "");
     const book = bookByIsbn13[isbn13];
@@ -255,14 +302,46 @@ async function main() {
       continue;
     }
     const date = parseMonthYear(row.record_month_year);
-    const quantity = parseInt(row.units_sold, 10) || 0;
-    if (quantity <= 0) continue;
-
     const source = row.source?.toLowerCase().includes("hand")
       ? "HAND_SOLD"
       : "DISTRIBUTOR";
     const paid = row.royalty_paid?.toLowerCase() === "y";
     const comment = row.comment?.trim() || null;
+
+    let distributor: SeedDistributor | null = null;
+    let format: SeedSaleFormat;
+    let quantity: number | null = null;
+    let kenp: Decimal | null = null;
+
+    if (source === "HAND_SOLD") {
+      distributor = null;
+      format = "PRINT";
+      const q = parseInt(String(row.units_sold ?? "").trim(), 10);
+      if (!Number.isFinite(q) || q < 1) continue;
+      quantity = q;
+      kenp = null;
+    } else {
+      let dist = parseSeedDistributor(row.distributor);
+      let fmt = parseSeedFormat(row.format);
+      ({ distributor: dist, format: fmt } = normalizeDistributorFormat(dist, fmt));
+      distributor = dist;
+      format = fmt;
+
+      if (format === "KINDLE_UNLIMITED") {
+        quantity = null;
+        const k = parseFloat(String(row.kenp ?? "").trim());
+        if (!Number.isFinite(k) || k < 0) {
+          console.warn(`⚠️ Sale skipped: KU row needs non-negative kenp (ISBN ${isbn13})`);
+          continue;
+        }
+        kenp = new Decimal(k);
+      } else {
+        const q = parseInt(String(row.units_sold ?? "").trim(), 10);
+        if (!Number.isFinite(q) || q < 1) continue;
+        quantity = q;
+        kenp = null;
+      }
+    }
 
     const selectedCurrency = pickRandomCurrency();
 
@@ -271,50 +350,59 @@ async function main() {
     let finalCurrency: string;
 
     if (source === "HAND_SOLD") {
-      // Hand-sold formula: (Price - Cost) * Qty
       const netPerCopy = new Decimal(book.coverPrice).sub(book.printCost);
-      const rev = netPerCopy.mul(quantity);
-
+      const rev = netPerCopy.mul(quantity!);
       publisherRevenueOriginal = rev;
       publisherRevenueUSD = rev;
       finalCurrency = "USD";
-    } else {
-      // Distributor: treat CSV revenue as amount in selectedCurrency, convert to USD
+    } else if (format === "KINDLE_UNLIMITED") {
       const totalRevenueStr = row.total_revenue?.trim();
       const rawAmount =
         totalRevenueStr && !Number.isNaN(parseFloat(totalRevenueStr))
           ? new Decimal(totalRevenueStr)
           : new Decimal(0);
-
+      publisherRevenueOriginal = rawAmount;
+      publisherRevenueUSD = rawAmount;
+      finalCurrency = "USD";
+    } else {
+      const totalRevenueStr = row.total_revenue?.trim();
+      const rawAmount =
+        totalRevenueStr && !Number.isNaN(parseFloat(totalRevenueStr))
+          ? new Decimal(totalRevenueStr)
+          : new Decimal(0);
       publisherRevenueOriginal = rawAmount;
       const usdAmount = seedConvertToUSD(rawAmount.toNumber(), selectedCurrency);
       publisherRevenueUSD = new Decimal(usdAmount);
       finalCurrency = selectedCurrency;
     }
 
-    // 3. Calculate Royalty based on the USD managed value 
     const rate = source === "HAND_SOLD" ? book.handSoldRate : book.distRate;
-    // Per your earlier code, we multiply USD revenue by the decimal rate
     const authorRoyalty = new Decimal(publisherRevenueUSD.mul(rate).toFixed(2));
 
+    // quantity null + kenp set for KU matches DB; Prisma input types can disagree on nullability
     await prisma.sale.create({
       data: {
         bookId: book.id,
         date,
         quantity,
-        format: "PRINT", // Handsold is always print; distributor seed data is print
-        distributor: source === "DISTRIBUTOR" ? "OTHER" : null,
-        publisherRevenueUSD: publisherRevenueUSD,
-        publisherRevenueOriginal: publisherRevenueOriginal,
+        format,
+        distributor,
+        publisherRevenueUSD,
+        publisherRevenueOriginal,
         currency: finalCurrency,
         authorRoyalty,
         source,
         paid,
         comment,
-      },
+        kenp,
+      } as Prisma.SaleUncheckedCreateInput,
     });
+    salesCreated += 1;
   }
-  console.log(`✅ Sales: ${salesRows.length} records`);
+  console.log(`✅ Sales: ${salesCreated} records (${salesRows.length} rows in CSV)`);
+  console.log(
+    "   Coverage: HAND_SOLD+PRINT | INGRAM_SPARK+PRINT | AMAZON+PRINT/EBOOK/KU | OTHER+PRINT/EBOOK"
+  );
   console.log("🏁 Seed complete. Data from ev2-sample-data (embedded).");
 }
 

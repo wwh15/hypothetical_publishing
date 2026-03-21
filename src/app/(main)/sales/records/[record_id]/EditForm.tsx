@@ -26,6 +26,10 @@ import {
 import { cn } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
 import { convertCurrency, CURRENCY_SYMBOLS } from "@/lib/currency-conversion";
+import {
+  saleDistributorBadge,
+  saleFormatBadge,
+} from "@/lib/table-configs/sales-columns";
 
 /** Get the royalty rate (as percentage) for a book based on sale source */
 function getRateForSource(
@@ -291,24 +295,28 @@ export default function EditForm({ sale, books }: EditFormProps) {
 
           <div>
             <label className="text-sm font-medium text-gray-500">Format</label>
-            <p className="text-lg font-semibold mt-1">
-              {sale.format === "KINDLE_UNLIMITED" ? "Kindle Unlimited" : sale.format === "EBOOK" ? "Ebook" : "Print"}
-            </p>
-          </div>
-
-          <div>
-            <label className="text-sm font-medium text-gray-500">Distributor</label>
-            <p className="text-lg font-semibold mt-1">
-              {sale.distributor == null ? "—" : sale.distributor === "INGRAM_SPARK" ? "Ingram Spark" : sale.distributor === "AMAZON" ? "Amazon" : "Other"}
-            </p>
+            <div className="mt-1">
+              {saleFormatBadge(sale.format, "comfortable")}
+            </div>
           </div>
 
           <div>
             <label className="text-sm font-medium text-gray-500">
-              Publisher Revenue ({CURRENCY_SYMBOLS[sale.currency]}{formData.currency})
+              Distributor
+            </label>
+            <div className="mt-1">
+              {saleDistributorBadge(sale.distributor, "comfortable")}
+            </div>
+          </div>
+
+          <div>
+            <label className="text-sm font-medium text-gray-500">
+              Publisher Revenue ({CURRENCY_SYMBOLS[sale.currency]}
+              {formData.currency})
             </label>
             <p className="text-lg font-semibold mt-1 text-green-600">
-              {CURRENCY_SYMBOLS[sale.currency]}{new Decimal(sale.publisherRevenueOriginal).toFixed(2)}
+              {CURRENCY_SYMBOLS[sale.currency]}
+              {new Decimal(sale.publisherRevenueOriginal).toFixed(2)}
             </p>
           </div>
 
@@ -334,11 +342,12 @@ export default function EditForm({ sale, books }: EditFormProps) {
             <label className="text-sm font-medium text-gray-500">Source</label>
             <p className="mt-1">
               <span
-                className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${
+                className={cn(
+                  "inline-flex items-center rounded-full px-3 py-1 text-sm font-medium",
                   sale.source === "HAND_SOLD"
-                    ? "bg-purple-100 text-purple-800"
-                    : "bg-blue-100 text-blue-800"
-                }`}
+                    ? "bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-200"
+                    : "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200"
+                )}
               >
                 {sale.source === "HAND_SOLD" ? "Hand Sold" : "Distributor"}
               </span>
