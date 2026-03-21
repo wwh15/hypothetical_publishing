@@ -307,7 +307,10 @@ export default function SalesRecordsTable({
       <select
         value={distributor ?? ""}
         onChange={(e) => {
-          const params = buildQueryParams({ distributor: e.target.value || undefined, page: 1 });
+          const params = buildQueryParams({
+            distributor: e.target.value,
+            page: 1,
+          });
           router.push(`/sales/records?${params.toString()}`);
         }}
         className={cn(
@@ -325,7 +328,7 @@ export default function SalesRecordsTable({
       <select
         value={format ?? ""}
         onChange={(e) => {
-          const params = buildQueryParams({ format: e.target.value || undefined, page: 1 });
+          const params = buildQueryParams({ format: e.target.value, page: 1 });
           router.push(`/sales/records?${params.toString()}`);
         }}
         className={cn(

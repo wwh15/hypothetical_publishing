@@ -33,12 +33,15 @@ export async function updateSale(
   data: UpdateSaleItem
 ) {
   try {
-    await asyncUpdateSale(id, data);
+    const updated = await asyncUpdateSale(id, data);
     revalidatePath(`/sales/records/${id}`);
     revalidatePath("/sales/records");
+    revalidatePath(`/books/${updated.bookId}`);
     return { success: true };
-  } catch {
-    return { success: false, error: "Failed to update sale" };
+  } catch (e) {
+    const message =
+      e instanceof Error ? e.message : "Failed to update sale";
+    return { success: false, error: message };
   }
 }
 
