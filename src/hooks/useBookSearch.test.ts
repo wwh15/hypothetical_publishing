@@ -20,6 +20,7 @@ const mockBooks: BookListItem[] = [
     seriesName: null,
     seriesOrder: null,
     coverArtPath: null,
+    asin: "B08TEST123",
   },
   {
     id: 2,
@@ -37,6 +38,7 @@ const mockBooks: BookListItem[] = [
     seriesName: null,
     seriesOrder: null,
     coverArtPath: null,
+    asin: null,
   },
 ];
 
@@ -62,6 +64,11 @@ describe("filterBooksBySearch", () => {
     const result = filterBooksBySearch(mockBooks, "1617293856");
     expect(result).toHaveLength(1);
     expect(result[0].isbn13).toBe("9781617293856");
+  });
+
+  it("filters by ASIN (non-alphanumeric stripped)", () => {
+    expect(filterBooksBySearch(mockBooks, "B08-TEST-123")).toHaveLength(1);
+    expect(filterBooksBySearch(mockBooks, "b08test")).toHaveLength(1);
   });
 
   it("returns empty array when no match", () => {

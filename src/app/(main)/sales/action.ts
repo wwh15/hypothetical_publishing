@@ -19,12 +19,15 @@ import { redirect } from "next/navigation";
 
 export async function addSale(data: Prisma.SaleUncheckedCreateInput) {
   try {
-    await asyncAddSale(data);
+    const created = await asyncAddSale(data);
     revalidatePath("/sales/records");
     revalidatePath("/sales/add-record");
+    revalidatePath(`/books/${created.bookId}`);
     return { success: true };
-  } catch {
-    return { success: false, error: "Failed to add sale" };
+  } catch (e) {
+    const message =
+      e instanceof Error ? e.message : "Failed to add sale";
+    return { success: false, error: message };
   }
 }
 

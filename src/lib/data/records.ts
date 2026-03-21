@@ -23,18 +23,22 @@ export interface SaleListItem {
   source: "DISTRIBUTOR" | "HAND_SOLD";
 }
 
+/** Staging row before DB insert; `clientId` disambiguates duplicate lines in the UI. */
 export interface PendingSaleItem {
-  // No id - these aren't saved yet
+  clientId: string;
   bookId: number;
   title: string;
   author: string;
-  date: Date; // MM-YYYY format
-  quantity: number;
+  date: Date; // First day of sale month
+  quantity: number | null;
+  kenp: number | null;
+  format: "PRINT" | "EBOOK" | "KINDLE_UNLIMITED";
+  distributor: "INGRAM_SPARK" | "AMAZON" | "OTHER" | null;
   publisherRevenueUSD: number;
   publisherRevenueOriginal: number;
   currency: string;
   authorRoyalty: number;
-  paid: boolean; // Always false for pending, but included for consistency
+  paid: boolean;
   comment?: string | null;
   source: "DISTRIBUTOR" | "HAND_SOLD";
 }
@@ -397,7 +401,49 @@ export function toSaleListItem(sale: {
 }
 
 export async function asyncAddSale(data: Prisma.SaleUncheckedCreateInput) {
-  return await prisma.sale.create({ data });
+  const kenpNum =
+    data.kenp != null
+      ? typeof data.kenp === "object" &&
+          data.kenp !== null &&
+          "toNumber" in data.kenp
+        ? (data.kenp as Decimal).toNumber()
+        : Number(data.kenp)
+      : null;
+
+  const validated = validateSaleRecord({
+    source: data.source,
+    distributor: data.distributor ?? null,
+    format: data.format,
+    quantity: data.quantity ?? null,
+    kenp: kenpNum,
+    currency: String(data.currency ?? "USD"),
+    publisherRevenueOriginal: Number(data.publisherRevenueOriginal),
+    publisherRevenueUSD: Number(data.publisherRevenueUSD),
+    authorRoyalty: Number(data.authorRoyalty),
+    comment: data.comment ?? null,
+  });
+  if (!validated.success) {
+    throw new Error(validated.error);
+  }
+
+  const v = validated.data;
+  return await prisma.sale.create({
+    data: {
+      bookId: data.bookId,
+      date: data.date,
+      source: v.source,
+      distributor: v.distributor,
+      format: v.format,
+      quantity: v.quantity,
+      kenp: v.kenp != null ? new Decimal(v.kenp) : null,
+      currency: v.currency,
+      publisherRevenueOriginal: new Decimal(v.publisherRevenueOriginal),
+      publisherRevenueUSD: new Decimal(v.publisherRevenueUSD),
+      authorRoyalty: new Decimal(v.authorRoyalty),
+      paid: data.paid ?? false,
+      comment: v.comment ?? null,
+    },
+  });
 }
 
 // write ops moved here

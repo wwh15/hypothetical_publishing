@@ -127,6 +127,13 @@ export const validateDatePeriod = (yearStr: string, monthStr: string): Validatio
 export const normalizeISBN = (val: string | null | undefined): string | null => 
   val ? val.trim().replace(/[-\s]/g, "").toUpperCase() : null;
 
+/** ASIN / marketplace id: strip non-alphanumeric for matching (dashes/spaces ignored). */
+export const normalizeASIN = (val: string | null | undefined): string | null => {
+  if (!val) return null;
+  const n = val.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+  return n.length > 0 ? n : null;
+};
+
 export const validateISBN = (val: string): ValidationResult<string> => {
   const clean = normalizeISBN(val);
   if (!clean) return { success: false, error: "ISBN is required" };

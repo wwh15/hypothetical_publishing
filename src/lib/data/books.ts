@@ -21,6 +21,8 @@ export interface BookListItem {
   author: string;
   isbn13: string;
   isbn10: string | null;
+  /** Amazon ebook ASIN (optional); used for sales input search. */
+  asin: string | null;
   /** First day of publication month (e.g. 2024-01-01) */
   publicationDate: Date;
   /** YYYY-MM string for sorting */
@@ -240,6 +242,7 @@ export async function getAllBooks(): Promise<BookListItem[]> {
       seriesName: book.series?.name ?? null,
       seriesOrder: book.seriesOrder ?? null,
       coverArtPath: book.coverArtPath ?? null,
+      asin: book.asin ?? null,
     };
   });
 }
@@ -318,6 +321,13 @@ export async function getBooksData({
       );
     }
 
+    const normalizedAsin = query.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+    if (normalizedAsin.length >= 4) {
+      orConditions.push({
+        asin: { contains: normalizedAsin, mode: "insensitive" },
+      });
+    }
+
     where.OR = orConditions;
   }
 
@@ -370,6 +380,7 @@ export async function getBooksData({
       seriesName: book.series?.name ?? null,
       seriesOrder: book.seriesOrder ?? null,
       coverArtPath: book.coverArtPath ?? null,
+      asin: book.asin ?? null,
     };
   });
 
@@ -418,6 +429,7 @@ export async function getBooksByAuthorId(
       seriesName: book.series?.name ?? null,
       seriesOrder: book.seriesOrder ?? null,
       coverArtPath: book.coverArtPath ?? null,
+      asin: book.asin ?? null,
     };
   });
 }

@@ -323,9 +323,22 @@ export function getPendingColumns(
       render: (row) => row.author,
     },
     {
+      key: "format",
+      header: "Format",
+      render: (row) => salesCellRenderers.format(row.format),
+    },
+    {
+      key: "distributor",
+      header: "Distributor",
+      render: (row) => salesCellRenderers.distributor(row.distributor),
+    },
+    {
       key: "quantity",
-      header: "Quantity",
-      render: (row) => salesCellRenderers.quantity(row.quantity),
+      header: "Qty / KENP",
+      render: (row) =>
+        row.format === "KINDLE_UNLIMITED"
+          ? salesCellRenderers.kenp(row.kenp)
+          : salesCellRenderers.quantity(row.quantity),
     },
     {
       key: "currency",
@@ -346,13 +359,13 @@ export function getPendingColumns(
       key: "publisherRevenueUSD",
       header: "Pub. Revenue (USD)",
       render: (row) =>
-        salesCellRenderers.currency(row.publisherRevenueUSD, row.currency),
+        salesCellRenderers.currency(row.publisherRevenueUSD, "USD"),
     },
     {
       key: "authorRoyalty",
-      header: "Author Royalty",
+      header: "Author Royalty (USD)",
       render: (row) =>
-        salesCellRenderers.currency(row.authorRoyalty, row.currency),
+        salesCellRenderers.currency(row.authorRoyalty, "USD"),
     },
     {
       key: "source",
