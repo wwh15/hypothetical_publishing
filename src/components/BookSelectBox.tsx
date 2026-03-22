@@ -68,7 +68,7 @@ export function BookSelectBox({
       <PopoverContent id={contentId} className="w-[--radix-popover-trigger-width] p-0">
         <Command shouldFilter={false}>
           <CommandInput
-            placeholder="Search by title, author, series, or ISBN..."
+            placeholder="Title, author, ISBN-13/10, or ASIN (dashes ignored)…"
             value={searchQuery}
             onValueChange={setSearchQuery}
           />
@@ -82,6 +82,7 @@ export function BookSelectBox({
                   book.author,
                   book.isbn13,
                   book.isbn10,
+                  book.asin,
                 ]
                   .filter(Boolean)
                   .join(" ");
@@ -101,9 +102,9 @@ export function BookSelectBox({
                       )}
                     />
                     {book.title} - {book.author}
-                    {book.isbn13 && (
+                    {(book.isbn13 || book.asin) && (
                       <span className="ml-2 text-xs text-muted-foreground">
-                        ({book.isbn13})
+                        ({[book.isbn13, book.asin].filter(Boolean).join(" · ")})
                       </span>
                     )}
                   </CommandItem>

@@ -18,6 +18,7 @@ import { AlertCircle, CheckCircle2, Import } from "lucide-react";
 import MonthYearSelector from "@/components/MonthYearSelector";
 import {
   normalizeISBN,
+  normalizeASIN,
   validateCurrency,
   validateISBN,
   validateQuantity,
@@ -41,8 +42,10 @@ function buildIsbnLookup(booksData: BookListItem[]): Map<string, BookListItem> {
   for (const book of [...booksData]) {
     const isbn13 = normalizeISBN(book.isbn13 ?? null);
     const isbn10 = normalizeISBN(book.isbn10 ?? null);
+    const asin = normalizeASIN(book.asin ?? null);
     if (isbn13) map.set(isbn13, book);
     if (isbn10) map.set(isbn10, book);
+    if (asin) map.set(asin, book);
   }
   return map;
 }

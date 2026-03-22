@@ -1,6 +1,7 @@
 // src/hooks/useBookSearch.ts
 import { BookListItem } from "@/lib/data/books";
 import { useState, useMemo } from "react";
+import { normalizeASIN } from "@/lib/validation";
 
 /** Pure filter: same logic the hook uses. Exported for tests. */
 export function filterBooksBySearch(
@@ -15,6 +16,8 @@ export function filterBooksBySearch(
 
   const normalizedQuery = norm(searchQuery);
   const hasDigits = normalizedQuery.length > 0;
+  const asinQuery = normalizeASIN(searchQuery);
+  const hasAsinQuery = asinQuery != null && asinQuery.length >= 2;
 
   return books.filter((book) => {
     const titleMatch = book.title.toLowerCase().includes(q);
@@ -26,8 +29,13 @@ export function filterBooksBySearch(
       hasDigits && book.isbn13 && norm(book.isbn13).includes(normalizedQuery);
     const isbn10Match =
       hasDigits && book.isbn10 && norm(book.isbn10).includes(normalizedQuery);
+    const bookAsin = normalizeASIN(book.asin);
+    const asinMatch =
+      hasAsinQuery &&
+      bookAsin != null &&
+      bookAsin.includes(asinQuery!);
 
-    return titleMatch || authorMatch || isbn13Match || isbn10Match;
+    return titleMatch || authorMatch || isbn13Match || isbn10Match || asinMatch;
   });
 }
 

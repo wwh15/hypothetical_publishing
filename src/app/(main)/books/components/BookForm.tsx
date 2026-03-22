@@ -439,6 +439,7 @@ export default function BookForm({
             seriesName: null,
             seriesOrder: null,
             coverArtPath: null,
+            asin: null,
           };
 
           onBookCreated?.(book);

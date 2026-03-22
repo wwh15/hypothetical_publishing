@@ -3,13 +3,15 @@
 import { useMemo } from "react";
 import type { PendingSaleItem } from "@/lib/data/records";
 import { BookListItem } from "@/lib/data/books";
-import { 
-  normalizeCurrency, 
-  normalizeQuantity, 
-  normalizeISBN, // Import this!
+import {
+  normalizeCurrency,
+  normalizeQuantity,
+  normalizeISBN,
+  normalizeASIN,
   validateDatePeriod,
   validateCurrency,
-  validateQuantity, 
+  validateQuantity,
+  validateNonNegativeNumber,
 } from "@/lib/validation";
 
 export type ParsedSaleRow = {
@@ -34,11 +36,12 @@ export function useBulkPasteSubmit(
     const map = new Map<string, BookListItem>();
 
     for (const book of booksData) {
-      // Use the helper that preserves 'X'
       const isbn13 = normalizeISBN(book.isbn13);
       const isbn10 = normalizeISBN(book.isbn10);
+      const asin = normalizeASIN(book.asin);
       if (isbn13) map.set(isbn13, book);
       if (isbn10) map.set(isbn10, book);
+      if (asin) map.set(asin, book);
     }
     return map;
   }, [booksData]);
@@ -72,9 +75,12 @@ export function useBulkPasteSubmit(
       // Business Logic Validation
       const dateCheck = validateDatePeriod(selectedDate.year, selectedDate.month);
       const revenueCheck = validateCurrency(publisherRevenue);
-      const royaltyCheck = validateCurrency(authorRoyalty);
+      const royaltyCheck = validateNonNegativeNumber(
+        authorRoyalty,
+        "Author royalty"
+      );
       const qtyCheck = validateQuantity(quantity);
-      
+
       if (!revenueCheck.success || !royaltyCheck.success || !qtyCheck.success || !dateCheck.success) {
         const rowErrors: Record<string, string> = {};
         if (!revenueCheck.success) rowErrors.publisherRevenue = revenueCheck.error;
@@ -88,14 +94,17 @@ export function useBulkPasteSubmit(
 
       const comment = `Ingram Import: Format='${row.format}' Market='${row.salesMarket}' File='${fileName}' (${importTimestamp})`;
 
-      // FINAL RECORD CONSTRUCTION
+      // FINAL RECORD CONSTRUCTION (Ingram CSV: print units, distributor / Other)
       const record: PendingSaleItem = {
+        clientId: crypto.randomUUID(),
         bookId: book.id,
         title: book.title,
         author: book.author,
         date: dateCheck.data,
-        // Ensure final rounding to integers and cents
-        quantity: normalizeQuantity(qtyCheck.data), 
+        quantity: normalizeQuantity(qtyCheck.data),
+        kenp: null,
+        format: "PRINT",
+        distributor: source === "DISTRIBUTOR" ? "OTHER" : null,
         publisherRevenueUSD: normalizeCurrency(revenueCheck.data),
         publisherRevenueOriginal: normalizeCurrency(revenueCheck.data),
         currency: "USD",

@@ -25,6 +25,14 @@ function allowedFormats(source: SaleSource, distributor: Distributor | null): re
   return [];
 }
 
+/** Allowed sale formats for a source + distributor (for forms, filters, etc.). */
+export function getAllowedSaleFormats(
+  source: SaleSource,
+  distributor: Distributor | null
+): SaleFormat[] {
+  return [...allowedFormats(source, distributor)];
+}
+
 export interface SaleValidationInput {
   source: SaleSource;
   distributor: Distributor | null;

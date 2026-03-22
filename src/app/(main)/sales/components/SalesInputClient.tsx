@@ -35,13 +35,16 @@ export default function SalesInputClient({
     setSubmitError(null);
 
     let failed = 0;
+    let firstError: string | null = null;
     for (const record of pendingRecords) {
       const result = await addSale({
         bookId: record.bookId,
         date: record.date,
         quantity: record.quantity,
-        format: "PRINT",
-        distributor: record.source === "DISTRIBUTOR" ? "OTHER" : null,
+        kenp: record.kenp,
+        format: record.format,
+        distributor:
+          record.source === "DISTRIBUTOR" ? record.distributor : null,
         publisherRevenueUSD: record.publisherRevenueUSD,
         publisherRevenueOriginal: record.publisherRevenueOriginal,
         currency: record.currency,
@@ -50,7 +53,12 @@ export default function SalesInputClient({
         comment: record.comment ?? null,
         source: record.source,
       });
-      if (!result.success) failed += 1;
+      if (!result.success) {
+        failed += 1;
+        if (!firstError && "error" in result && result.error) {
+          firstError = result.error;
+        }
+      }
     }
 
     setIsSubmitting(false);
@@ -60,7 +68,9 @@ export default function SalesInputClient({
       // optional: set a short-lived "Saved!" message
     } else {
       setSubmitError(
-        `Failed to save ${failed} of ${pendingRecords.length} record(s).`,
+        firstError
+          ? `${firstError} (${failed} of ${pendingRecords.length} failed).`
+          : `Failed to save ${failed} of ${pendingRecords.length} record(s).`,
       );
     }
   };
@@ -71,31 +81,13 @@ export default function SalesInputClient({
   };
 
   const handleRemove = (row: PendingSaleItem) => {
-    setPendingRecords((prev) => {
-      const index = prev.findIndex(
-        (r) =>
-          r.bookId === row.bookId &&
-          r.date === row.date &&
-          r.quantity === row.quantity &&
-          r.publisherRevenueUSD === row.publisherRevenueUSD &&
-          r.publisherRevenueOriginal === row.publisherRevenueOriginal &&
-          r.currency === row.currency
-      );
-      return index !== -1 ? prev.filter((_, i) => i !== index) : prev;
-    });
+    setPendingRecords((prev) => prev.filter((r) => r.clientId !== row.clientId));
   };
 
   const handleTogglePaid = (row: PendingSaleItem) => {
     setPendingRecords((prev) =>
       prev.map((r) =>
-        r.bookId === row.bookId &&
-        r.date === row.date &&
-        r.quantity === row.quantity &&
-        r.publisherRevenueUSD === row.publisherRevenueUSD &&
-        r.publisherRevenueOriginal === row.publisherRevenueOriginal &&
-        r.currency === row.currency
-          ? { ...r, paid: !r.paid }
-          : r,
+        r.clientId === row.clientId ? { ...r, paid: !r.paid } : r,
       ),
     );
   };

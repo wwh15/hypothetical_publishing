@@ -87,6 +87,13 @@ function buildSearchWhereClause(
       params.push(`%${normalizedIsbn}%`);
       paramIndex++;
     }
+
+    const normalizedAsin = trimmedSearch.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+    if (normalizedAsin.length >= 4) {
+      whereConditions.push(`UPPER(REPLACE(REPLACE(b.asin, '-', ''), ' ', '')) LIKE $${paramIndex}`);
+      params.push(`%${normalizedAsin}%`);
+      paramIndex++;
+    }
   }
 
   const whereClause =
@@ -138,6 +145,7 @@ export async function getBooksSortedByTotalSales(
       a.name AS author,
       b.isbn13,
       b.isbn10,
+      b.asin,
       b.publication_date,
       b.dist_author_royalty_rate,
       b.hand_sold_author_royalty_rate,
@@ -152,7 +160,7 @@ export async function getBooksSortedByTotalSales(
     LEFT JOIN sales s ON s.book_id = b.id
     LEFT JOIN series ser ON ser.id = b.series_id
     ${whereClause}
-    GROUP BY b.id, b.title, a.name, b.isbn13, b.isbn10, b.publication_date, b.dist_author_royalty_rate, b.hand_sold_author_royalty_rate, b.cover_price, b.print_cost, b.series_order, ser.name, b.cover_art_path
+    GROUP BY b.id, b.title, a.name, b.isbn13, b.isbn10, b.asin, b.publication_date, b.dist_author_royalty_rate, b.hand_sold_author_royalty_rate, b.cover_price, b.print_cost, b.series_order, ser.name, b.cover_art_path
     ORDER BY ${orderByClause}
     LIMIT $${limitParamIndex}
     OFFSET $${offsetParamIndex}
@@ -177,6 +185,7 @@ export async function getBooksSortedByTotalSales(
       author: string;
       isbn13: string;
       isbn10: string | null;
+      asin: string | null;
       publication_date: Date;
       dist_author_royalty_rate: number;
       hand_sold_author_royalty_rate: number;
@@ -208,6 +217,7 @@ export async function getBooksSortedByTotalSales(
       author: row.author,
       isbn13: row.isbn13,
       isbn10: row.isbn10,
+      asin: row.asin,
       publicationDate: row.publication_date,
       publicationSortKey,
       distRoyaltyRate,
