@@ -134,6 +134,21 @@ export const normalizeASIN = (val: string | null | undefined): string | null => 
   return n.length > 0 ? n : null;
 };
 
+/** Optional Amazon ASIN (ebook edition); empty clears. Normalized to 10 alphanumeric chars. */
+export const validateASINOptional = (
+  val: string | null | undefined
+): ValidationResult<string | null> => {
+  const normalized = normalizeASIN(val);
+  if (!normalized) return { success: true, data: null };
+  if (normalized.length !== 10) {
+    return {
+      success: false,
+      error: "ASIN must be exactly 10 letters or digits",
+    };
+  }
+  return { success: true, data: normalized };
+};
+
 export const validateISBN = (val: string): ValidationResult<string> => {
   const clean = normalizeISBN(val);
   if (!clean) return { success: false, error: "ISBN is required" };
