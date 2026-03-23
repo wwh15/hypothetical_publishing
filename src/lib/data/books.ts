@@ -53,6 +53,8 @@ export interface CreateBookInput {
   email: string; // email of author
   isbn13: string;
   isbn10?: string;
+  /** Amazon ebook ASIN (optional); normalized 10 alphanumeric chars. */
+  asin?: string | null;
   /** First day of publication month (e.g. new Date(2024, 0, 1) for Jan 2024) */
   publicationDate: Date;
   distRoyaltyRate?: number; // Distributor royalty percentage (e.g., 50), default handled by server
@@ -84,6 +86,8 @@ export interface BookDetail {
   email: string;
   isbn13: string;
   isbn10: string | null;
+  /** Amazon ebook ASIN (optional). */
+  asin: string | null;
   /** First day of publication month */
   publicationDate: Date;
   distRoyaltyRate: number;
@@ -479,6 +483,7 @@ export async function getBookById(id: number): Promise<BookDetail | null> {
     email: book.author.email,
     isbn13: book.isbn13 as string,
     isbn10: book.isbn10,
+    asin: book.asin ?? null,
     publicationDate: book.publicationDate as Date,
     distRoyaltyRate,
     handSoldRoyaltyRate,
@@ -559,6 +564,7 @@ export async function createBook(
           title: input.title,
           isbn13: input.isbn13,
           isbn10: input.isbn10 || null,
+          asin: input.asin ?? null,
           distAuthorRoyaltyRate,
           handSoldAuthorRoyaltyRate,
           coverPrice: input.coverPrice,
@@ -587,11 +593,15 @@ export async function createBook(
     ) {
       const field = (error as { meta?: { target?: string[] } }).meta
         ?.target?.[0];
+      const label =
+        field === "isbn13"
+          ? "ISBN-13"
+          : field === "asin"
+            ? "ASIN"
+            : "ISBN-10";
       return {
         success: false,
-        error: `A book with this ${
-          field === "isbn13" ? "ISBN-13" : "ISBN-10"
-        } already exists`,
+        error: `A book with this ${label} already exists`,
       };
     }
 
@@ -640,6 +650,9 @@ export async function updateBook(
         updateData.isbn13 = input.isbn13;
       if (input.isbn10 !== undefined)
         updateData.isbn10 = input.isbn10 || null;
+      if (input.asin !== undefined) {
+        updateData.asin = input.asin;
+      }
       if (input.distRoyaltyRate !== undefined) {
         updateData.distAuthorRoyaltyRate = input.distRoyaltyRate / 100;
       }
@@ -713,11 +726,15 @@ export async function updateBook(
     ) {
       const field = (error as { meta?: { target?: string[] } }).meta
         ?.target?.[0];
+      const label =
+        field === "isbn13"
+          ? "ISBN-13"
+          : field === "asin"
+            ? "ASIN"
+            : "ISBN-10";
       return {
         success: false,
-        error: `A book with this ${
-          field === "isbn13" ? "ISBN-13" : "ISBN-10"
-        } already exists`,
+        error: `A book with this ${label} already exists`,
       };
     }
 

@@ -21,7 +21,7 @@ import { AuthorSelectBox } from "../../authors/components/AuthorSelectBox";
 import { getAllAuthors } from "../../authors/actions";
 import { Author } from "@prisma/client";
 import MonthYearSelector from "@/components/MonthYearSelector";
-import { validateISBN10 } from "@/lib/validation";
+import { validateISBN10, validateASINOptional } from "@/lib/validation";
 
 interface BookFormProps {
   bookId?: number;
@@ -71,6 +71,7 @@ export default function BookForm({
     email: "",
     isbn13: "",
     isbn10: "",
+    asin: "",
     publicationDate: "", // YYYY-MM or empty
     distRoyaltyRate: "50", // Default 50%
     handSoldRoyaltyRate: "20", // Default 20%
@@ -108,6 +109,7 @@ export default function BookForm({
         email: initialData.email,
         isbn13: initialData.isbn13 || "",
         isbn10: initialData.isbn10 || "",
+        asin: initialData.asin || "",
         publicationDate,
         distRoyaltyRate: initialData.distRoyaltyRate.toString(),
         handSoldRoyaltyRate: initialData.handSoldRoyaltyRate.toString(),
@@ -215,6 +217,7 @@ export default function BookForm({
           email: matchedAuthor ? (data.matchedAuthorEmail ?? "") : "",
           isbn13: data.isbn13 || "",
           isbn10: data.isbn10 || "",
+          asin: "",
           publicationDate,
           distRoyaltyRate: "50",
           handSoldRoyaltyRate: "20",
@@ -269,6 +272,14 @@ export default function BookForm({
       return;
     }
     const isbn10 = isbn10Result.data ?? undefined;
+
+    const asinResult = validateASINOptional(formData.asin);
+    if (!asinResult.success) {
+      setError(asinResult.error);
+      setIsSubmitting(false);
+      return;
+    }
+    const asin = asinResult.data;
 
     // Validate ISBN-13 length (should be 13 digits)
     if (isbn13 && isbn13.length !== 13) {
@@ -357,6 +368,7 @@ export default function BookForm({
         email: formData.email.trim(),
         isbn13: isbn13.trim(),
         isbn10: isbn10 || undefined,
+        asin,
         publicationDate,
         distRoyaltyRate: distRate,
         handSoldRoyaltyRate: handSoldRate,
@@ -439,7 +451,7 @@ export default function BookForm({
             seriesName: null,
             seriesOrder: null,
             coverArtPath: null,
-            asin: null,
+            asin,
           };
 
           onBookCreated?.(book);
@@ -643,6 +655,36 @@ export default function BookForm({
             placeholder="1234567890"
             maxLength={13} // Allow for dashes/spaces
           />
+        </div>
+
+        {/* ASIN (Amazon ebook) */}
+        <div className="space-y-2">
+          <label
+            htmlFor="asin"
+            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+          >
+            ASIN
+          </label>
+          <input
+            id="asin"
+            type="text"
+            value={formData.asin}
+            onChange={(e) => handleInputChange("asin", e.target.value)}
+            className={cn(
+              "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background",
+              "file:border-0 file:bg-transparent file:text-sm file:font-medium",
+              "placeholder:text-muted-foreground",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+              "disabled:cursor-not-allowed disabled:opacity-50",
+              "dark:bg-gray-700",
+            )}
+            placeholder="B012345678"
+            maxLength={14}
+            autoComplete="off"
+          />
+          <p className="text-xs text-muted-foreground">
+            Optional. Amazon Standard Identification Number for the ebook edition (10 characters; dashes ignored).
+          </p>
         </div>
 
         {/* Publication Date (Month/Year) */}
