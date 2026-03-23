@@ -1,5 +1,6 @@
 import { prisma } from "../prisma";
 import { Decimal } from "@prisma/client/runtime/library";
+import type { Distributor, SaleFormat, SaleSource } from "@prisma/client";
 
 // --- Types ---
 
@@ -13,17 +14,33 @@ export interface AuthorRoyaltyReportParams {
 
 /** Single cell: aggregates for one (period × book) */
 export interface ReportCell {
+  /** Print, handsold */
+  qtyPrintHandsold: number;
+  /** Print, Ingram Spark */
+  qtyPrintIngramSpark: number;
+  /** Print, Amazon */
+  qtyPrintAmazon: number;
+  /** eBook, Amazon */
+  qtyEbookAmazon: number;
+  /** Print, Other distributor */
+  qtyPrintOther: number;
+  /** eBook, Other distributor */
+  qtyEbookOther: number;
+  /** Sum of unit sales (print/ebook); excludes KU (KENP only) */
   quantitySold: number;
+  /** Handsold units only (same subset as print handsold in this schema) */
   quantityHandsold: number;
+  /** Amazon Kindle Unlimited KENP pages */
+  kenp: number;
   royaltyUnpaid: number;
   royaltyPaid: number;
   royaltyTotal: number;
 }
 
-/** One period column: a quarter or "Total" (sum of selected quarters) */
+/** One period column: a quarter or range total */
 export interface ReportPeriod {
   label: string;
-  /** "2025-Q2" or "total" */
+  /** e.g. "2025-Q2" or "total" */
   key: string;
   /** For quarter periods: 1-4; for total: null */
   quarter: number | null;
@@ -49,19 +66,9 @@ export interface AuthorRoyaltyReportResult {
 
 // --- Quarter / date helpers ---
 
-/** First day of quarter (month 0-indexed for Date) */
-function quarterStartDate(quarter: number, year: number): Date {
-  const startMonth = (quarter - 1) * 3; // 0, 3, 6, 9
-  return new Date(year, startMonth, 1, 0, 0, 0, 0);
-}
-
-/** Last moment of quarter (e.g. Q1 → March 31 23:59:59.999) */
-function quarterEndDate(quarter: number, year: number): Date {
-  const monthAfterQuarter = quarter * 3; // 3, 6, 9, 12 (1-indexed)
-  return new Date(year, monthAfterQuarter, 0, 23, 59, 59, 999);
-}
-
-/** List quarters from (startQ, startY) through (endQ, endY) inclusive, plus Total (sum of those quarters) */
+/**
+ * Quarters in range, then "Total (selected range)" (sum of those quarters).
+ */
 function listQuarters(
   startQuarter: number,
   startYear: number,
@@ -90,7 +97,7 @@ function listQuarters(
   }
 
   periods.push({
-    label: "Total",
+    label: "Total (selected range)",
     key: "total",
     quarter: null,
     year: null,
@@ -107,10 +114,23 @@ function quarterFromDate(d: Date): number {
 // --- Data fetching ---
 
 /**
- * Fetch all sales for the given author's books (no date filter).
- * Quarter columns and the Total column are filtered in memory to the selected quarter range.
+ * Fetch all sales for the given author's books.
+ * Quarter columns and range total are assigned in memory by sale date quarter.
  */
-async function fetchSalesForReport(authorId: number) {
+type SaleForReport = {
+  bookId: number;
+  year: number;
+  quarter: number;
+  source: SaleSource;
+  distributor: Distributor | null;
+  format: SaleFormat;
+  quantity: number;
+  kenp: number;
+  paid: boolean;
+  authorRoyalty: Decimal;
+};
+
+async function fetchSalesForReport(authorId: number): Promise<SaleForReport[]> {
   const sales = await prisma.sale.findMany({
     where: { book: { authorId } },
     select: {
@@ -118,6 +138,9 @@ async function fetchSalesForReport(authorId: number) {
       date: true,
       quantity: true,
       source: true,
+      distributor: true,
+      format: true,
+      kenp: true,
       paid: true,
       authorRoyalty: true,
     },
@@ -127,8 +150,12 @@ async function fetchSalesForReport(authorId: number) {
     bookId: s.bookId,
     year: s.date.getFullYear(),
     quarter: quarterFromDate(s.date),
+    source: s.source,
+    distributor: s.distributor,
+    format: s.format,
     quantity: s.quantity ?? 0,
-    handsold: s.source === "HAND_SOLD",
+    kenp:
+      s.kenp != null ? new Decimal(s.kenp.toString()).toNumber() : 0,
     paid: s.paid,
     authorRoyalty: new Decimal(s.authorRoyalty.toString()),
   }));
@@ -167,8 +194,15 @@ async function fetchAuthorBooksSorted(authorId: number) {
 /** Build empty cell */
 function emptyCell(): ReportCell {
   return {
+    qtyPrintHandsold: 0,
+    qtyPrintIngramSpark: 0,
+    qtyPrintAmazon: 0,
+    qtyEbookAmazon: 0,
+    qtyPrintOther: 0,
+    qtyEbookOther: 0,
     quantitySold: 0,
     quantityHandsold: 0,
+    kenp: 0,
     royaltyUnpaid: 0,
     royaltyPaid: 0,
     royaltyTotal: 0,
@@ -176,24 +210,56 @@ function emptyCell(): ReportCell {
 }
 
 /** Add a sale's contribution into a cell (mutates) */
-function addToCell(
-  cell: ReportCell,
-  quantity: number,
-  handsold: boolean,
-  paid: boolean,
-  royalty: Decimal
-) {
-  const r = royalty.toNumber();
-  cell.quantitySold += quantity;
-  if (handsold) cell.quantityHandsold += quantity;
-  if (paid) cell.royaltyPaid += r;
+function addSaleToCell(cell: ReportCell, s: SaleForReport) {
+  const r = s.authorRoyalty.toNumber();
+  if (s.paid) cell.royaltyPaid += r;
   else cell.royaltyUnpaid += r;
   cell.royaltyTotal += r;
+
+  const qty = s.quantity;
+  if (s.source === "HAND_SOLD" && s.format === "PRINT") {
+    cell.qtyPrintHandsold += qty;
+    cell.quantityHandsold += qty;
+    cell.quantitySold += qty;
+    return;
+  }
+
+  if (s.source !== "DISTRIBUTOR" || s.distributor == null) return;
+
+  if (s.distributor === "INGRAM_SPARK" && s.format === "PRINT") {
+    cell.qtyPrintIngramSpark += qty;
+    cell.quantitySold += qty;
+    return;
+  }
+
+  if (s.distributor === "AMAZON") {
+    if (s.format === "PRINT") {
+      cell.qtyPrintAmazon += qty;
+      cell.quantitySold += qty;
+    } else if (s.format === "EBOOK") {
+      cell.qtyEbookAmazon += qty;
+      cell.quantitySold += qty;
+    } else if (s.format === "KINDLE_UNLIMITED") {
+      cell.kenp += s.kenp;
+    }
+    return;
+  }
+
+  if (s.distributor === "OTHER") {
+    if (s.format === "PRINT") {
+      cell.qtyPrintOther += qty;
+      cell.quantitySold += qty;
+    } else if (s.format === "EBOOK") {
+      cell.qtyEbookOther += qty;
+      cell.quantitySold += qty;
+    }
+  }
 }
 
 /**
- * Get full author royalty report data: books × periods with quantity sold,
- * quantity handsold, royalty unpaid/paid/total. Includes a Total column (sum of selected quarters) and all-book totals.
+ * Books × periods: per-cell quantity breakdown (handsold, Ingram, Amazon print/ebook,
+ * Other print/ebook, totals, handsold, KENP), royalties unpaid/paid/total.
+ * Periods: each quarter in range and "Total (selected range)". Last row is all-book totals.
  */
 export async function getAuthorRoyaltyReportData(
   params: AuthorRoyaltyReportParams
@@ -227,7 +293,7 @@ export async function getAuthorRoyaltyReportData(
     periods.map((p, i) => [p.key, i])
   );
   const numPeriods = periods.length;
-  const totalPeriodIndex = numPeriods - 1; // "Total" = sum of selected quarters
+  const totalPeriodIndex = numPeriods - 1;
   const quarterPeriodKeys = new Set(
     periods.slice(0, -1).map((p) => p.key)
   );
@@ -259,16 +325,14 @@ export async function getAuthorRoyaltyReportData(
     const inRange = quarterPeriodKeys.has(quarterKey);
     const periodIdx = periodKeys.get(quarterKey);
 
+    const addTo = (col: number) => {
+      addSaleToCell(cells[rowIdx][col], s);
+      addSaleToCell(cells[allBooksRowIndex][col], s);
+    };
+
     if (inRange && periodIdx != null) {
-      const cell = cells[rowIdx][periodIdx];
-      addToCell(cell, s.quantity, s.handsold, s.paid, s.authorRoyalty);
-      const allBooksCell = cells[allBooksRowIndex][periodIdx];
-      addToCell(allBooksCell, s.quantity, s.handsold, s.paid, s.authorRoyalty);
-      // Total column = sum of selected quarters only
-      const totalCell = cells[rowIdx][totalPeriodIndex];
-      addToCell(totalCell, s.quantity, s.handsold, s.paid, s.authorRoyalty);
-      const allBooksTotal = cells[allBooksRowIndex][totalPeriodIndex];
-      addToCell(allBooksTotal, s.quantity, s.handsold, s.paid, s.authorRoyalty);
+      addTo(periodIdx);
+      addTo(totalPeriodIndex);
     }
   }
 
