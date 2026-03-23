@@ -10,6 +10,7 @@ const mockBooks: BookListItem[] = [
     author: "John Doe",
     isbn13: "9781617293856",
     isbn10: "1617293859",
+    asin: null,
     publicationDate: new Date(2018, 2, 1), // March 2018
     publicationSortKey: "2018-03",
     distRoyaltyRate: 10,
@@ -19,6 +20,7 @@ const mockBooks: BookListItem[] = [
     totalSales: 100,
     seriesName: null,
     seriesOrder: null,
+    coverArtPath: null,
   },
   {
     id: 2,
@@ -26,6 +28,7 @@ const mockBooks: BookListItem[] = [
     author: "Jane Smith",
     isbn13: "9781492037651",
     isbn10: "1492037658",
+    asin: null,
     publicationDate: new Date(2020, 5, 1),
     publicationSortKey: "2020-06",
     distRoyaltyRate: 15,
@@ -35,6 +38,7 @@ const mockBooks: BookListItem[] = [
     totalSales: 50,
     seriesName: null,
     seriesOrder: null,
+    coverArtPath: null,
   },
 ];
 

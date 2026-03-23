@@ -90,12 +90,15 @@ export function useBulkPasteSubmit(
 
       // FINAL RECORD CONSTRUCTION
       const record: PendingSaleItem = {
+        id: crypto.randomUUID(),
         bookId: book.id,
         title: book.title,
         author: book.author,
         date: dateCheck.data,
-        // Ensure final rounding to integers and cents
-        quantity: normalizeQuantity(qtyCheck.data), 
+        quantity: normalizeQuantity(qtyCheck.data),
+        kenp: null,
+        format: "PRINT",
+        distributor: "INGRAM_SPARK",
         publisherRevenueUSD: normalizeCurrency(revenueCheck.data),
         publisherRevenueOriginal: normalizeCurrency(revenueCheck.data),
         currency: "USD",

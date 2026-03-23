@@ -247,9 +247,24 @@ export function getPendingColumns(
       render: (row) => row.author,
     },
     {
+      key: "format",
+      header: "Format",
+      render: (row) => salesCellRenderers.format(row.format),
+    },
+    {
+      key: "distributor",
+      header: "Distributor",
+      render: (row) => salesCellRenderers.distributor(row.distributor),
+    },
+    {
       key: "quantity",
       header: "Quantity",
       render: (row) => salesCellRenderers.quantity(row.quantity),
+    },
+    {
+      key: "kenp",
+      header: "KENP",
+      render: (row) => salesCellRenderers.kenp(row.kenp),
     },
     {
       key: "currency",

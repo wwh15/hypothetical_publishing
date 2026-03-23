@@ -23,12 +23,16 @@ export interface SaleListItem {
 }
 
 export interface PendingSaleItem {
-  // No id - these aren't saved yet
+  /** Client-only key for pending-table remove/toggle; not sent to the server */
+  id: string;
   bookId: number;
   title: string;
   author: string;
-  date: Date; // MM-YYYY format
-  quantity: number;
+  date: Date; // First day of sale month (UTC)
+  quantity: number | null;
+  kenp: number | null;
+  format: "PRINT" | "EBOOK" | "KINDLE_UNLIMITED";
+  distributor: "INGRAM_SPARK" | "AMAZON" | "OTHER" | null;
   publisherRevenueUSD: number;
   publisherRevenueOriginal: number;
   currency: string;

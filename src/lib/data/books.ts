@@ -21,6 +21,8 @@ export interface BookListItem {
   author: string;
   isbn13: string;
   isbn10: string | null;
+  /** Amazon ASIN for the ebook edition (optional). */
+  asin: string | null;
   /** First day of publication month (e.g. 2024-01-01) */
   publicationDate: Date;
   /** YYYY-MM string for sorting */
@@ -230,6 +232,7 @@ export async function getAllBooks(): Promise<BookListItem[]> {
       author: book.author.name,
       isbn13: book.isbn13 as string,
       isbn10: book.isbn10,
+      asin: book.asin ?? null,
       publicationDate: book.publicationDate as Date,
       publicationSortKey,
       distRoyaltyRate,
@@ -360,6 +363,7 @@ export async function getBooksData({
       author: book.author.name,
       isbn13: book.isbn13 as string,
       isbn10: book.isbn10,
+      asin: book.asin ?? null,
       publicationDate: book.publicationDate as Date,
       publicationSortKey,
       distRoyaltyRate,
@@ -408,6 +412,7 @@ export async function getBooksByAuthorId(
       author: book.author.name,
       isbn13: book.isbn13 as string,
       isbn10: book.isbn10,
+      asin: book.asin ?? null,
       publicationDate: book.publicationDate as Date,
       publicationSortKey,
       distRoyaltyRate,

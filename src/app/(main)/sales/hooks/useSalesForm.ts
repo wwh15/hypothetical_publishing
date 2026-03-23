@@ -200,11 +200,15 @@ export function useSalesForm(
 
     // 4. Submit
     onAddRecord({
+      id: crypto.randomUUID(),
       bookId: book.id,
       title: book.title,
       author: book.author,
       date: dateCheck.data,
       quantity: qtyCheck.data,
+      kenp: null,
+      format: "PRINT",
+      distributor: formData.source === "DISTRIBUTOR" ? "OTHER" : null,
       publisherRevenueOriginal: originalRevCheck.data,
       publisherRevenueUSD: normalizeCurrency(formData.publisherRevenueUSD),
       authorRoyalty: royaltyAmount,

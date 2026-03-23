@@ -27,6 +27,7 @@ describe("getBooksData", () => {
         title: "Test Book",
         isbn13: "9781234567890",
         isbn10: "1234567890",
+        asin: null,
         publicationDate: new Date(2020, 5, 1), // June 2020
         distAuthorRoyaltyRate: 0.1,
         handSoldAuthorRoyaltyRate: 0.05,
@@ -48,6 +49,7 @@ describe("getBooksData", () => {
       author: "Author One",
       isbn13: "9781234567890",
       isbn10: "1234567890",
+      asin: null,
       publicationDate: new Date(2020, 5, 1),
       publicationSortKey: "2020-06",
       distRoyaltyRate: 10,
