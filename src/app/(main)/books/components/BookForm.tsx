@@ -441,6 +441,7 @@ export default function BookForm({
             author: formData.author.trim(),
             isbn13: isbn13Val ?? isbn13!.trim(),
             isbn10: isbn10Val,
+            asin: null,
             publicationDate: publicationDate!,
             publicationSortKey: sortKey,
             distRoyaltyRate: distRate ?? 50,

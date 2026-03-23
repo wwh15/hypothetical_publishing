@@ -6,6 +6,7 @@ import { BookListItem } from "@/lib/data/books";
 import PendingRecordsTable from "./PendingRecordsTable";
 import InputRecordForm from "./InputRecordForm";
 import BulkPasteSalesPanel from "./BulkPasteSalesPanel";
+import AmazonXlsxImportPanel from "./AmazonXlsxImportPanel";
 import { addSale } from "../action";
 
 interface SalesInputClientProps {
@@ -35,7 +36,6 @@ export default function SalesInputClient({
     setSubmitError(null);
 
     let failed = 0;
-    let firstError: string | null = null;
     for (const record of pendingRecords) {
       const result = await addSale({
         bookId: record.bookId,
@@ -53,12 +53,7 @@ export default function SalesInputClient({
         comment: record.comment ?? null,
         source: record.source,
       });
-      if (!result.success) {
-        failed += 1;
-        if (!firstError && "error" in result && result.error) {
-          firstError = result.error;
-        }
-      }
+      if (!result.success) failed += 1;
     }
 
     setIsSubmitting(false);
@@ -68,9 +63,7 @@ export default function SalesInputClient({
       // optional: set a short-lived "Saved!" message
     } else {
       setSubmitError(
-        firstError
-          ? `${firstError} (${failed} of ${pendingRecords.length} failed).`
-          : `Failed to save ${failed} of ${pendingRecords.length} record(s).`,
+        `Failed to save ${failed} of ${pendingRecords.length} record(s).`,
       );
     }
   };
@@ -81,20 +74,22 @@ export default function SalesInputClient({
   };
 
   const handleRemove = (row: PendingSaleItem) => {
-    setPendingRecords((prev) => prev.filter((r) => r.clientId !== row.clientId));
+    setPendingRecords((prev) => prev.filter((r) => r.id !== row.id));
   };
 
   const handleTogglePaid = (row: PendingSaleItem) => {
     setPendingRecords((prev) =>
-      prev.map((r) =>
-        r.clientId === row.clientId ? { ...r, paid: !r.paid } : r,
-      ),
+      prev.map((r) => (r.id === row.id ? { ...r, paid: !r.paid } : r)),
     );
   };
 
   return (
     <>
       <BulkPasteSalesPanel
+        onAddRecord={handleAddRecord}
+        booksData={booksData}
+      />
+      <AmazonXlsxImportPanel
         onAddRecord={handleAddRecord}
         booksData={booksData}
       />

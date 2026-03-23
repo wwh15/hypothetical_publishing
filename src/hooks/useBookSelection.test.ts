@@ -10,6 +10,7 @@ const mockBooks: BookListItem[] = [
     author: "Author A",
     isbn13: "9781111111111",
     isbn10: null,
+    asin: null,
     publicationDate: new Date(2020, 0, 1),
     publicationSortKey: "2020-01",
     distRoyaltyRate: 10,
@@ -20,7 +21,6 @@ const mockBooks: BookListItem[] = [
     seriesName: null,
     seriesOrder: null,
     coverArtPath: null,
-    asin: null,
   },
   {
     id: 2,
@@ -28,6 +28,7 @@ const mockBooks: BookListItem[] = [
     author: "Author B",
     isbn13: "9782222222222",
     isbn10: null,
+    asin: null,
     publicationDate: new Date(2020, 0, 1),
     publicationSortKey: "2020-01",
     distRoyaltyRate: 15,
@@ -38,7 +39,6 @@ const mockBooks: BookListItem[] = [
     seriesName: null,
     seriesOrder: null,
     coverArtPath: null,
-    asin: null,
   },
 ];
 

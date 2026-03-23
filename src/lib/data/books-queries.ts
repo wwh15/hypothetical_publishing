@@ -87,13 +87,6 @@ function buildSearchWhereClause(
       params.push(`%${normalizedIsbn}%`);
       paramIndex++;
     }
-
-    const normalizedAsin = trimmedSearch.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
-    if (normalizedAsin.length >= 4) {
-      whereConditions.push(`UPPER(REPLACE(REPLACE(b.asin, '-', ''), ' ', '')) LIKE $${paramIndex}`);
-      params.push(`%${normalizedAsin}%`);
-      paramIndex++;
-    }
   }
 
   const whereClause =
@@ -217,7 +210,7 @@ export async function getBooksSortedByTotalSales(
       author: row.author,
       isbn13: row.isbn13,
       isbn10: row.isbn10,
-      asin: row.asin,
+      asin: row.asin ?? null,
       publicationDate: row.publication_date,
       publicationSortKey,
       distRoyaltyRate,
