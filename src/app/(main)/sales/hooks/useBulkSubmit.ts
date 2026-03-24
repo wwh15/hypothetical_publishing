@@ -104,7 +104,7 @@ export function useBulkPasteSubmit(
         quantity: normalizeQuantity(qtyCheck.data),
         kenp: null,
         format: "PRINT",
-        distributor: source === "DISTRIBUTOR" ? "OTHER" : null,
+        distributor: source === "DISTRIBUTOR" ? "INGRAM_SPARK" : null,
         publisherRevenueUSD: normalizeCurrency(revenueCheck.data),
         publisherRevenueOriginal: normalizeCurrency(revenueCheck.data),
         currency: "USD",
