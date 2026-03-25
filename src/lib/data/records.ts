@@ -2,6 +2,7 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "../prisma";
 import { Decimal } from "@prisma/client/runtime/library";
+import { validateSaleRecord } from "../validation/sale";
 
 export interface SaleListItem {
   id: number;
@@ -22,13 +23,13 @@ export interface SaleListItem {
   source: "DISTRIBUTOR" | "HAND_SOLD";
 }
 
+/** Staging row before DB insert; `id` disambiguates duplicate lines in the UI. */
 export interface PendingSaleItem {
-  /** Client-only key for pending-table remove/toggle; not sent to the server */
   id: string;
   bookId: number;
   title: string;
   author: string;
-  date: Date; // First day of sale month (UTC)
+  date: Date; // First day of sale month
   quantity: number | null;
   kenp: number | null;
   format: "PRINT" | "EBOOK" | "KINDLE_UNLIMITED";
@@ -37,7 +38,7 @@ export interface PendingSaleItem {
   publisherRevenueOriginal: number;
   currency: string;
   authorRoyalty: number;
-  paid: boolean; // Always false for pending, but included for consistency
+  paid: boolean;
   comment?: string | null;
   source: "DISTRIBUTOR" | "HAND_SOLD";
 }
@@ -79,6 +80,8 @@ export interface UpdateSaleItem {
   paid?: boolean;
   comment?: string | null;
   source?: "DISTRIBUTOR" | "HAND_SOLD";
+  distributor?: "INGRAM_SPARK" | "AMAZON" | "OTHER" | null;
+  format?: "PRINT" | "EBOOK" | "KINDLE_UNLIMITED";
 }
 
 // Sort field map for server-side sorting (column key -> Prisma orderBy asc)
@@ -398,17 +401,116 @@ export function toSaleListItem(sale: {
 }
 
 export async function asyncAddSale(data: Prisma.SaleUncheckedCreateInput) {
-  return await prisma.sale.create({ data });
+  const kenpNum =
+    data.kenp != null
+      ? typeof data.kenp === "object" &&
+          data.kenp !== null &&
+          "toNumber" in data.kenp
+        ? (data.kenp as Decimal).toNumber()
+        : Number(data.kenp)
+      : null;
+
+  const validated = validateSaleRecord({
+    source: data.source,
+    distributor: data.distributor ?? null,
+    format: data.format,
+    quantity: data.quantity ?? null,
+    kenp: kenpNum,
+    currency: String(data.currency ?? "USD"),
+    publisherRevenueOriginal: Number(data.publisherRevenueOriginal),
+    publisherRevenueUSD: Number(data.publisherRevenueUSD),
+    authorRoyalty: Number(data.authorRoyalty),
+    comment: data.comment ?? null,
+  });
+  if (!validated.success) {
+    throw new Error(validated.error);
+  }
+
+  const v = validated.data;
+  return await prisma.sale.create({
+    data: {
+      bookId: data.bookId,
+      date: data.date,
+      source: v.source,
+      distributor: v.distributor,
+      format: v.format,
+      quantity: v.quantity,
+      kenp: v.kenp != null ? new Decimal(v.kenp) : null,
+      currency: v.currency,
+      publisherRevenueOriginal: new Decimal(v.publisherRevenueOriginal),
+      publisherRevenueUSD: new Decimal(v.publisherRevenueUSD),
+      authorRoyalty: new Decimal(v.authorRoyalty),
+      paid: data.paid ?? false,
+      comment: v.comment ?? null,
+    },
+  });
 }
 
 // write ops moved here
-export async function asyncUpdateSale(
-  id: number,
-  data: UpdateSaleItem
-) {
+export async function asyncUpdateSale(id: number, data: UpdateSaleItem) {
+  const existing = await prisma.sale.findUnique({ where: { id } });
+  if (!existing) throw new Error("Sale not found.");
+
+  const mergedBookId = data.bookId ?? existing.bookId;
+  const mergedDate = data.date ?? existing.date;
+  const mergedSource = data.source ?? existing.source;
+  const mergedDistributor =
+    data.distributor !== undefined ? data.distributor : existing.distributor;
+  const mergedFormat = data.format ?? existing.format;
+  const mergedQuantity =
+    data.quantity !== undefined ? data.quantity : existing.quantity;
+  const mergedKenp =
+    data.kenp !== undefined
+      ? data.kenp
+      : existing.kenp != null
+        ? existing.kenp.toNumber()
+        : null;
+  const mergedCurrency = (data.currency ?? existing.currency).trim().toUpperCase();
+  const mergedPubOrig =
+    data.publisherRevenueOriginal ??
+    existing.publisherRevenueOriginal.toNumber();
+  const mergedPubUsd =
+    data.publisherRevenueUSD ?? existing.publisherRevenueUSD.toNumber();
+  const mergedRoyalty =
+    data.authorRoyalty ?? existing.authorRoyalty.toNumber();
+  const mergedComment =
+    data.comment !== undefined ? data.comment : existing.comment;
+
+  const validated = validateSaleRecord({
+    source: mergedSource,
+    distributor: mergedDistributor,
+    format: mergedFormat,
+    quantity: mergedQuantity,
+    kenp: mergedKenp,
+    currency: mergedCurrency,
+    publisherRevenueOriginal: mergedPubOrig,
+    publisherRevenueUSD: mergedPubUsd,
+    authorRoyalty: mergedRoyalty,
+    comment: mergedComment,
+  });
+
+  if (!validated.success) {
+    throw new Error(validated.error);
+  }
+
+  const v = validated.data;
+
   return await prisma.sale.update({
     where: { id },
-    data,
+    data: {
+      bookId: mergedBookId,
+      date: mergedDate,
+      source: v.source,
+      distributor: v.distributor,
+      format: v.format,
+      quantity: v.quantity,
+      kenp: v.kenp != null ? new Decimal(v.kenp) : null,
+      currency: v.currency,
+      publisherRevenueOriginal: new Decimal(v.publisherRevenueOriginal),
+      publisherRevenueUSD: new Decimal(v.publisherRevenueUSD),
+      authorRoyalty: new Decimal(v.authorRoyalty),
+      comment: v.comment ?? null,
+    },
     include: { book: true },
   });
 }

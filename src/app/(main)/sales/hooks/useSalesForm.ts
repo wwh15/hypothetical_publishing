@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import type { Distributor, SaleFormat } from "@prisma/client";
 import { PendingSaleItem } from "@/lib/data/records";
 import { BookListItem } from "@/lib/data/books";
 import {
@@ -10,42 +11,65 @@ import {
   validateRoyaltyLimit,
   validateQuantity,
   validateCurrency,
+  validateNonNegativeNumber,
 } from "@/lib/validation";
 import { convertCurrency } from "@/lib/currency-conversion";
+import {
+  getAllowedSaleFormats,
+  validateSaleRecord,
+} from "@/lib/validation/sale";
 
 interface FormData {
   month: string;
   year: string;
   bookId: string;
   quantity: string;
+  kenp: string;
   publisherRevenueUSD: string;
   publisherRevenueOriginal: string;
   authorRoyalty: string;
   comment: string;
   currency: string;
   source: "DISTRIBUTOR" | "HAND_SOLD";
+  distributor: Distributor;
+  format: SaleFormat;
 }
 
-/** Get the royalty rate (as percentage) for a book based on sale source */
-function getRateForSource(
-  book: BookListItem,
-  source: "DISTRIBUTOR" | "HAND_SOLD"
-): number {
-  return source === "HAND_SOLD"
-    ? book.handSoldRoyaltyRate
-    : book.distRoyaltyRate;
+function distributorForValidation(source: FormData["source"], d: Distributor) {
+  return source === "DISTRIBUTOR" ? d : null;
 }
 
-/** Auto-calculate revenue for hand-sold: (coverPrice - printCost) * quantity */
-function calcHandSoldRevenue(
-  book: BookListItem,
-  quantity: number
-): string | null {
-  if (quantity > 0) {
-    const rev = (book.coverPrice - book.printCost) * quantity;
-    return rev.toFixed(2);
+/** Coerce format/distributor/source rules after a field change */
+function coerceSaleForm(next: FormData, changedField: string): FormData {
+  let n = { ...next };
+
+  if (n.source === "HAND_SOLD") {
+    n = { ...n, format: "PRINT", kenp: "" };
   }
-  return null;
+
+  if (n.format === "KINDLE_UNLIMITED" && n.source === "DISTRIBUTOR") {
+    n = { ...n, distributor: "AMAZON" };
+  }
+
+  const dist = distributorForValidation(n.source, n.distributor);
+  const allowed = getAllowedSaleFormats(n.source, dist);
+  if (!allowed.includes(n.format)) {
+    n = { ...n, format: allowed[0] ?? "PRINT" };
+  }
+
+  if (changedField === "format") {
+    if (n.format === "KINDLE_UNLIMITED") {
+      n = { ...n, quantity: "" };
+    } else {
+      n = { ...n, kenp: "" };
+    }
+  }
+
+  if (changedField === "source" && n.source === "HAND_SOLD") {
+    n = { ...n, kenp: "" };
+  }
+
+  return n;
 }
 
 export function useSalesForm(
@@ -58,64 +82,67 @@ export function useSalesForm(
     year: new Date().getFullYear().toString(),
     bookId: initialBookId ? String(initialBookId) : "",
     quantity: "",
+    kenp: "",
     publisherRevenueUSD: "",
     publisherRevenueOriginal: "",
     authorRoyalty: "",
     comment: "",
     currency: "USD",
     source: "DISTRIBUTOR",
+    distributor: "OTHER",
+    format: "PRINT",
   });
 
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
+  const allowedFormats = useMemo(
+    () =>
+      getAllowedSaleFormats(
+        formData.source,
+        distributorForValidation(formData.source, formData.distributor)
+      ),
+    [formData.source, formData.distributor]
+  );
+
   const calculateDerivedValues = (next: FormData) => {
-    const book = books.find((b) => b.id === parseInt(next.bookId));
+    const book = books.find((b) => b.id === parseInt(next.bookId, 10));
     if (!book) return next;
 
-    // 1. Handle Hand-Sold Auto-Revenue
     if (next.source === "HAND_SOLD") {
-      // Per Req 3.4.1, handsold is (price - cost) * qty
-      // Per your implementation logic, these are always USD
       const qty = normalizeQuantity(next.quantity);
       const coverPrice = Number(book.coverPrice ?? 0);
       const printCost = Number(book.printCost ?? 0);
-      
       const rev = (coverPrice - printCost) * qty;
-      
-      // Lock to USD for Hand-Sold
-      next.currency = "USD"; 
+      next.currency = "USD";
       next.publisherRevenueOriginal = rev.toFixed(2);
       next.publisherRevenueUSD = rev.toFixed(2);
     } else {
-      // 2. Handle Distributor Conversion (Req 3.3)
-      // Convert the user-entered original amount to USD
       const originalAmount = Number(next.publisherRevenueOriginal || 0);
-      next.publisherRevenueUSD = convertCurrency(originalAmount, next.currency).toFixed(2);
+      next.publisherRevenueUSD = convertCurrency(
+        originalAmount,
+        next.currency
+      ).toFixed(2);
     }
 
-    // Royalty Calculation
     const rev = normalizeCurrency(next.publisherRevenueUSD);
     const rate =
       next.source === "HAND_SOLD"
         ? book.handSoldRoyaltyRate
         : book.distRoyaltyRate;
     const royalty = normalizeCurrency((rev * (rate ?? 0)) / 100);
-    next.authorRoyalty = next.publisherRevenueUSD !== "" ? royalty.toFixed(2) : "";
+    next.authorRoyalty =
+      next.publisherRevenueUSD !== "" ? royalty.toFixed(2) : "";
 
     return next;
   };
-
-  // Inside useSalesForm.ts
 
   const handleInputChange = (
     field: string,
     value: string | boolean | { month: string; year: string }
   ) => {
     setFormData((prev) => {
-      // 1. Initialize 'next' with current state
-      let next = { ...prev };
+      let next: FormData = { ...prev };
 
-      // 2. Handle the special "date" object from MonthYearSelector
       if (
         field === "date" &&
         typeof value === "object" &&
@@ -124,31 +151,31 @@ export function useSalesForm(
       ) {
         next.month = value.month;
         next.year = value.year;
+      } else if (field === "distributor") {
+        next = { ...next, distributor: value as Distributor };
+      } else if (field === "format") {
+        next = { ...next, format: value as SaleFormat };
+      } else if (field === "source") {
+        next = { ...next, source: value as "DISTRIBUTOR" | "HAND_SOLD" };
       } else {
-        // Standard string/boolean updates
-        next = { ...next, [field]: value };
+        next = { ...next, [field]: value } as FormData;
       }
 
-      // 3. Trigger Conversion Logic (Requirement 3.3)
-      // If currency or original revenue changed, update the USD field
-      if (field === "currency" || field === "publisherRevenueOriginal") {
-        next.publisherRevenueUSD = convertCurrency(
-          Number(next.publisherRevenueOriginal),
-          next.currency
-        ).toString();
-      }
-
-      // 4. Recalculate derived values (Hand-Sold Revenue, Royalties)
+      next = coerceSaleForm(next, field);
       return calculateDerivedValues(next);
     });
 
-    // 5. Clear errors for the specific field being updated
     if (field === "date" && formErrors.date) {
-      setFormErrors(({ date: _, ...rest }) => rest);
-    } else if (formErrors[field as keyof typeof formErrors]) {
       setFormErrors((prevErrors) => {
-        const { [field as keyof typeof prevErrors]: _, ...rest } = prevErrors;
-        return rest;
+        const next = { ...prevErrors };
+        delete next.date;
+        return next;
+      });
+    } else if (formErrors[field]) {
+      setFormErrors((prevErrors) => {
+        const next = { ...prevErrors };
+        delete next[field];
+        return next;
       });
     }
   };
@@ -156,15 +183,14 @@ export function useSalesForm(
   const handleBlur = (field: "publisherRevenueOriginal") => {
     setFormData((prev) => {
       const rawValue = prev[field];
-      if (!rawValue || isNaN(Number(rawValue.replace(/[,\s]/g, "")))) {
+      if (!rawValue || isNaN(Number(String(rawValue).replace(/[,\s]/g, "")))) {
         return prev;
       }
 
       const next = { ...prev };
-      if (field === "publisherRevenueOriginal")
-        next.publisherRevenueOriginal = normalizeCurrency(
-          prev.publisherRevenueOriginal
-        ).toFixed(2);
+      next.publisherRevenueOriginal = normalizeCurrency(
+        prev.publisherRevenueOriginal
+      ).toFixed(2);
 
       return calculateDerivedValues(next);
     });
@@ -174,54 +200,93 @@ export function useSalesForm(
     e.preventDefault();
     setFormErrors({});
 
-    // 1. Context Checks
-    const book = books.find((b) => b.id === parseInt(formData.bookId));
+    const book = books.find((b) => b.id === parseInt(formData.bookId, 10));
     if (!book) return setFormErrors({ bookId: "Please select a book" });
 
     const dateCheck = validateDatePeriod(formData.year, formData.month);
     if (!dateCheck.success) return setFormErrors({ date: dateCheck.error });
 
-    // 3. Validation Rules
-    const qtyCheck = validateQuantity(formData.quantity);
-    const originalRevCheck = validateCurrency(formData.publisherRevenueOriginal);
+    const isKu = formData.format === "KINDLE_UNLIMITED";
 
-    if (!qtyCheck.success || !originalRevCheck.success) {
-      return setFormErrors({
-        quantity: qtyCheck.success ? "" : qtyCheck.error,
-        publisherRevenue: originalRevCheck.success ? "" : originalRevCheck.error,
-      });
+    const qtyCheck = isKu ? null : validateQuantity(formData.quantity);
+    const kenpCheck = isKu
+      ? validateNonNegativeNumber(formData.kenp, "KENP")
+      : null;
+
+    if (!isKu && qtyCheck && !qtyCheck.success) {
+      return setFormErrors({ quantity: qtyCheck.error });
+    }
+    if (isKu && kenpCheck && !kenpCheck.success) {
+      return setFormErrors({ kenp: kenpCheck.error });
     }
 
-    const originalRev = originalRevCheck.data;
-    const royaltyAmount = normalizeCurrency(formData.authorRoyalty);
-    const limitCheck = validateRoyaltyLimit(royaltyAmount, originalRevCheck.data);
-    if (!limitCheck.success)
-      return setFormErrors({ authorRoyalty: limitCheck.error });
+    const originalRevCheck = validateCurrency(
+      formData.publisherRevenueOriginal,
+      "Publisher revenue"
+    );
+    if (!originalRevCheck.success) {
+      return setFormErrors({ publisherRevenue: originalRevCheck.error });
+    }
 
-    // 4. Submit
+    const royaltyAmount = normalizeCurrency(formData.authorRoyalty);
+    const revUsd = normalizeCurrency(formData.publisherRevenueUSD);
+    const limitCheck = validateRoyaltyLimit(royaltyAmount, revUsd);
+    if (!limitCheck.success) {
+      return setFormErrors({ authorRoyalty: limitCheck.error });
+    }
+
+    const distributorForSave = distributorForValidation(
+      formData.source,
+      formData.distributor
+    );
+
+    const quantityVal = isKu
+      ? null
+      : qtyCheck?.success
+        ? qtyCheck.data
+        : null;
+    const kenpVal = isKu && kenpCheck?.success ? kenpCheck.data : null;
+
+    const saleCheck = validateSaleRecord({
+      source: formData.source,
+      distributor: distributorForSave,
+      format: formData.format,
+      quantity: quantityVal,
+      kenp: kenpVal,
+      currency: formData.currency.trim().toUpperCase(),
+      publisherRevenueOriginal: originalRevCheck.data,
+      publisherRevenueUSD: revUsd,
+      authorRoyalty: royaltyAmount,
+      comment: formData.comment.trim() || null,
+    });
+
+    if (!saleCheck.success) {
+      return setFormErrors({ publisherRevenue: saleCheck.error });
+    }
+
     onAddRecord({
       id: crypto.randomUUID(),
       bookId: book.id,
       title: book.title,
       author: book.author,
       date: dateCheck.data,
-      quantity: qtyCheck.data,
-      kenp: null,
-      format: "PRINT",
-      distributor: formData.source === "DISTRIBUTOR" ? "OTHER" : null,
+      quantity: quantityVal,
+      kenp: kenpVal,
+      format: formData.format,
+      distributor: distributorForSave,
       publisherRevenueOriginal: originalRevCheck.data,
-      publisherRevenueUSD: normalizeCurrency(formData.publisherRevenueUSD),
+      publisherRevenueUSD: revUsd,
       authorRoyalty: royaltyAmount,
       paid: false,
-      currency: formData.currency,
+      currency: formData.currency.trim().toUpperCase(),
       comment: formData.comment.trim() || undefined,
       source: formData.source,
     });
 
-    // Reset keeping month/year/book context
     setFormData((prev) => ({
       ...prev,
       quantity: "",
+      kenp: "",
       publisherRevenueOriginal: "",
       publisherRevenueUSD: "",
       authorRoyalty: "",
@@ -229,5 +294,12 @@ export function useSalesForm(
     }));
   };
 
-  return { formData, formErrors, handleInputChange, handleBlur, handleSubmit };
+  return {
+    formData,
+    formErrors,
+    handleInputChange,
+    handleBlur,
+    handleSubmit,
+    allowedFormats,
+  };
 }
