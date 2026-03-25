@@ -25,6 +25,11 @@ export type ParseAmazonXlsxOptions = {
   now?: Date;
   /** When a row has no Marketplace column value */
   defaultMarketplace?: string;
+  /**
+   * Convert royalty in the row’s currency to USD. Defaults to `convertCurrency`.
+   * Inject in tests to avoid network/API.
+   */
+  convertToUsd?: (amount: number, currencyCode: string) => Promise<number>;
 };
 
 export type ParseAmazonXlsxSuccess = {

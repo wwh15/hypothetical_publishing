@@ -35,8 +35,22 @@ interface FormData {
   format: SaleFormat;
 }
 
-function distributorForValidation(source: FormData["source"], d: Distributor) {
+function distributorForValidation(
+  source: FormData["source"],
+  d: Distributor
+) {
   return source === "DISTRIBUTOR" ? d : null;
+}
+
+function calcHandSoldPublisherRevenueUSD(
+  book: BookListItem,
+  quantity: number
+): string {
+  if (quantity > 0) {
+    const rev = (book.coverPrice - (book.printCost ?? 0)) * quantity;
+    return rev.toFixed(2);
+  }
+  return "0.00";
 }
 
 /** Coerce format/distributor/source rules after a field change */
@@ -93,6 +107,7 @@ export function useSalesForm(
     format: "PRINT",
   });
 
+  const [isCalculating, setIsCalculating] = useState(false);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   const allowedFormats = useMemo(
@@ -104,102 +119,150 @@ export function useSalesForm(
     [formData.source, formData.distributor]
   );
 
-  const calculateDerivedValues = (next: FormData) => {
+  const calculateDerivedValues = async (
+    current: FormData
+  ): Promise<FormData> => {
+    const next = { ...current };
     const book = books.find((b) => b.id === parseInt(next.bookId, 10));
     if (!book) return next;
 
-    if (next.source === "HAND_SOLD") {
-      const qty = normalizeQuantity(next.quantity);
-      const coverPrice = Number(book.coverPrice ?? 0);
-      const printCost = Number(book.printCost ?? 0);
-      const rev = (coverPrice - printCost) * qty;
-      next.currency = "USD";
-      next.publisherRevenueOriginal = rev.toFixed(2);
-      next.publisherRevenueUSD = rev.toFixed(2);
-    } else {
-      const originalAmount = Number(next.publisherRevenueOriginal || 0);
-      next.publisherRevenueUSD = convertCurrency(
-        originalAmount,
-        next.currency
-      ).toFixed(2);
-    }
+    setIsCalculating(true);
 
-    const rev = normalizeCurrency(next.publisherRevenueUSD);
-    const rate =
-      next.source === "HAND_SOLD"
-        ? book.handSoldRoyaltyRate
-        : book.distRoyaltyRate;
-    const royalty = normalizeCurrency((rev * (rate ?? 0)) / 100);
-    next.authorRoyalty =
-      next.publisherRevenueUSD !== "" ? royalty.toFixed(2) : "";
+    try {
+      if (next.source === "HAND_SOLD") {
+        next.currency = "USD";
+        const qty = normalizeQuantity(next.quantity);
+        const revUsdStr = calcHandSoldPublisherRevenueUSD(book, qty);
+        next.publisherRevenueOriginal = revUsdStr;
+        next.publisherRevenueUSD = revUsdStr;
+      } else {
+        const originalAmount = Number(
+          next.publisherRevenueOriginal.replace(/[,\s]/g, "") || 0
+        );
+
+        if (next.currency === "USD") {
+          next.publisherRevenueUSD = originalAmount.toFixed(2);
+        } else if (originalAmount > 0) {
+          const converted = await convertCurrency(
+            originalAmount,
+            next.currency
+          );
+          next.publisherRevenueUSD = converted.toFixed(2);
+        } else {
+          next.publisherRevenueUSD = "0.00";
+        }
+      }
+
+      const revUsdNum = normalizeCurrency(next.publisherRevenueUSD);
+      const ratePct =
+        next.source === "HAND_SOLD"
+          ? book.handSoldRoyaltyRate
+          : book.distRoyaltyRate;
+
+      const royalty =
+        next.publisherRevenueUSD !== ""
+          ? normalizeCurrency((revUsdNum * (ratePct ?? 0)) / 100)
+          : 0;
+
+      next.authorRoyalty =
+        next.publisherRevenueUSD !== "" ? royalty.toFixed(2) : "";
+
+      setFormErrors((prev) => {
+        const { currency: _, ...rest } = prev;
+        return rest;
+      });
+    } catch (err) {
+      console.error("Calculation Error:", err);
+      setFormErrors((prev) => ({
+        ...prev,
+        currency: "Currency conversion failed.",
+      }));
+    } finally {
+      setIsCalculating(false);
+    }
 
     return next;
   };
 
-  const handleInputChange = (
+  const handleInputChange = async (
     field: string,
     value: string | boolean | { month: string; year: string }
   ) => {
-    setFormData((prev) => {
-      let next: FormData = { ...prev };
+    let next: FormData = { ...formData };
 
-      if (
-        field === "date" &&
-        typeof value === "object" &&
-        value !== null &&
-        "month" in value
-      ) {
-        next.month = value.month;
-        next.year = value.year;
-      } else if (field === "distributor") {
-        next = { ...next, distributor: value as Distributor };
-      } else if (field === "format") {
-        next = { ...next, format: value as SaleFormat };
-      } else if (field === "source") {
-        next = { ...next, source: value as "DISTRIBUTOR" | "HAND_SOLD" };
-      } else {
-        next = { ...next, [field]: value } as FormData;
-      }
+    if (
+      field === "date" &&
+      typeof value === "object" &&
+      value !== null &&
+      "month" in value
+    ) {
+      next.month = value.month;
+      next.year = value.year;
+    } else if (field === "distributor") {
+      next = { ...next, distributor: value as Distributor };
+    } else if (field === "format") {
+      next = { ...next, format: value as SaleFormat };
+    } else if (field === "source") {
+      next = { ...next, source: value as "DISTRIBUTOR" | "HAND_SOLD" };
+    } else {
+      next = { ...next, [field]: value } as FormData;
+    }
 
-      next = coerceSaleForm(next, field);
-      return calculateDerivedValues(next);
-    });
+    next = coerceSaleForm(next, field);
+
+    setFormData(next);
+
+    const triggerFields = [
+      "quantity",
+      "publisherRevenueOriginal",
+      "currency",
+      "bookId",
+      "source",
+      "format",
+      "distributor",
+    ];
+    if (triggerFields.includes(field)) {
+      const updatedData = await calculateDerivedValues(next);
+      setFormData(updatedData);
+    }
 
     if (field === "date" && formErrors.date) {
       setFormErrors((prevErrors) => {
-        const next = { ...prevErrors };
-        delete next.date;
-        return next;
+        const cleared = { ...prevErrors };
+        delete cleared.date;
+        return cleared;
       });
     } else if (formErrors[field]) {
       setFormErrors((prevErrors) => {
-        const next = { ...prevErrors };
-        delete next[field];
-        return next;
+        const cleared = { ...prevErrors };
+        delete cleared[field];
+        return cleared;
       });
     }
   };
 
-  const handleBlur = (field: "publisherRevenueOriginal") => {
-    setFormData((prev) => {
-      const rawValue = prev[field];
-      if (!rawValue || isNaN(Number(String(rawValue).replace(/[,\s]/g, "")))) {
-        return prev;
-      }
+  const handleBlur = async (field: "publisherRevenueOriginal") => {
+    const rawValue = formData[field];
+    if (
+      !rawValue ||
+      isNaN(Number(String(rawValue).replace(/[,\s]/g, "")))
+    ) {
+      return;
+    }
 
-      const next = { ...prev };
-      next.publisherRevenueOriginal = normalizeCurrency(
-        prev.publisherRevenueOriginal
-      ).toFixed(2);
+    const normalized = normalizeCurrency(rawValue).toFixed(2);
+    const intermediate = { ...formData, [field]: normalized };
 
-      return calculateDerivedValues(next);
-    });
+    setFormData(intermediate);
+    const final = await calculateDerivedValues(intermediate);
+    setFormData(final);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setFormErrors({});
+    if (isCalculating) return;
 
+    setFormErrors({});
     const book = books.find((b) => b.id === parseInt(formData.bookId, 10));
     if (!book) return setFormErrors({ bookId: "Please select a book" });
 
@@ -297,6 +360,7 @@ export function useSalesForm(
   return {
     formData,
     formErrors,
+    isCalculating,
     handleInputChange,
     handleBlur,
     handleSubmit,
