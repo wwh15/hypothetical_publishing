@@ -103,11 +103,11 @@ export default function AmazonXlsxImportPanel({
     }
 
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
       const buf = reader.result;
       if (!(buf instanceof ArrayBuffer)) return;
 
-      const result = parseAmazonXlsx(buf, {
+      const result = await parseAmazonXlsx(buf, {
         filename: file.name,
         booksByIsbn,
         booksByAsin,

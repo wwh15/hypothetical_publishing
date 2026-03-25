@@ -41,7 +41,7 @@ describe("normalizeAmazonAsin", () => {
 });
 
 describe("parseAmazonXlsx", () => {
-  it("reads sales period from row 1 and imports a print row", () => {
+  it("reads sales period from row 1 and imports a print row", async () => {
     const isbn = "9780123456789";
     const buf = buildWorkbook({
       "Paperback Royalty": [
@@ -54,7 +54,7 @@ describe("parseAmazonXlsx", () => {
     const booksByIsbn = new Map([[isbn.replace(/[-\s]/g, "").toUpperCase(), book()]]);
     const booksByAsin = new Map<string, AmazonImportBook>();
 
-    const result = parseAmazonXlsx(buf, {
+    const result = await parseAmazonXlsx(buf, {
       filename: "report.xlsx",
       booksByIsbn,
       booksByAsin,
@@ -78,7 +78,7 @@ describe("parseAmazonXlsx", () => {
     expect(r.comment).toContain("Paperback Royalty");
   });
 
-  it("matches columns by header name regardless of order", () => {
+  it("matches columns by header name regardless of order", async () => {
     const isbn = "9780123456789";
     const key = isbn.replace(/[-\s]/g, "").toUpperCase();
     const buf = buildWorkbook({
@@ -89,11 +89,16 @@ describe("parseAmazonXlsx", () => {
       ],
     });
 
-    const result = parseAmazonXlsx(buf, {
+    const result = await parseAmazonXlsx(buf, {
       filename: "f.xlsx",
       booksByIsbn: new Map([[key, book()]]),
       booksByAsin: new Map(),
       now: new Date("2025-01-01T00:00:00.000Z"),
+      convertToUsd: async (amount, code) => {
+        if (code.toUpperCase() === "GBP" && amount === 10) return 13.4;
+        if (code.toUpperCase() === "USD") return amount;
+        return amount;
+      },
     });
 
     expect(result.ok).toBe(true);
@@ -102,7 +107,7 @@ describe("parseAmazonXlsx", () => {
     expect(result.records[0].publisherRevenueUSD).toBe(13.4);
   });
 
-  it("errors when Units Refunded is not 0", () => {
+  it("errors when Units Refunded is not 0", async () => {
     const isbn = "9780123456789";
     const key = isbn.replace(/[-\s]/g, "").toUpperCase();
     const buf = buildWorkbook({
@@ -113,7 +118,7 @@ describe("parseAmazonXlsx", () => {
       ],
     });
 
-    const result = parseAmazonXlsx(buf, {
+    const result = await parseAmazonXlsx(buf, {
       filename: "f.xlsx",
       booksByIsbn: new Map([[key, book()]]),
       booksByAsin: new Map(),
@@ -126,7 +131,7 @@ describe("parseAmazonXlsx", () => {
     expect(result.errors[0].row).toBe(3);
   });
 
-  it("errors on eBook when Net Units Sold does not equal Units Sold", () => {
+  it("errors on eBook when Net Units Sold does not equal Units Sold", async () => {
     const buf = buildWorkbook({
       "eBook Royalty": [
         ["Sales Period", "March 2024"],
@@ -135,7 +140,7 @@ describe("parseAmazonXlsx", () => {
       ],
     });
 
-    const result = parseAmazonXlsx(buf, {
+    const result = await parseAmazonXlsx(buf, {
       filename: "f.xlsx",
       booksByIsbn: new Map(),
       booksByAsin: new Map([["B00TEST123", book()]]),
@@ -146,7 +151,7 @@ describe("parseAmazonXlsx", () => {
     expect(result.errors.some((e) => e.message.includes("Net Units Sold"))).toBe(true);
   });
 
-  it("skips KENP rows with N/A eBook ASIN and adds a warning", () => {
+  it("skips KENP rows with N/A eBook ASIN and adds a warning", async () => {
     const buf = buildWorkbook({
       KENP: [
         ["Sales Period", "April 2024"],
@@ -156,7 +161,7 @@ describe("parseAmazonXlsx", () => {
       ],
     });
 
-    const result = parseAmazonXlsx(buf, {
+    const result = await parseAmazonXlsx(buf, {
       filename: "f.xlsx",
       booksByIsbn: new Map(),
       booksByAsin: new Map([["B00KU12345", book({ id: 2 })]]),
@@ -171,7 +176,7 @@ describe("parseAmazonXlsx", () => {
     expect(result.warnings.some((w) => w.includes("KENP") && w.includes("skipped"))).toBe(true);
   });
 
-  it("accepts KENP column named Kindle Edition Normalized Pages (KENP)", () => {
+  it("accepts KENP column named Kindle Edition Normalized Pages (KENP)", async () => {
     const buf = buildWorkbook({
       KENP: [
         ["Sales Period", "April 2024"],
@@ -180,7 +185,7 @@ describe("parseAmazonXlsx", () => {
       ],
     });
 
-    const result = parseAmazonXlsx(buf, {
+    const result = await parseAmazonXlsx(buf, {
       filename: "f.xlsx",
       booksByIsbn: new Map(),
       booksByAsin: new Map([["B00KU99999", book({ id: 9 })]]),
@@ -193,7 +198,7 @@ describe("parseAmazonXlsx", () => {
     expect(result.records[0].publisherRevenueOriginal).toBe(3.5);
   });
 
-  it("warns when Audiobook Royalty has data rows", () => {
+  it("warns when Audiobook Royalty has data rows", async () => {
     const isbn = "9780123456789";
     const key = isbn.replace(/[-\s]/g, "").toUpperCase();
     const buf = buildWorkbook({
@@ -209,7 +214,7 @@ describe("parseAmazonXlsx", () => {
       ],
     });
 
-    const result = parseAmazonXlsx(buf, {
+    const result = await parseAmazonXlsx(buf, {
       filename: "f.xlsx",
       booksByIsbn: new Map([[key, book()]]),
       booksByAsin: new Map(),
@@ -220,7 +225,7 @@ describe("parseAmazonXlsx", () => {
     expect(result.warnings.some((w) => w.toLowerCase().includes("audiobook"))).toBe(true);
   });
 
-  it("errors with sheet and row for unknown ISBN", () => {
+  it("errors with sheet and row for unknown ISBN", async () => {
     const buf = buildWorkbook({
       "Paperback Royalty": [
         ["Sales Period", "June 2024"],
@@ -229,7 +234,7 @@ describe("parseAmazonXlsx", () => {
       ],
     });
 
-    const result = parseAmazonXlsx(buf, {
+    const result = await parseAmazonXlsx(buf, {
       filename: "f.xlsx",
       booksByIsbn: new Map(),
       booksByAsin: new Map(),
@@ -242,7 +247,7 @@ describe("parseAmazonXlsx", () => {
     expect(result.errors[0].message).toMatch(/Unknown book/);
   });
 
-  it("uses fixed timestamp in comment when now is mocked", () => {
+  it("uses fixed timestamp in comment when now is mocked", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2024-06-15T10:20:30.000Z"));
     const isbn = "9780123456789";
@@ -255,7 +260,7 @@ describe("parseAmazonXlsx", () => {
       ],
     });
 
-    const result = parseAmazonXlsx(buf, {
+    const result = await parseAmazonXlsx(buf, {
       filename: "z.xlsx",
       booksByIsbn: new Map([[key, book()]]),
       booksByAsin: new Map(),

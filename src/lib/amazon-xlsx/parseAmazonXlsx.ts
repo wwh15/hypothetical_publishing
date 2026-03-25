@@ -192,10 +192,14 @@ function pushError(errors: AmazonParseError[], sheet: string, row: number, messa
  * Parses an Amazon sales royalty `.xlsx` workbook and returns pending sale rows or blocking errors.
  * Warnings (non-blocking) include audiobook data rows and skipped KENP rows with N/A ASIN.
  */
-export function parseAmazonXlsx(data: ArrayBuffer | Uint8Array, options: ParseAmazonXlsxOptions): ParseAmazonXlsxResult {
+export async function parseAmazonXlsx(
+  data: ArrayBuffer | Uint8Array,
+  options: ParseAmazonXlsxOptions
+): Promise<ParseAmazonXlsxResult> {
   const { filename, booksByIsbn, booksByAsin } = options;
   const now = options.now ?? new Date();
   const defaultMarketplace = options.defaultMarketplace ?? "";
+  const convertToUsd = options.convertToUsd ?? convertCurrency;
 
   const u8 = data instanceof Uint8Array ? data : new Uint8Array(data);
   const workbook = XLSX.read(u8, { type: "array", cellDates: true });
@@ -506,9 +510,13 @@ export function parseAmazonXlsx(data: ArrayBuffer | Uint8Array, options: ParseAm
       if (!book) continue;
 
       const publisherRevenueOriginal = royalty;
-      const publisherRevenueUSD = convertCurrency(publisherRevenueOriginal, currency);
+      const publisherRevenueUSD = await convertToUsd(
+        publisherRevenueOriginal,
+        currency
+      );
       const rate = book.distRoyaltyRate ?? 0;
-      const authorRoyalty = Math.round(publisherRevenueUSD * (rate / 100) * 100) / 100;
+      const authorRoyalty =
+        Math.round(publisherRevenueUSD * (rate / 100) * 100) / 100;
 
       const comment = buildAmazonComment(marketplace, filename, sheetName, now);
       const commentFinal = comment.length > 256 ? comment.slice(0, 256) : comment;
