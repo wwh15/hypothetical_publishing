@@ -23,9 +23,9 @@ export interface SaleListItem {
   source: "DISTRIBUTOR" | "HAND_SOLD";
 }
 
-/** Staging row before DB insert; `clientId` disambiguates duplicate lines in the UI. */
+/** Staging row before DB insert; `id` disambiguates duplicate lines in the UI. */
 export interface PendingSaleItem {
-  clientId: string;
+  id: string;
   bookId: number;
   title: string;
   author: string;

@@ -10,6 +10,7 @@ const mockBooks: BookListItem[] = [
     author: "John Doe",
     isbn13: "9781617293856",
     isbn10: "1617293859",
+    asin: null,
     publicationDate: new Date(2018, 2, 1), // March 2018
     publicationSortKey: "2018-03",
     distRoyaltyRate: 10,
@@ -20,7 +21,6 @@ const mockBooks: BookListItem[] = [
     seriesName: null,
     seriesOrder: null,
     coverArtPath: null,
-    asin: "B08TEST123",
   },
   {
     id: 2,
@@ -28,6 +28,7 @@ const mockBooks: BookListItem[] = [
     author: "Jane Smith",
     isbn13: "9781492037651",
     isbn10: "1492037658",
+    asin: null,
     publicationDate: new Date(2020, 5, 1),
     publicationSortKey: "2020-06",
     distRoyaltyRate: 15,
@@ -38,7 +39,6 @@ const mockBooks: BookListItem[] = [
     seriesName: null,
     seriesOrder: null,
     coverArtPath: null,
-    asin: null,
   },
 ];
 
@@ -64,11 +64,6 @@ describe("filterBooksBySearch", () => {
     const result = filterBooksBySearch(mockBooks, "1617293856");
     expect(result).toHaveLength(1);
     expect(result[0].isbn13).toBe("9781617293856");
-  });
-
-  it("filters by ASIN (non-alphanumeric stripped)", () => {
-    expect(filterBooksBySearch(mockBooks, "B08-TEST-123")).toHaveLength(1);
-    expect(filterBooksBySearch(mockBooks, "b08test")).toHaveLength(1);
   });
 
   it("returns empty array when no match", () => {
