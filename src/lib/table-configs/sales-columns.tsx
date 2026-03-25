@@ -341,6 +341,11 @@ export function getPendingColumns(
           : salesCellRenderers.quantity(row.quantity),
     },
     {
+      key: "kenp",
+      header: "KENP",
+      render: (row) => salesCellRenderers.kenp(row.kenp),
+    },
+    {
       key: "currency",
       header: "Original Currency",
       render: (row) => row.currency,
