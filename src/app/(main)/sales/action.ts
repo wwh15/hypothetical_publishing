@@ -17,6 +17,51 @@ import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+const API_KEY = '672c2229b021803905ae120f';
+
+export async function convertCurrencyToUsd(
+  amount: number,
+  currencyCode: string
+): Promise<number> {
+  // 1. Same-currency shortcut
+  if (currencyCode === "USD") return amount;
+
+  // 2. Validation
+  if (!amount || isNaN(amount)) return 0;
+
+  const url = `https://v6.exchangerate-api.com/v6/${API_KEY}/pair/${currencyCode}/USD/${amount}`;
+
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`API Error: ${response.status}`);
+
+    const data = await response.json();
+    console.log(data);
+
+    // 3. DEFENSIVE CHECK: Dig into the object safely
+    // Check if data -> data -> rates -> USD exists
+    const conversion = data?.conversion_result;
+
+    if (data.result != "success") {
+      console.error("API Request Failed:", data)
+      throw new Error("API Request Failed")
+    }
+
+    if (typeof conversion !== "number") {
+      console.error("API returned success but no USD rate was found:", data);
+      throw new Error("USD rate missing from API response");
+    }
+
+    return conversion
+
+  } catch (error) {
+    console.error("convertCurrencyToUsd failed:", error);
+    // CRITICAL: We throw the error so the UI code stops 
+    // instead of trying to call .toFixed() on undefined.
+    throw error; 
+  }
+}
+
 export async function addSale(data: Prisma.SaleUncheckedCreateInput) {
   try {
     const created = await asyncAddSale(data);
