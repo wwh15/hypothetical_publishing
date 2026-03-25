@@ -31,6 +31,8 @@ interface FormData {
   format: SaleFormat;
 }
 
+/** * Helper functions moved outside the hook for cleanliness
+ */
 function coerceDistributorForFormat(
   source: "DISTRIBUTOR" | "HAND_SOLD",
   format: SaleFormat,
@@ -55,10 +57,10 @@ function coerceFormatForSourceDistributor(
 
 function calcHandSoldPublisherRevenueUSD(book: BookListItem, quantity: number): string {
   if (quantity > 0) {
-    const rev = (book.coverPrice - book.printCost) * quantity;
+    const rev = (book.coverPrice - (book.printCost ?? 0)) * quantity;
     return rev.toFixed(2);
   }
-  return "";
+  return "0.00";
 }
 
 export function useSalesForm(
@@ -82,193 +84,170 @@ export function useSalesForm(
     format: "PRINT",
   });
 
+  const [isCalculating, setIsCalculating] = useState(false);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
-  const calculateDerivedValues = (next: FormData): FormData => {
+  /**
+   * PHASE 2: The Asynchronous Math
+   */
+  const calculateDerivedValues = async (current: FormData): Promise<FormData> => {
+    const next = { ...current };
     const book = books.find((b) => b.id === parseInt(next.bookId, 10));
     if (!book) return next;
 
-    if (next.source === "HAND_SOLD") {
-      next.currency = "USD";
-      const qty = normalizeQuantity(next.quantity);
-      const revUsd = calcHandSoldPublisherRevenueUSD(book, qty);
-      next.publisherRevenueOriginal = revUsd;
-      next.publisherRevenueUSD = revUsd;
-    } else {
-      const originalAmount = Number(next.publisherRevenueOriginal || 0);
-      next.publisherRevenueUSD = convertCurrency(
-        originalAmount,
-        next.currency
-      ).toFixed(2);
-    }
+    setIsCalculating(true);
 
-    const revUsdNum = normalizeCurrency(next.publisherRevenueUSD);
-    const ratePct =
-      next.source === "HAND_SOLD"
-        ? book.handSoldRoyaltyRate
+    try {
+      if (next.source === "HAND_SOLD") {
+        next.currency = "USD";
+        const qty = normalizeQuantity(next.quantity);
+        const revUsdStr = calcHandSoldPublisherRevenueUSD(book, qty);
+        next.publisherRevenueOriginal = revUsdStr;
+        next.publisherRevenueUSD = revUsdStr;
+      } else {
+        const originalAmount = Number(next.publisherRevenueOriginal.replace(/[,\s]/g, "") || 0);
+        
+        if (next.currency === "USD") {
+          next.publisherRevenueUSD = originalAmount.toFixed(2);
+        } else if (originalAmount > 0) {
+          // Wrapped in parentheses to fix precedence bug: (await ...).toFixed()
+          const converted = await convertCurrency(originalAmount, next.currency);
+          next.publisherRevenueUSD = converted.toFixed(2);
+        } else {
+          next.publisherRevenueUSD = "0.00";
+        }
+      }
+
+      // Final Royalty Logic
+      const revUsdNum = normalizeCurrency(next.publisherRevenueUSD);
+      const ratePct = next.source === "HAND_SOLD" 
+        ? book.handSoldRoyaltyRate 
         : book.distRoyaltyRate;
-    const royalty =
-      next.publisherRevenueUSD !== ""
-        ? normalizeCurrency((revUsdNum * (ratePct ?? 0)) / 100)
+
+      const royalty = next.publisherRevenueUSD !== "" 
+        ? normalizeCurrency((revUsdNum * (ratePct ?? 0)) / 100) 
         : 0;
-    next.authorRoyalty =
-      next.publisherRevenueUSD !== "" ? royalty.toFixed(2) : "";
+
+      next.authorRoyalty = next.publisherRevenueUSD !== "" ? royalty.toFixed(2) : "";
+
+      // Clear any previous calculation errors
+      setFormErrors((prev) => {
+        const { currency: _, ...rest } = prev;
+        return rest;
+      });
+    } catch (err) {
+      console.error("Calculation Error:", err);
+      setFormErrors((prev) => ({ ...prev, currency: "Currency conversion failed." }));
+    } finally {
+      setIsCalculating(false);
+    }
 
     return next;
   };
 
-  const handleInputChange = (
+  /**
+   * PHASE 1: Immediate Synchronous UI Update
+   */
+  const handleInputChange = async (
     field: string,
     value: string | boolean | { month: string; year: string }
   ) => {
-    setFormData((prev) => {
-      let next: FormData = { ...prev };
+    let next: FormData = { ...formData };
 
-      if (
-        field === "date" &&
-        typeof value === "object" &&
-        value !== null &&
-        "month" in value
-      ) {
-        next.month = value.month;
-        next.year = value.year;
-      } else {
-        next = { ...next, [field]: value } as FormData;
+    // Basic value assignment
+    if (field === "date" && typeof value === "object" && value !== null && "month" in value) {
+      next.month = value.month;
+      next.year = value.year;
+    } else {
+      next = { ...next, [field]: value } as FormData;
+    }
+
+    // Business Logic Rules (Sync)
+    if (field === "source" && value === "HAND_SOLD") {
+      next.format = "PRINT";
+      next.kenp = "";
+      next.currency = "USD";
+    }
+
+    if (field === "source" && value === "DISTRIBUTOR") {
+      next.distributor = next.distributor ?? "OTHER";
+      next.format = coerceFormatForSourceDistributor("DISTRIBUTOR", next.distributor, next.format);
+    }
+
+    if (field === "distributor" && next.source === "DISTRIBUTOR") {
+      next.distributor = value as Distributor;
+      next.format = coerceFormatForSourceDistributor("DISTRIBUTOR", next.distributor, next.format);
+    }
+
+    if (field === "format") {
+      next.format = value as SaleFormat;
+      if (next.source === "DISTRIBUTOR") {
+        next.distributor = coerceDistributorForFormat(next.source, next.format, next.distributor);
+        next.format = coerceFormatForSourceDistributor("DISTRIBUTOR", next.distributor, next.format);
       }
+      next.format !== "KINDLE_UNLIMITED" ? (next.kenp = "") : (next.quantity = "");
+    }
 
-      if (field === "source" && value === "HAND_SOLD") {
-        next.format = "PRINT";
-        next.kenp = "";
-      }
+    // Update UI immediately
+    setFormData(next);
 
-      if (field === "source" && value === "DISTRIBUTOR") {
-        next.distributor = next.distributor ?? "OTHER";
-        next.format = coerceFormatForSourceDistributor(
-          "DISTRIBUTOR",
-          next.distributor,
-          next.format
-        );
-      }
+    // Trigger Async Calc if relevant field changed
+    const triggerFields = ["quantity", "publisherRevenueOriginal", "currency", "bookId", "source", "format"];
+    if (triggerFields.includes(field)) {
+      const updatedData = await calculateDerivedValues(next);
+      setFormData(updatedData);
+    }
 
-      if (field === "distributor" && next.source === "DISTRIBUTOR") {
-        next.distributor = value as Distributor;
-        if (next.distributor === "OTHER" && next.format === "KINDLE_UNLIMITED") {
-          next.format = "PRINT";
-          next.kenp = "";
-        }
-        next.format = coerceFormatForSourceDistributor(
-          "DISTRIBUTOR",
-          next.distributor,
-          next.format
-        );
-      }
-
-      if (field === "format") {
-        next.format = value as SaleFormat;
-        if (next.source === "DISTRIBUTOR") {
-          next.distributor = coerceDistributorForFormat(
-            next.source,
-            next.format,
-            next.distributor
-          );
-          next.format = coerceFormatForSourceDistributor(
-            "DISTRIBUTOR",
-            next.distributor,
-            next.format
-          );
-        }
-        if (next.format !== "KINDLE_UNLIMITED") {
-          next.kenp = "";
-        } else {
-          next.quantity = "";
-        }
-      }
-
-      return calculateDerivedValues(next);
-    });
-
-    if (field === "date" && formErrors.date) {
-      setFormErrors(({ date: _, ...rest }) => rest);
-    } else if (formErrors[field as keyof typeof formErrors]) {
-      setFormErrors((prevErrors) => {
-        const { [field as keyof typeof prevErrors]: _, ...rest } = prevErrors;
+    // Clear UI Errors
+    if (formErrors[field as keyof typeof formErrors]) {
+      setFormErrors((prev) => {
+        const { [field]: _, ...rest } = prev;
         return rest;
       });
     }
   };
 
-  const handleBlur = (field: "publisherRevenueOriginal") => {
-    setFormData((prev) => {
-      const rawValue = prev[field];
-      if (!rawValue || isNaN(Number(rawValue.replace(/[,\s]/g, "")))) {
-        return prev;
-      }
-      const next = { ...prev };
-      next.publisherRevenueOriginal = normalizeCurrency(
-        prev.publisherRevenueOriginal
-      ).toFixed(2);
-      return calculateDerivedValues(next);
-    });
+  const handleBlur = async (field: "publisherRevenueOriginal") => {
+    const rawValue = formData[field];
+    if (!rawValue) return;
+
+    const normalized = normalizeCurrency(rawValue).toFixed(2);
+    const intermediate = { ...formData, [field]: normalized };
+    
+    setFormData(intermediate);
+    const final = await calculateDerivedValues(intermediate);
+    setFormData(final);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setFormErrors({});
+    if (isCalculating) return; 
 
+    setFormErrors({});
     const book = books.find((b) => b.id === parseInt(formData.bookId, 10));
     if (!book) return setFormErrors({ bookId: "Please select a book" });
 
+    // Validation checks
     const dateCheck = validateDatePeriod(formData.year, formData.month);
-    if (!dateCheck.success) return setFormErrors({ date: dateCheck.error });
-
-    const isKu = formData.format === "KINDLE_UNLIMITED";
     const qtyCheck = validateQuantity(formData.quantity);
     const kenpCheck = validateNonNegativeNumber(formData.kenp, "KENP");
     const originalRevCheck = validateCurrency(formData.publisherRevenueOriginal);
 
     const newErrors: Record<string, string> = {};
-
-    if (!originalRevCheck.success) {
-      newErrors.publisherRevenue = originalRevCheck.error;
-    }
-
-    if (isKu) {
-      if (!kenpCheck.success) newErrors.kenp = kenpCheck.error;
-    } else {
-      if (!qtyCheck.success) newErrors.quantity = qtyCheck.error;
-    }
+    if (!dateCheck.success) newErrors.date = dateCheck.error;
+    if (!originalRevCheck.success) newErrors.publisherRevenue = originalRevCheck.error;
+    
+    const isKu = formData.format === "KINDLE_UNLIMITED";
+    if (isKu && !kenpCheck.success) newErrors.kenp = kenpCheck.error;
+    if (!isKu && !qtyCheck.success) newErrors.quantity = qtyCheck.error;
 
     if (Object.keys(newErrors).length > 0) {
       setFormErrors(newErrors);
       return;
     }
 
-    if (!originalRevCheck.success) return;
-
-    const publisherRevenueOriginal = originalRevCheck.data;
-    const publisherRevenueUSD = normalizeCurrency(formData.publisherRevenueUSD);
-    const ratePct =
-      formData.source === "HAND_SOLD"
-        ? book.handSoldRoyaltyRate
-        : book.distRoyaltyRate;
-    const authorRoyalty = normalizeCurrency(
-      (publisherRevenueUSD * (ratePct ?? 0)) / 100
-    );
-
-    let quantityToSave: number | null;
-    let kenpToSave: number | null;
-    if (isKu) {
-      if (!kenpCheck.success) return;
-      quantityToSave = null;
-      kenpToSave = kenpCheck.data;
-    } else {
-      if (!qtyCheck.success) return;
-      quantityToSave = qtyCheck.data;
-      kenpToSave = null;
-    }
-
-    const distributorForSave: Distributor | null =
-      formData.source === "HAND_SOLD" ? null : formData.distributor;
+    // TYPE NARROWING: Satisfy TypeScript before calling onAddRecord
+    if (!dateCheck.success || !originalRevCheck.success || !qtyCheck.success || !kenpCheck.success) return;
 
     onAddRecord({
       clientId: crypto.randomUUID(),
@@ -276,19 +255,20 @@ export function useSalesForm(
       title: book.title,
       author: book.author,
       date: dateCheck.data,
-      quantity: quantityToSave,
-      kenp: kenpToSave,
+      quantity: isKu ? null : qtyCheck.data,
+      kenp: isKu ? kenpCheck.data : null,
       format: formData.format,
-      distributor: distributorForSave,
-      publisherRevenueOriginal,
-      publisherRevenueUSD,
-      authorRoyalty,
+      distributor: formData.source === "HAND_SOLD" ? null : formData.distributor,
+      publisherRevenueOriginal: originalRevCheck.data,
+      publisherRevenueUSD: normalizeCurrency(formData.publisherRevenueUSD),
+      authorRoyalty: normalizeCurrency(formData.authorRoyalty),
       paid: false,
       currency: formData.currency.trim().toUpperCase(),
       comment: formData.comment.trim() || undefined,
       source: formData.source,
     });
 
+    // Reset Form
     setFormData((prev) => ({
       ...prev,
       quantity: "",
@@ -300,14 +280,14 @@ export function useSalesForm(
     }));
   };
 
-  const allowedFormats =
-    formData.source === "HAND_SOLD"
-      ? getAllowedSaleFormats("HAND_SOLD", null)
-      : getAllowedSaleFormats("DISTRIBUTOR", formData.distributor);
+  const allowedFormats = formData.source === "HAND_SOLD"
+    ? getAllowedSaleFormats("HAND_SOLD", null)
+    : getAllowedSaleFormats("DISTRIBUTOR", formData.distributor);
 
   return {
     formData,
     formErrors,
+    isCalculating,
     handleInputChange,
     handleBlur,
     handleSubmit,

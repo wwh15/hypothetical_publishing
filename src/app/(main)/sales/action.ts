@@ -17,19 +17,22 @@ import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-const API_KEY = '672c2229b021803905ae120f';
-
 export async function convertCurrencyToUsd(
   amount: number,
   currencyCode: string
 ): Promise<number> {
+  const apiKey = process.env.EXCHANGE_RATE_API_KEY;
+  if (!apiKey) {
+    throw new Error("EXCHANGE_RATE_API_KEY is not set");
+  }
+
   // 1. Same-currency shortcut
   if (currencyCode === "USD") return amount;
 
   // 2. Validation
   if (!amount || isNaN(amount)) return 0;
 
-  const url = `https://v6.exchangerate-api.com/v6/${API_KEY}/pair/${currencyCode}/USD/${amount}`;
+  const url = `https://v6.exchangerate-api.com/v6/${apiKey}/pair/${currencyCode}/USD/${amount}`;
 
   try {
     const response = await fetch(url);
