@@ -1,7 +1,8 @@
 /**
- * Seed using ev2-sample-data content (embedded inline so the seed does not read from the filesystem).
- * Creates authors, series, books, and sales from the same CSV data as ev2-sample-data/books.csv and sales_records.csv.
- * Order: clear → authors → series → books → sales.
+ * Seed data embedded inline (no filesystem reads). Baseline catalog is ev2-style sample books/sales,
+ * plus QA fixtures aligned with `docs/requirements/Test Plan.xlsx` (Ingram Test Book 9780599999999,
+ * QA Pagination 1–5, QA Lonely Series, Orphan Author, extra Ingram Test sales, ASIN on Ready Player One).
+ * Order: clear → authors (from books + Orphan Author) → series → books → sales.
  */
 import "dotenv/config";
 import Papa from "papaparse";
@@ -112,11 +113,25 @@ The Martan,Andy Weir,,,9780553418026,0553418025,February 2014,50,20,9.99,3.00,97
 Ready Player One,Ernest Cline,,,9780307887436,030788743X,August 2011,60,25,12.99,4.00,9780307887436.jpg
 The Hitchhiker's Guide to the Galaxy,Douglas Adams,,,9780345391803,0345391802,October 1979,50,20,7.50,2.00,9780345391803.png
 The Night Circus,Erin Morgenstern,,,9780307744432,0307744434,September 2011,50,20,10.99,4.00,9780307744432.jxl
+Ingram Test Book,Test Author,,,9780599999999,0599999999,January 2025,50,20,24.99,5.00,
+QA Pagination 1,Test Author,,,9780600000006,,January 2025,50,20,10.99,3.00,
+QA Pagination 2,Test Author,,,9780600000013,,January 2025,50,20,10.99,3.00,
+QA Pagination 3,Test Author,,,9780600000020,,January 2025,50,20,10.99,3.00,
+QA Pagination 4,Test Author,,,9780600000037,,January 2025,50,20,10.99,3.00,
+QA Pagination 5,Test Author,,,9780600000044,,January 2025,50,20,10.99,3.00,
+QA Lonely Series Book,Test Author,QA Lonely Series,1,9780610000003,,January 2025,50,20,11.99,4.00,
 `;
+
+/** Optional Amazon ebook ASIN for manual / EV3 tests (key = normalized ISBN-13). */
+const SEED_EBOOK_ASIN_BY_ISBN13: Record<string, string> = {
+  "9780307887436": "B00SEED123", // Ready Player One
+};
 
 // distributor / format / kenp: covers every valid combo for UI testing (see validateSaleRecord).
 // HAND_SOLD → print only; INGRAM_SPARK → print; AMAZON → print | ebook | kindle_unlimited; OTHER → print | ebook
 const SALES_CSV = `isbn13,source,record_month_year,units_sold,total_revenue,royalty_paid,comment,distributor,format,kenp
+9780599999999,distributor,January 2025,10,95.00,y,seed QA — Ingram Jan,ingram_spark,print,
+9780599999999,handsold,February 2025,5,,y,seed QA — handsold Feb,,,
 9780062444141,handsold,October 2024,21,,y,,,,
 9780307744432,handsold,April 2025,31,,y,,,,
 9780765397553,distributor,September 2023,47,382.03,y,recalled for misprints,ingram_spark,print,
@@ -220,7 +235,9 @@ async function main() {
     });
     authorMap[name] = { id: author.id };
   }
-  console.log(`✅ Authors: ${authorNames.length} (${authorNames.join(", ")})`);
+  console.log(
+    `✅ Authors from books: ${authorNames.length} (${authorNames.join(", ")})`
+  );
 
   // ─── SERIES (unique non-empty series_name from books) ───
   const seriesNames = [
@@ -264,12 +281,14 @@ async function main() {
     const coverPrice = new Decimal(row.cover_price?.trim() || "0");
     const printCost = new Decimal(row.print_cost?.trim() || "0");
 
+    const isbn13Norm = row.isbn13.trim().replace(/[-\s]/g, "");
     const book = await prisma.book.create({
       data: {
         title: row.title.trim(),
         authorId,
-        isbn13: row.isbn13.trim().replace(/[-\s]/g, ""),
+        isbn13: isbn13Norm,
         isbn10: row.isbn10?.trim().replace(/[-\s]/g, "") || null,
+        asin: SEED_EBOOK_ASIN_BY_ISBN13[isbn13Norm] ?? null,
         distAuthorRoyaltyRate: distRate,
         handSoldAuthorRoyaltyRate: handSoldRate,
         coverPrice,
@@ -291,6 +310,18 @@ async function main() {
     };
   }
   console.log(`✅ Books: ${booksRows.length}`);
+
+  // Author with no books (manual tests: orphan author flows)
+  await prisma.author.upsert({
+    where: { canonicalName: seedCanonicalName("Orphan Author") },
+    update: {},
+    create: {
+      name: "Orphan Author",
+      email: "orphan.author@example.com",
+      canonicalName: seedCanonicalName("Orphan Author"),
+    },
+  });
+  console.log("✅ Orphan Author (no books) ensured for manual tests");
 
   // ─── SALES ──────────────────────────────────────────────────────────────
   let salesCreated = 0;
@@ -403,7 +434,7 @@ async function main() {
   console.log(
     "   Coverage: HAND_SOLD+PRINT | INGRAM_SPARK+PRINT | AMAZON+PRINT/EBOOK/KU | OTHER+PRINT/EBOOK"
   );
-  console.log("🏁 Seed complete. Data from ev2-sample-data (embedded).");
+  console.log("🏁 Seed complete (see file header for Test Plan / QA fixtures).");
 }
 
 main()

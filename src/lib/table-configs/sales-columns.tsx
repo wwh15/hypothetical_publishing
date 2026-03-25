@@ -95,7 +95,6 @@ export function saleDistributorBadge(
  * Stable column IDs for type-safe column selection.
  */
 export type SalesColumnId =
-  | "id"
   | "title"
   | "author"
   | "quantity"
@@ -187,12 +186,6 @@ export const salesCellRenderers = {
 // ─── SAVED SALES COLUMNS (SaleListItem) ───────────────────────────────────
 
 export const salesColumns: ColumnDef<SaleListItem>[] = [
-  {
-    key: "id",
-    header: "ID",
-    className: "w-[80px]",
-    render: (row) => row.id,
-  },
   {
     key: "title",
     header: "Title",
@@ -455,7 +448,6 @@ export const salesTablePresets = {
   // Full table with all columns (for the main sales listing page)
   full: {
     columnIds: [
-      "id",
       "title",
       "author",
       "quantity",
@@ -476,7 +468,7 @@ export const salesTablePresets = {
     showDateFilter: true,
   },
 
-  // Staging table for adding new records (adds 'actions', hides 'id')
+  // Staging table for adding new records (adds 'actions')
   pending: {
     columnIds: [
       "title",
@@ -500,7 +492,6 @@ export const salesTablePresets = {
   // Book detail view (hides redundant title/author info)
   bookDetail: {
     columnIds: [
-      "id",
       "quantity",
       "kenp",
       "format",
