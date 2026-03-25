@@ -155,7 +155,7 @@ export default function AmazonXlsxImportPanel({
     <>
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle>Amazon royalty import</CardTitle>
+          <CardTitle>Amazon Royalty Import</CardTitle>
           <CardDescription className="border-b pb-2">
             Import a KDP royalty <strong>.xlsx</strong> workbook to add rows to
             the <strong>Pending Records</strong> table. Sales period and
