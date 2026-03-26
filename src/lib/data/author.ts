@@ -19,6 +19,7 @@ export interface AuthorBookItem {
   title: string;
   seriesId?: number;
   seriesOrder?: number;
+  seriesName?: string;
   ISBN13: number;
   publicationMonth: string;
   publicationYear: string;
@@ -27,6 +28,7 @@ export interface AuthorBookItem {
   totalAuthorRoyalty: number;
   unpaidAuthorRoyalty: number;
   paidAuthorRoyalty: number;
+  coverArtPath: string | null;
 }
 
 export interface GetAuthorDataParams {
@@ -227,6 +229,7 @@ export async function asyncGetAuthorBooks(
       where: { authorId: id },
       include: {
         sales: true,
+        series: true
       },
       orderBy: [
         { title: "asc" },
@@ -260,6 +263,7 @@ export async function asyncGetAuthorBooks(
         title: book.title,
         seriesId: book.seriesId ?? undefined,
         seriesOrder: book.seriesOrder ?? undefined,
+        seriesName: book.series?.name,
         ISBN13: Number(book.isbn13) || 0, // Ensure numeric for your interface
         publicationMonth: book.publicationDate.toLocaleString("default", { month: "long" }),
         publicationYear: book.publicationDate.getFullYear().toString(),
@@ -268,6 +272,7 @@ export async function asyncGetAuthorBooks(
         totalAuthorRoyalty: totalAuthorRoyalty.toNumber(),
         paidAuthorRoyalty: totalPaid.toNumber(),
         unpaidAuthorRoyalty: totalUnpaid.toNumber(),
+        coverArtPath: book.coverArtPath
       };
     });
 
