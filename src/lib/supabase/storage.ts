@@ -41,6 +41,68 @@ function coverArtExtFromMime(mime: string): string | null {
   }
 }
 
+/**
+ * Detect cover art extension by checking magic bytes (file contents).
+ * This is more reliable than trusting `file.type`, which the browser can spoof.
+ */
+function coverArtExtFromMagicBytes(head: Uint8Array): string | null {
+  // JPEG: FF D8 FF
+  if (head.length >= 3 && head[0] === 0xff && head[1] === 0xd8 && head[2] === 0xff) {
+    return "jpg";
+  }
+
+  // PNG: 89 50 4E 47 0D 0A 1A 0A
+  if (
+    head.length >= 8 &&
+    head[0] === 0x89 &&
+    head[1] === 0x50 &&
+    head[2] === 0x4e &&
+    head[3] === 0x47 &&
+    head[4] === 0x0d &&
+    head[5] === 0x0a &&
+    head[6] === 0x1a &&
+    head[7] === 0x0a
+  ) {
+    return "png";
+  }
+
+  // GIF: "GIF87a" or "GIF89a"
+  if (head.length >= 6) {
+    const isGIF87a =
+      head[0] === 0x47 && // G
+      head[1] === 0x49 && // I
+      head[2] === 0x46 && // F
+      head[3] === 0x38 && // 8
+      head[4] === 0x37 && // 7
+      head[5] === 0x61; // a
+    const isGIF89a =
+      head[0] === 0x47 && // G
+      head[1] === 0x49 && // I
+      head[2] === 0x46 && // F
+      head[3] === 0x38 && // 8
+      head[4] === 0x39 && // 9
+      head[5] === 0x61; // a
+    if (isGIF87a || isGIF89a) return "gif";
+  }
+
+  // WebP: "RIFF....WEBP"
+  if (head.length >= 12) {
+    const isRIFF =
+      head[0] === 0x52 && // R
+      head[1] === 0x49 && // I
+      head[2] === 0x46 && // F
+      head[3] === 0x46; // F
+    const isWEBP =
+      head[8] === 0x57 && // W
+      head[9] === 0x45 && // E
+      head[10] === 0x42 && // B
+      head[11] === 0x50; // P
+    if (isRIFF && isWEBP) return "webp";
+  }
+
+  return null;
+}
+
 // Upload file from server (e.g., from form submission)
 export async function uploadFile(
   bucket: string,
@@ -134,17 +196,26 @@ export async function uploadCoverArt(
   bookId: number,
   file: File
 ): Promise<{ path: string } | { error: string }> {
-  if (!COVER_ART_ALLOWED_TYPES.includes(file.type as (typeof COVER_ART_ALLOWED_TYPES)[number])) {
-    return { error: "Invalid file type. Use JPEG, PNG, GIF, or WebP." };
-  }
   if (file.size > COVER_ART_MAX_BYTES) {
     return { error: "File too large. Maximum size is 5MB." };
   }
 
-  const ext = coverArtExtFromMime(file.type);
-  if (!ext) {
-    return { error: "Unsupported image type." };
-  }
+  // Read the first bytes so we can verify the actual file contents.
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const head = bytes.subarray(0, 12);
+
+  const extFromMagic = coverArtExtFromMagicBytes(head);
+
+  // Fallback to MIME if magic detection fails (e.g., if bytes are truncated for some reason).
+  const mime = file.type;
+  const extFromMime =
+    mime &&
+    COVER_ART_ALLOWED_TYPES.includes(mime as (typeof COVER_ART_ALLOWED_TYPES)[number])
+      ? coverArtExtFromMime(mime)
+      : null;
+
+  const ext = extFromMagic ?? extFromMime;
+  if (!ext) return { error: "Invalid image type. Use JPEG, PNG, GIF, or WebP." };
 
   const path = `${bookId}/cover.${ext}`;
   const supabase = await createClient();
