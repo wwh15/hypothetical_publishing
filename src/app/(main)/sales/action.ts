@@ -12,6 +12,8 @@ import asyncGetSalesData, {
   asyncAddSale,
   asyncGetSaleById,
   UpdateSaleItem,
+  PendingSaleItem,
+  asyncAddSalesBulk,
 } from "@/lib/data/records";
 import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
@@ -76,6 +78,18 @@ export async function addSale(data: Prisma.SaleUncheckedCreateInput) {
     const message =
       e instanceof Error ? e.message : "Failed to add sale";
     return { success: false, error: message };
+  }
+}
+
+export async function addSalesBulk(records: PendingSaleItem[]) {
+  try {
+
+    await asyncAddSalesBulk(records)
+    return { success: true };
+    
+  } catch (error) {
+    console.error("Bulk Save Error:", error);
+    return { success: false, error: "Failed to save records to database." };
   }
 }
 
