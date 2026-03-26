@@ -13,7 +13,6 @@ import asyncGetSalesData, {
   asyncGetSaleById,
   UpdateSaleItem,
 } from "@/lib/data/records";
-import { formatDatabaseLabel } from "@/lib/utils";
 import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -192,22 +191,57 @@ export async function exportSalesToCsvAction(params: {
     });
 
     // 2. Define Headers
-    const headers = ["Date", "Author", "Title", "Source", "Format", "Quantity", "KENP", "Distributor", "Original Currency", "Pub. Revenue (Original)", "Pub. Revenue (USD)", "Author Royalty", "Royalty Status", "Comment"];
+    const headers = [
+      "Date",
+      "Author",
+      "Title",
+      "Source",
+      "Format",
+      "Quantity",
+      "KENP",
+      "Distributor",
+      "Original Currency",
+      "Pub. Revenue (Original)",
+      "Pub. Revenue (USD)",
+      "Author Royalty (USD)",
+      "Royalty Status",
+      "Comment",
+    ];
 
     // 3. Map to CSV Rows
     const rows = items.map((sale) => {
       // 1. Determine Display Values
       const displaySource = SOURCE_LABELS[sale.source] || sale.source;
       const displayFormat = FORMAT_LABELS[sale.format] || sale.format;
-      const displayDistributor = sale.distributor ? (DISTRIBUTOR_LABELS[sale.distributor] || sale.distributor) : "N/A";
-    
+      const displayDistributor =
+        sale.source === "HAND_SOLD"
+          ? "N/A"
+          : sale.distributor
+          ? DISTRIBUTOR_LABELS[sale.distributor]
+          : "Other";
+
       // 2. Logic for Format-Specific Columns
-      const quantity = (sale.format === "EBOOK" || sale.format === "PRINT") ? sale.quantity : "N/A";
-      const kenp = (sale.format === "KINDLE_UNLIMITED") ? sale.kenp : "N/A";
-    
+      const quantity =
+        sale.format === "EBOOK" || sale.format === "PRINT"
+          ? sale.quantity
+          : "N/A";
+      const kenp = sale.format === "KINDLE_UNLIMITED" ? sale.kenp : "N/A";
+
+      const originalRev =
+        sale.currency === "JPY"
+          ? Math.floor(sale.publisherRevenueOriginal).toString()
+          : sale.publisherRevenueOriginal.toFixed(2);
+
+      const usdRev = sale.publisherRevenueUSD.toFixed(2);
+      const royalty = sale.authorRoyalty.toFixed(2);
+
+      const rawComment = sale.comment || "";
+      const slicedComment = rawComment.slice(0, 256);
+      const formattedComment = `"${slicedComment.replace(/"/g, '""')}"`;
+
       return [
         sale.date.toISOString().slice(0, 7),
-        `"${sale.author}"`, // Note: Assuming standard Prisma nesting
+        `"${sale.title.replace(/"/g, '""')}"`,
         `"${sale.title}"`,
         displaySource,
         displayFormat,
@@ -215,11 +249,11 @@ export async function exportSalesToCsvAction(params: {
         kenp,
         displayDistributor,
         sale.currency,
-        sale.publisherRevenueOriginal.toFixed(2),
-        sale.publisherRevenueUSD.toFixed(2),
-        sale.authorRoyalty.toFixed(2),
+        originalRev,
+        usdRev,
+        royalty,
         sale.paid === "paid" ? "Paid" : "Unpaid", // Using boolean check
-        `"${sale.comment || ""}"`        // Wrap comments in quotes too!
+        formattedComment, // Wrap comments in quotes too!
       ].join(",");
     });
 
