@@ -26,6 +26,11 @@ export default function SalesRecordView({ sale, onEdit }: SalesRecordViewProps) 
 
   const currencyUpper = sale.currency.toUpperCase();
 
+  const isZeroDecimal = sale.currency === "JPY";
+  const formattedAmount = new Decimal(sale.publisherRevenueOriginal).toFixed(
+    isZeroDecimal ? 0 : 2
+  );
+
   const handleDelete = async () => {
     setLoading(true);
     await deleteSale(sale.id);
@@ -119,8 +124,8 @@ export default function SalesRecordView({ sale, onEdit }: SalesRecordViewProps) 
             {currencyUpper})
           </label>
           <p className="text-lg font-semibold mt-1 text-green-600">
-            {CURRENCY_SYMBOLS[sale.currency]}
-            {new Decimal(sale.publisherRevenueOriginal).toFixed(2)}
+            <bdi>{CURRENCY_SYMBOLS[sale.currency]}</bdi>
+            {formattedAmount}
           </p>
         </div>
 
