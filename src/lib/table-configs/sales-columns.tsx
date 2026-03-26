@@ -496,7 +496,6 @@ export const salesTablePresets = {
       "kenp",
       "format",
       "distributor",
-      "publisherRevenueOriginal",
       "publisherRevenueUSD",
       "authorRoyalty",
       "date",
