@@ -34,6 +34,7 @@ jobs:
           DAY_OF_MONTH=$(date +%d)
           WEEK_NUM=$(date +%Y_W%V)
           MONTH=$(date +%Y_%m)
+          PROMOTIONS="Daily backup uploaded"
           pip install b2 --break-system-packages
           b2 account authorize "$B2_APPLICATION_KEY_ID" "$B2_APPLICATION_KEY"
           # ──────────────────────────────────────────
@@ -57,6 +58,7 @@ jobs:
             cp "/tmp/$DB_FILENAME" "/tmp/$WEEKLY_DB_FILENAME"
             b2 file upload "$B2_BACKUP_BUCKET" "/tmp/$WEEKLY_DB_FILENAME" "db/weekly/$WEEKLY_DB_FILENAME"
             echo "Uploaded weekly DB backup"
+            PROMOTIONS="$PROMOTIONS | Daily promoted to weekly"
             rm "/tmp/$WEEKLY_DB_FILENAME"
           fi
           # ──────────────────────────────────────────
@@ -67,6 +69,7 @@ jobs:
             cp "/tmp/$DB_FILENAME" "/tmp/$MONTHLY_DB_FILENAME"
             b2 file upload "$B2_BACKUP_BUCKET" "/tmp/$MONTHLY_DB_FILENAME" "db/monthly/$MONTHLY_DB_FILENAME"
             echo "Uploaded monthly DB backup"
+            PROMOTIONS="$PROMOTIONS | Weekly promoted to monthly"
             rm "/tmp/$MONTHLY_DB_FILENAME"
           fi
           # ──────────────────────────────────────────
@@ -78,8 +81,10 @@ jobs:
             cp "/tmp/$DB_FILENAME" "/tmp/$YEARLY_DB_FILENAME"
             b2 file upload "$B2_BACKUP_BUCKET" "/tmp/$YEARLY_DB_FILENAME" "db/yearly/$YEARLY_DB_FILENAME"
             echo "Uploaded yearly DB backup"
+            PROMOTIONS="$PROMOTIONS | Monthly promoted to yearly"
             rm "/tmp/$YEARLY_DB_FILENAME"
           fi
+          echo "PROMOTIONS=$PROMOTIONS" >> "$GITHUB_ENV"
           rm "/tmp/$DB_FILENAME"
           # ──────────────────────────────────────────
           # 6. SYNC COVER ART FROM SUPABASE TO B2
@@ -197,7 +202,7 @@ jobs:
         run: |
           curl -X POST "${{ secrets.PROD_DISCORD_WEBHOOK_URL }}" \
             -H "Content-Type: application/json" \
-            -d "{\"content\": \"✅ Prod backup succeeded! Run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}"
+            -d "{\"content\": \"✅ Prod backup succeeded! (${{ env.PROMOTIONS }}) Run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}"
       - name: Notify failure
         if: failure()
         run: |
