@@ -124,8 +124,63 @@ export const validateDatePeriod = (yearStr: string, monthStr: string): Validatio
   return { success: true, data: date };
 };
 
-export const normalizeISBN = (val: string | null | undefined): string | null => 
-  val ? val.trim().replace(/[-\s]/g, "").toUpperCase() : null;
+export const normalizeISBN = (val: string | null | undefined): string | null => {
+  if (val == null) return null;
+
+  // XLSX/Excel frequently stores ISBNs as numbers, which can come through as
+  // scientific notation (e.g. "9.78147E+12"). We normalize those to digits
+  // before matching against our stored ISBNs.
+  let s = String(val).trim();
+  if (!s) return null;
+
+  s = s.replace(/[-\s]/g, "").toUpperCase();
+  let didNormalizeExcelFormatting = false;
+
+  // Convert pure "X.XXXXE+N" style scientific notation to an integer digits string.
+  // If the exponent makes the decimal shift ambiguous (e.g. negative exp), we
+  // fall back to rounding the numeric value.
+  if (s.includes("E")) {
+    const m = /^(\d+)(?:\.(\d+))?[E]([+\-]?\d+)$/.exec(s);
+    if (m) {
+      const whole = m[1];
+      const frac = m[2] ?? "";
+      const exp = parseInt(m[3], 10);
+
+      if (Number.isFinite(exp) && exp >= 0) {
+        // Shift decimal point to the right: whole.frac * 10^exp => integer digits.
+        if (exp >= frac.length) {
+          s = `${whole}${frac}${"0".repeat(exp - frac.length)}`;
+          didNormalizeExcelFormatting = true;
+        } else {
+          // exp < frac.length means decimal shift would still leave fractional digits;
+          // for ISBN matching we fall back to rounding the numeric value.
+          const n = Number(s);
+          if (Number.isFinite(n)) {
+            s = String(Math.round(n)).replace(/[-\s]/g, "").toUpperCase();
+            didNormalizeExcelFormatting = true;
+          }
+        }
+      }
+
+      // Fallback: if scientific conversion didn't run cleanly, try rounding.
+      if (!didNormalizeExcelFormatting) {
+        const n = Number(s);
+        if (Number.isFinite(n)) {
+          s = String(Math.round(n)).replace(/[-\s]/g, "").toUpperCase();
+          didNormalizeExcelFormatting = true;
+        }
+      }
+    }
+  }
+
+  // Common case: sometimes strings look like "9781234567890.0" due to number formatting.
+  if (/^\d+\.0+$/.test(s)) {
+    s = s.replace(/\.0+$/, "");
+    didNormalizeExcelFormatting = true;
+  }
+
+  return s;
+};
 
 /** ASIN / marketplace id: strip non-alphanumeric for matching (dashes/spaces ignored). */
 export const normalizeASIN = (val: string | null | undefined): string | null => {

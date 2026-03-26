@@ -21,6 +21,7 @@ import {
 import { asyncGetAllAuthors } from "@/lib/data/author";
 import {
   uploadBookCoverArt,
+  replaceBookCoverArt,
   removeBookCoverArt,
 } from "@/lib/data/books";
 import { revalidatePath } from "next/cache";
@@ -480,6 +481,27 @@ export async function uploadCoverArt(
   }
 
   const result = await uploadBookCoverArt(bookId, file);
+  if (!result.success) {
+    return result;
+  }
+
+  revalidatePath("/books");
+  revalidatePath(`/books/${bookId}`);
+  revalidatePath(`/books/${bookId}/edit`);
+  return { success: true };
+}
+
+// Replace cover art for a book (remove existing then upload new)
+export async function replaceCoverArt(
+  bookId: number,
+  formData: FormData
+): Promise<{ success: true } | { success: false; error: string }> {
+  const file = formData.get("cover") as File | null;
+  if (!file || !(file instanceof File) || file.size === 0) {
+    return { success: false, error: "No file selected." };
+  }
+
+  const result = await replaceBookCoverArt(bookId, file);
   if (!result.success) {
     return result;
   }

@@ -9,6 +9,7 @@ import {
   fetchBookFromOpenLibrary,
   getAllSeries,
   uploadCoverArt,
+  replaceCoverArt,
   removeCoverArt,
 } from "../action";
 import { BookDetail, BookListItem, SeriesListItem } from "@/lib/data/books";
@@ -63,6 +64,7 @@ export default function BookForm({
   >(null);
   const [isUploadingCover, setIsUploadingCover] = useState(false);
   const [coverError, setCoverError] = useState<string | null>(null);
+  const [coverRefreshKey, setCoverRefreshKey] = useState(0);
   const [pendingCoverFile, setPendingCoverFile] = useState<File | null>(null);
   const [pendingCoverPreview, setPendingCoverPreview] = useState<string | null>(null);
   const [formData, setFormData] = useState({
@@ -81,6 +83,7 @@ export default function BookForm({
 
   // Track if form has been initialized to prevent resetting user changes
   const formInitializedRef = useRef(false);
+  const replaceCoverInputRef = useRef<HTMLInputElement | null>(null);
 
   // Reset initialization flag when bookId or mode changes
   useEffect(() => {
@@ -926,11 +929,47 @@ export default function BookForm({
           {mode === "edit" && initialData?.coverArtPath ? (
             <div className="flex flex-wrap items-start gap-4">
               <img
-                src={`/api/books/cover?path=${encodeURIComponent(initialData.coverArtPath)}`}
+                src={`/api/books/cover?path=${encodeURIComponent(initialData.coverArtPath)}&v=${coverRefreshKey}`}
                 alt="Cover"
                 className="h-40 w-28 object-cover rounded border border-gray-200 dark:border-gray-600"
               />
               <div className="flex flex-col gap-2">
+                <p className="text-xs text-muted-foreground">
+                  Current cover uploaded.
+                </p>
+                <input
+                  ref={replaceCoverInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/gif,image/webp"
+                  className="hidden"
+                  disabled={isUploadingCover}
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file || !bookId) return;
+                    setCoverError(null);
+                    setIsUploadingCover(true);
+                    const coverFormData = new FormData();
+                    coverFormData.set("cover", file);
+                    const result = await replaceCoverArt(bookId, coverFormData);
+                    setIsUploadingCover(false);
+                    e.target.value = "";
+                    if (result.success) {
+                      setCoverRefreshKey(Date.now());
+                      router.refresh();
+                    } else {
+                      setCoverError(result.error ?? "Failed to replace cover");
+                    }
+                  }}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={isUploadingCover}
+                  onClick={() => replaceCoverInputRef.current?.click()}
+                >
+                  Replace cover
+                </Button>
                 <Button
                   type="button"
                   variant="outline"
@@ -940,6 +979,7 @@ export default function BookForm({
                     setCoverError(null);
                     const result = await removeCoverArt(bookId!);
                     if (result.success) {
+                      setCoverRefreshKey(Date.now());
                       router.refresh();
                     } else {
                       setCoverError(result.error ?? "Failed to remove cover");
@@ -979,38 +1019,43 @@ export default function BookForm({
             </div>
           ) : null}
           <div className="flex flex-wrap items-center gap-2">
-            <input
-              type="file"
-              accept="image/jpeg,image/png,image/gif,image/webp"
-              className="text-sm text-muted-foreground file:mr-2 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 dark:file:bg-blue-900/30 dark:file:text-blue-300"
-              id="cover-upload"
-              disabled={isUploadingCover}
-              onChange={async (e) => {
-                const file = e.target.files?.[0];
-                if (!file) return;
-                setCoverError(null);
-                if (mode === "edit" && bookId) {
-                  setIsUploadingCover(true);
-                  const formData = new FormData();
-                  formData.set("cover", file);
-                  const result = await uploadCoverArt(bookId, formData);
-                  setIsUploadingCover(false);
-                  e.target.value = "";
-                  if (result.success) {
-                    router.refresh();
-                  } else {
-                    setCoverError(result.error ?? "Upload failed");
+            {(mode === "create" ||
+              (mode === "edit" && !initialData?.coverArtPath)) && (
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/gif,image/webp"
+                className="text-sm text-muted-foreground file:mr-2 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 dark:file:bg-blue-900/30 dark:file:text-blue-300"
+                id="cover-upload"
+                disabled={isUploadingCover}
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  setCoverError(null);
+                  if (mode === "edit" && bookId) {
+                    setIsUploadingCover(true);
+                    const formData = new FormData();
+                    formData.set("cover", file);
+                    const result = await uploadCoverArt(bookId, formData);
+                    setIsUploadingCover(false);
+                    e.target.value = "";
+                    if (result.success) {
+                      setCoverRefreshKey(Date.now());
+                      router.refresh();
+                    } else {
+                      setCoverError(result.error ?? "Upload failed");
+                    }
+                    return;
                   }
-                } else {
+
                   if (pendingCoverPreview) {
                     URL.revokeObjectURL(pendingCoverPreview);
                   }
                   setPendingCoverFile(file);
                   setPendingCoverPreview(URL.createObjectURL(file));
                   e.target.value = "";
-                }
-              }}
-            />
+                }}
+              />
+            )}
             {isUploadingCover && (
               <span className="text-sm text-muted-foreground">Uploading...</span>
             )}

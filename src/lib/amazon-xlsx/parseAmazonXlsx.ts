@@ -43,8 +43,16 @@ const MONTH_NAME_TO_NUM: Record<string, number> = {
 /**
  * Parses the month/year cell next to "Sales Period" (first day of month, UTC).
  */
-export function parseAmazonMonthYearString(input: string): Date | null {
-  const s = input.trim();
+export function parseAmazonMonthYearString(input: unknown): Date | null {
+  if (input instanceof Date) {
+    // Use UTC values to avoid timezone shifts.
+    const y = input.getUTCFullYear();
+    const m = input.getUTCMonth(); // 0-11
+    if (!Number.isFinite(y) || m < 0 || m > 11) return null;
+    return new Date(Date.UTC(y, m, 1));
+  }
+
+  const s = String(input ?? "").trim();
   if (!s) return null;
 
   const isoYm = /^(\d{4})-(\d{1,2})$/.exec(s);
@@ -117,6 +125,18 @@ function parseNumericCell(val: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+function isbn13CheckDigitFromFirst12(first12: string): string | null {
+  if (!/^\d{12}$/.test(first12)) return null;
+  const digits = first12.split("").map((d) => Number(d));
+  const sum = digits.reduce((acc, d, idx) => {
+    // ISBN-13 weights: position 1 => idx 0 => weight 1, position 2 => idx 1 => weight 3, ...
+    const weight = idx % 2 === 0 ? 1 : 3;
+    return acc + d * weight;
+  }, 0);
+  const checkDigit = (10 - (sum % 10)) % 10;
+  return String(checkDigit);
+}
+
 function formatImportTimestamp(d: Date): string {
   return d.toISOString().replace("T", " ").slice(0, 19);
 }
@@ -165,7 +185,8 @@ function sheetToMatrix(ws: XLSX.WorkSheet): unknown[][] {
   return XLSX.utils.sheet_to_json<unknown[]>(ws, {
     header: 1,
     defval: "",
-    raw: false,
+    // raw:true gives us unformatted numeric values instead of "1.23E+12" strings.
+    raw: true,
   }) as unknown[][];
 }
 
@@ -265,7 +286,7 @@ export async function parseAmazonXlsx(
     }
 
     const periodCell = matrix[0]?.[1];
-    const period = parseAmazonMonthYearString(String(periodCell ?? ""));
+    const period = parseAmazonMonthYearString(periodCell);
     if (!period) {
       pushError(errors, sheetName, 1, `Could not parse sales period from cell B1 (got "${String(periodCell ?? "")}").`);
       continue;
@@ -399,6 +420,17 @@ export async function parseAmazonXlsx(
           continue;
         }
         book = booksByIsbn.get(isbnNorm) ?? null;
+        // If ISBN-13 check digit is wrong (common with Excel formatting),
+        // try matching by fixing the check digit for lookup only.
+        if (!book && /^\d{13}$/.test(isbnNorm)) {
+          const first12 = isbnNorm.slice(0, 12);
+          const checkDigit = isbn13CheckDigitFromFirst12(first12);
+          if (checkDigit) {
+            const candidate = `${first12}${checkDigit}`;
+            book = booksByIsbn.get(candidate) ?? null;
+          }
+        }
+
         if (!book) {
           pushError(errors, sheetName, excelRow, `Unknown book for ISBN "${isbnNorm}".`);
           continue;
