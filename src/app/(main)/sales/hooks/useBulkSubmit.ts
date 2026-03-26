@@ -86,7 +86,7 @@ export function useBulkPasteSubmit(
         return; 
       }
 
-      const comment = `Ingram Import: Format='${row.format}' Market='${row.salesMarket}' File='${fileName}' (${importTimestamp})`;
+      const comment = `Ingram Import: Format='${row.format}' Market='${row.salesMarket}' File='${fileName}' (${importTimestamp})`.slice(0, 256);
 
       // FINAL RECORD CONSTRUCTION
       const record: PendingSaleItem = {
