@@ -2,6 +2,7 @@ import { getSalesData } from "@/lib/data/records";
 import SalesRecordsTable from "@/app/(main)/sales/components/SalesRecordsTable";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { ExportCSVButton } from "../components/ExportCSVButton";
 
 /**
  * Ensure the page is always dynamic to reflect real-time 
@@ -88,6 +89,17 @@ export default async function SalesRecordsPage({
             </Button>
           </Link>
         </div>
+
+        <ExportCSVButton
+              search={search}
+              sortBy={sortBy}
+              sortDir={sortDir}
+              dateFrom={dateFrom}
+              dateTo={dateTo}
+              source={source}
+              distributor={distributor}
+              format={format}
+            />
 
         {/* Page Header */}
         <div>

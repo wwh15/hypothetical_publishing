@@ -61,8 +61,7 @@ const DISTRIBUTOR_BADGE_STYLES: Record<
     "bg-teal-100 text-teal-900 dark:bg-teal-900/40 dark:text-teal-200",
   AMAZON:
     "bg-orange-100 text-orange-900 dark:bg-orange-900/40 dark:text-orange-200",
-  OTHER:
-    "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200",
+  OTHER: "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200",
 };
 
 const DISTRIBUTOR_BADGE_LABELS = {
@@ -118,10 +117,15 @@ export const salesCellRenderers = {
     original: boolean = false,
     colorClass?: string
   ) => (
-    <span className={cn("font-medium", colorClass)}>
-      {original ? CURRENCY_SYMBOLS[currencyCode] : `$`}
-      {value.toFixed(2)}
-    </span>
+    <div>
+      <span className={cn("font-medium", colorClass)}>
+        <span>
+          {/* Use <bdi> to keep the Saudi symbol from jumbling the numbers */}
+          <bdi>{original ? CURRENCY_SYMBOLS[currencyCode] : `$`}</bdi>
+        </span>
+        <span>{currencyCode === "JPY" ? value.toFixed(0) : value.toFixed(2)}</span>
+      </span>
+    </div>
   ),
 
   paidStatus: (status: "paid" | "pending") => {

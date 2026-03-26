@@ -23,7 +23,15 @@ export type AuthorPaymentColumnId =
 // Reusable cell renderers specific to payments
 export const authorPaymentCellRenderers = {
   currency: (value: number, currencyCode: string, original: boolean = false, colorClass?: string) => (
-    <span className={cn("font-medium", colorClass)}>{original ? CURRENCY_SYMBOLS[currencyCode] : `$`}{value.toFixed(2)}</span>
+    <div>
+      <span className={cn("font-medium", colorClass)}>
+        <span>
+          {/* Use <bdi> to keep the Saudi symbol from jumbling the numbers */}
+          <bdi>{original ? CURRENCY_SYMBOLS[currencyCode] : `$`}</bdi>
+        </span>
+        <span>{currencyCode === "JPY" ? value.toFixed(0) : value.toFixed(2)}</span>
+      </span>
+    </div>
   ),
 
   date: (date: Date) =>

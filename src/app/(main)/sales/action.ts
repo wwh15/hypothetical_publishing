@@ -149,3 +149,122 @@ export async function getAuthorPaymentDataPage(params: {
 }) {
   return await asyncGetAuthorPaymentData(params.page, params.pageSize);
 }
+
+
+/**
+ * Server Action to generate CSV content based on current filters.
+ * Returns a raw CSV string to the client.
+ */
+
+const FORMAT_LABELS: Record<string, string> = {
+  PRINT: "Print",
+  EBOOK: "Ebook",
+  KINDLE_UNLIMITED: "Kindle Unlimited",
+};
+
+const SOURCE_LABELS: Record<string, string> = {
+  HAND_SOLD: "Handsold",
+  DISTRIBUTOR: "Distributor",
+};
+
+const DISTRIBUTOR_LABELS: Record<string, string> = {
+  AMAZON: "Amazon",
+  INGRAM_SPARK: "Ingram Spark",
+  OTHER: "Other",
+};
+
+export async function exportSalesToCsvAction(params: {
+  search?: string;
+  sortBy?: string;
+  sortDir?: "asc" | "desc";
+  dateFrom?: string;
+  dateTo?: string;
+  source?: "DISTRIBUTOR" | "HAND_SOLD";
+  distributor?: "INGRAM_SPARK" | "AMAZON" | "OTHER";
+  format?: "PRINT" | "EBOOK" | "KINDLE_UNLIMITED";
+}) {
+  try {
+    // 1. Fetch the full list matching current filters (Pagination: false)
+    const { items } = await getSalesData({
+      ...params,
+      pagination: false,
+    });
+
+    // 2. Define Headers
+    const headers = [
+      "Date",
+      "Author",
+      "Title",
+      "Source",
+      "Format",
+      "Quantity",
+      "KENP",
+      "Distributor",
+      "Original Currency",
+      "Pub. Revenue (Original)",
+      "Pub. Revenue (USD)",
+      "Author Royalty (USD)",
+      "Royalty Status",
+      "Comment",
+    ];
+
+    // 3. Map to CSV Rows
+    const rows = items.map((sale) => {
+      // 1. Determine Display Values
+      const displaySource = SOURCE_LABELS[sale.source] || sale.source;
+      const displayFormat = FORMAT_LABELS[sale.format] || sale.format;
+      const displayDistributor =
+        sale.source === "HAND_SOLD"
+          ? "N/A"
+          : sale.distributor
+          ? DISTRIBUTOR_LABELS[sale.distributor]
+          : "Other";
+
+      // 2. Logic for Format-Specific Columns
+      const quantity =
+        sale.format === "EBOOK" || sale.format === "PRINT"
+          ? sale.quantity
+          : "N/A";
+      const kenp = sale.format === "KINDLE_UNLIMITED" ? sale.kenp : "N/A";
+
+      const originalRev =
+        sale.currency === "JPY"
+          ? Math.floor(sale.publisherRevenueOriginal).toString()
+          : sale.publisherRevenueOriginal.toFixed(2);
+
+      const usdRev = sale.publisherRevenueUSD.toFixed(2);
+      const royalty = sale.authorRoyalty.toFixed(2);
+
+      const rawComment = sale.comment || "";
+      const slicedComment = rawComment.slice(0, 256);
+      const formattedComment = `"${slicedComment.replace(/"/g, '""')}"`;
+
+      return [
+        sale.date.toISOString().slice(0, 7),
+        `"${sale.title.replace(/"/g, '""')}"`,
+        `"${sale.title}"`,
+        displaySource,
+        displayFormat,
+        quantity,
+        kenp,
+        displayDistributor,
+        sale.currency,
+        originalRev,
+        usdRev,
+        royalty,
+        sale.paid === "paid" ? "Paid" : "Unpaid", // Using boolean check
+        formattedComment, // Wrap comments in quotes too!
+      ].join(",");
+    });
+
+    // 4. Return the combined string
+    return { 
+      success: true, 
+      data: [headers.join(","), ...rows].join("\n") 
+    };
+
+  } catch (error) {
+    console.error("CSV Generation Failed:", error);
+    return { success: false, error: "Failed to generate CSV data" };
+  }
+}

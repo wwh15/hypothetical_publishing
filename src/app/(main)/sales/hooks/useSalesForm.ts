@@ -121,124 +121,106 @@ export function useSalesForm(
   );
 
   const calculateDerivedValues = async (
-    current: FormData
+    current: FormData, 
+    forceCurrencyUpdate = false // Only true if Currency or Original Revenue changed
   ): Promise<FormData> => {
     const next = { ...current };
     const book = books.find((b) => b.id === parseInt(next.bookId, 10));
     if (!book) return next;
-
+  
     setIsCalculating(true);
-
+  
     try {
+      // 1. REVENUE CALCULATION
       if (next.source === "HAND_SOLD") {
         next.currency = "USD";
         const qty = normalizeQuantity(next.quantity);
         const revUsdStr = calcHandSoldPublisherRevenueUSD(book, qty);
         next.publisherRevenueOriginal = revUsdStr;
         next.publisherRevenueUSD = revUsdStr;
-      } else {
-        const originalAmount = Number(
-          next.publisherRevenueOriginal.replace(/[,\s]/g, "") || 0
-        );
-
+      } else if (forceCurrencyUpdate) {
+        // ONLY call the API if currency/amount actually changed
+        const originalAmount = Number(next.publisherRevenueOriginal.replace(/[,\s]/g, "") || 0);
+        
         if (next.currency === "USD") {
           next.publisherRevenueUSD = originalAmount.toFixed(2);
         } else if (originalAmount > 0) {
-          const converted = await convertCurrency(
-            originalAmount,
-            next.currency
-          );
+          const converted = await convertCurrency(originalAmount, next.currency);
           next.publisherRevenueUSD = converted.toFixed(2);
         } else {
           next.publisherRevenueUSD = "0.00";
         }
       }
-
+  
+      // 2. ROYALTY CALCULATION (This is always "Sync" and fast)
       const revUsdNum = normalizeCurrency(next.publisherRevenueUSD);
-      const ratePct =
-        next.source === "HAND_SOLD"
-          ? book.handSoldRoyaltyRate
-          : book.distRoyaltyRate;
-
-      const royalty =
-        next.publisherRevenueUSD !== ""
-          ? normalizeCurrency((revUsdNum * (ratePct ?? 0)) / 100)
-          : 0;
-
-      next.authorRoyalty =
-        next.publisherRevenueUSD !== "" ? royalty.toFixed(2) : "";
-
-      setFormErrors((prev) => {
-        const { currency: _, ...rest } = prev;
-        return rest;
-      });
-    } catch (err) {
-      console.error("Calculation Error:", err);
-      setFormErrors((prev) => ({
-        ...prev,
-        currency: "Currency conversion failed.",
-      }));
+      const ratePct = next.source === "HAND_SOLD" ? book.handSoldRoyaltyRate : book.distRoyaltyRate;
+      const royalty = (revUsdNum * (ratePct ?? 0)) / 100;
+      
+      next.authorRoyalty = royalty.toFixed(2);
+  
+      return next;
     } finally {
       setIsCalculating(false);
     }
-
-    return next;
   };
 
   const handleInputChange = async (
     field: string,
     value: string | boolean | { month: string; year: string }
   ) => {
-    let next: FormData = { ...formData };
-
+    // 1. SANITIZATION: Clean JPY inputs before they touch the state
+    let processedValue = value;
     if (
-      field === "date" &&
-      typeof value === "object" &&
-      value !== null &&
-      "month" in value
+      field === "publisherRevenueOriginal" && 
+      formData.currency === "JPY" && 
+      typeof value === "string"
     ) {
+      processedValue = value.replace(/[^0-9]/g, ""); // Strips decimals/letters instantly
+    }
+  
+    // 2. BUILD THE "NEXT" OBJECT
+    let next: FormData = { ...formData };
+    if (field === "date" && typeof value === "object" && value !== null && "month" in value) {
       next.month = value.month;
       next.year = value.year;
-    } else if (field === "distributor") {
-      next = { ...next, distributor: value as Distributor };
-    } else if (field === "format") {
-      next = { ...next, format: value as SaleFormat };
-    } else if (field === "source") {
-      next = { ...next, source: value as "DISTRIBUTOR" | "HAND_SOLD" };
+    } else if (field === "distributor" || field === "format" || field === "source") {
+      next = { ...next, [field]: processedValue } as FormData;
     } else {
-      next = { ...next, [field]: value } as FormData;
+      next = { ...next, [field]: processedValue } as FormData;
     }
-
+  
+    // 3. COERCE RULES (Sync)
     next = coerceSaleForm(next, field);
-
+  
+    // 4. IMMEDIATE SYNC UPDATE (Keeps the UI snappy and cursor in place)
     setFormData(next);
-
-    const triggerFields = [
-      "quantity",
-      "publisherRevenueOriginal",
-      "currency",
-      "bookId",
-      "source",
-      "format",
-      "distributor",
-    ];
+  
+    // 5. SELECTIVE ASYNC CALCULATION
+    const isMoneyField = field === "publisherRevenueOriginal" || field === "currency";
+    const isHandSoldQty = field === "quantity" && next.source === "HAND_SOLD";
+    
+    // These fields require an update to Royalty or Revenue
+    const triggerFields = ["quantity", "publisherRevenueOriginal", "currency", "bookId", "source", "format"];
+  
     if (triggerFields.includes(field)) {
-      const updatedData = await calculateDerivedValues(next);
-      setFormData(updatedData);
+      const needsApiConversion = isMoneyField || isHandSoldQty;
+      const updatedData = await calculateDerivedValues(next, needsApiConversion);
+    
+      setFormData((prev) => ({
+        ...updatedData,
+        // Cast 'field' as keyof FormData to satisfy the index signature requirement
+        ...(typeof processedValue === "string" 
+          ? { [field as keyof FormData]: prev[field as keyof FormData] } 
+          : {})
+      }));
     }
-
+  
+    // 7. ERROR CLEARING
     if (field === "date" && formErrors.date) {
-      setFormErrors((prevErrors) => {
-        const cleared = { ...prevErrors };
-        delete cleared.date;
-        return cleared;
-      });
+      setFormErrors(({ date, ...rest }) => rest);
     } else if (formErrors[field]) {
-      setFormErrors((prevErrors) => {
-        const cleared = { ...prevErrors };
-        delete cleared[field];
-        return cleared;
-      });
+      setFormErrors(({ [field]: _, ...rest }) => rest);
     }
   };
 
@@ -251,7 +233,9 @@ export function useSalesForm(
       return;
     }
 
-    const normalized = normalizeCurrency(rawValue).toFixed(2);
+    const precision = formData.currency === "JPY" ? 0 : 2;
+
+    const normalized = normalizeCurrency(rawValue).toFixed(precision);
     const intermediate = { ...formData, [field]: normalized };
 
     setFormData(intermediate);

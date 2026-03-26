@@ -745,7 +745,8 @@ export default function SalesRecordEditForm({
                 "Publisher revenue"
               );
               if (revCheck.success) {
-                setDisplayRevenueOriginal(revCheck.data.toFixed(2));
+                const precision = formData.currency === "JPY" ? 0 : 2;
+                setDisplayRevenueOriginal(revCheck.data.toFixed(precision));
               }
             }}
           />
