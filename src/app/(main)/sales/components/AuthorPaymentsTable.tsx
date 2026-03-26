@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 import { PaginationControls } from "@/components/PaginationControls";
 import { TableInfo } from "@/components/TableInfo";
 import { BaseDataTable } from "@/components/BaseDataTable";
-import { getAuthorPaymentPresetColumns } from "@/lib/table-configs/author-payment-columns";
+import { getPresetColumns } from "@/lib/table-configs/sales-columns";
 import {
   Dialog,
   DialogContent,
@@ -118,7 +118,16 @@ export default function AuthorPaymentsTable({
   const startRecord = totalGroups === 0 ? 0 : (currentPage - 1) * pageSize + 1;
   const endRecord =
     totalGroups === 0 ? 0 : Math.min(currentPage * pageSize, totalGroups);
-  const columns = getAuthorPaymentPresetColumns("full");
+  const columns = React.useMemo(
+    () =>
+      getPresetColumns("full")
+        .filter((col) => col.key !== "author")
+        .map((col) => ({
+          ...col,
+          className: cn("text-center align-middle", col.className),
+        })),
+    []
+  );
 
   return (
     <div className="space-y-4">

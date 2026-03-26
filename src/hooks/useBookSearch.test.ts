@@ -10,6 +10,7 @@ const mockBooks: BookListItem[] = [
     author: "John Doe",
     isbn13: "9781617293856",
     isbn10: "1617293859",
+    asin: null,
     publicationDate: new Date(2018, 2, 1), // March 2018
     publicationSortKey: "2018-03",
     distRoyaltyRate: 10,
@@ -17,8 +18,12 @@ const mockBooks: BookListItem[] = [
     coverPrice: 29.99,
     printCost: 5.5,
     totalSales: 100,
+    totalAuthorRoyalty: 0,
+    paidAuthorRoyalty: 0,
+    unpaidAuthorRoyalty: 0,
     seriesName: null,
     seriesOrder: null,
+    coverArtPath: null,
   },
   {
     id: 2,
@@ -26,6 +31,7 @@ const mockBooks: BookListItem[] = [
     author: "Jane Smith",
     isbn13: "9781492037651",
     isbn10: "1492037658",
+    asin: null,
     publicationDate: new Date(2020, 5, 1),
     publicationSortKey: "2020-06",
     distRoyaltyRate: 15,
@@ -33,8 +39,12 @@ const mockBooks: BookListItem[] = [
     coverPrice: 34.99,
     printCost: 6,
     totalSales: 50,
+    totalAuthorRoyalty: 0,
+    paidAuthorRoyalty: 0,
+    unpaidAuthorRoyalty: 0,
     seriesName: null,
     seriesOrder: null,
+    coverArtPath: null,
   },
 ];
 
@@ -60,6 +70,66 @@ describe("filterBooksBySearch", () => {
     const result = filterBooksBySearch(mockBooks, "1617293856");
     expect(result).toHaveLength(1);
     expect(result[0].isbn13).toBe("9781617293856");
+  });
+
+  it("matches ISBN with dashes and ISBN-10 X check digit", () => {
+    const booksWithX: BookListItem[] = [
+      ...mockBooks,
+      {
+        id: 3,
+        title: "Domain-Driven Design",
+        author: "Eric Evans",
+        isbn13: "9780321125217",
+        isbn10: "0321125215",
+        asin: "B00TEST123",
+        publicationDate: new Date(2003, 7, 1),
+        publicationSortKey: "2003-08",
+        distRoyaltyRate: 12,
+        handSoldRoyaltyRate: 6,
+        coverPrice: 49.99,
+        printCost: 8,
+        totalSales: 10,
+        totalAuthorRoyalty: 0,
+        paidAuthorRoyalty: 0,
+        unpaidAuthorRoyalty: 0,
+        seriesName: null,
+        seriesOrder: null,
+        coverArtPath: null,
+      },
+    ];
+
+    const dashed = filterBooksBySearch(booksWithX, "978-0-321-12521-7");
+    expect(dashed[0].id).toBe(3);
+  });
+
+  it("matches ASIN regardless of punctuation", () => {
+    const booksWithAsin: BookListItem[] = [
+      ...mockBooks,
+      {
+        id: 3,
+        title: "ASIN Book",
+        author: "A Author",
+        isbn13: "9780000000001",
+        isbn10: "0000000000",
+        asin: "B0A1-2C3D4E",
+        publicationDate: new Date(2021, 0, 1),
+        publicationSortKey: "2021-01",
+        distRoyaltyRate: 10,
+        handSoldRoyaltyRate: 5,
+        coverPrice: 9.99,
+        printCost: 2,
+        totalSales: 1,
+        totalAuthorRoyalty: 0,
+        paidAuthorRoyalty: 0,
+        unpaidAuthorRoyalty: 0,
+        seriesName: null,
+        seriesOrder: null,
+        coverArtPath: null,
+      },
+    ];
+
+    const result = filterBooksBySearch(booksWithAsin, "B0A1 2C3D4E");
+    expect(result[0].id).toBe(3);
   });
 
   it("returns empty array when no match", () => {

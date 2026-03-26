@@ -21,6 +21,8 @@ export interface BookListItem {
   author: string;
   isbn13: string;
   isbn10: string | null;
+  /** Amazon ebook ASIN (optional); used for sales input search. */
+  asin: string | null;
   /** First day of publication month (e.g. 2024-01-01) */
   publicationDate: Date;
   /** YYYY-MM string for sorting */
@@ -30,9 +32,35 @@ export interface BookListItem {
   coverPrice: number; // Retail cover price
   printCost: number; // Cost to print one copy
   totalSales: number;
+  /** Aggregated from sales (USD). */
+  totalAuthorRoyalty: number;
+  paidAuthorRoyalty: number;
+  unpaidAuthorRoyalty: number;
   seriesName: string | null;
   seriesOrder: number | null;
   coverArtPath: string | null;
+}
+
+/** Sum author royalties from sale rows (USD). */
+export function authorRoyaltyTotalsFromSales(
+  sales: ReadonlyArray<{
+    authorRoyalty: Prisma.Decimal | null | undefined;
+    paid: boolean;
+  }>
+): Pick<
+  BookListItem,
+  "totalAuthorRoyalty" | "paidAuthorRoyalty" | "unpaidAuthorRoyalty"
+> {
+  let totalAuthorRoyalty = 0;
+  let paidAuthorRoyalty = 0;
+  let unpaidAuthorRoyalty = 0;
+  for (const s of sales) {
+    const v = new Prisma.Decimal(s.authorRoyalty ?? 0).toNumber();
+    totalAuthorRoyalty += v;
+    if (s.paid) paidAuthorRoyalty += v;
+    else unpaidAuthorRoyalty += v;
+  }
+  return { totalAuthorRoyalty, paidAuthorRoyalty, unpaidAuthorRoyalty };
 }
 
 // Series type for UI
@@ -51,6 +79,8 @@ export interface CreateBookInput {
   email: string; // email of author
   isbn13: string;
   isbn10?: string;
+  /** Amazon ebook ASIN (optional); normalized 10 alphanumeric chars. */
+  asin?: string | null;
   /** First day of publication month (e.g. new Date(2024, 0, 1) for Jan 2024) */
   publicationDate: Date;
   distRoyaltyRate?: number; // Distributor royalty percentage (e.g., 50), default handled by server
@@ -82,6 +112,8 @@ export interface BookDetail {
   email: string;
   isbn13: string;
   isbn10: string | null;
+  /** Amazon ebook ASIN (optional). */
+  asin: string | null;
   /** First day of publication month */
   publicationDate: Date;
   distRoyaltyRate: number;
@@ -220,7 +252,8 @@ export async function getAllBooks(): Promise<BookListItem[]> {
   });
 
   return books.map((book) => {
-    const totalSales = book.sales.reduce((sum, sale) => sum + sale.quantity, 0);
+    const totalSales = book.sales.reduce((sum, sale) => sum + (sale.quantity ?? 0), 0);
+    const royalties = authorRoyaltyTotalsFromSales(book.sales);
     const distRoyaltyRate = Math.round(book.distAuthorRoyaltyRate * 100);
     const handSoldRoyaltyRate = Math.round(book.handSoldAuthorRoyaltyRate * 100);
     const publicationSortKey = publicationSortKeyFromDate(book.publicationDate as Date);
@@ -237,9 +270,11 @@ export async function getAllBooks(): Promise<BookListItem[]> {
       coverPrice: Number(book.coverPrice),
       printCost: Number(book.printCost),
       totalSales,
+      ...royalties,
       seriesName: book.series?.name ?? null,
       seriesOrder: book.seriesOrder ?? null,
       coverArtPath: book.coverArtPath ?? null,
+      asin: book.asin ?? null,
     };
   });
 }
@@ -318,6 +353,13 @@ export async function getBooksData({
       );
     }
 
+    const normalizedAsin = query.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+    if (normalizedAsin.length >= 4) {
+      orConditions.push({
+        asin: { contains: normalizedAsin, mode: "insensitive" },
+      });
+    }
+
     where.OR = orConditions;
   }
 
@@ -350,7 +392,8 @@ export async function getBooksData({
   ]);
 
   const items: BookListItem[] = books.map((book) => {
-    const totalSales = book.sales.reduce((sum, sale) => sum + sale.quantity, 0);
+    const totalSales = book.sales.reduce((sum, sale) => sum + (sale.quantity ?? 0), 0);
+    const royalties = authorRoyaltyTotalsFromSales(book.sales);
     const distRoyaltyRate = Math.round(book.distAuthorRoyaltyRate * 100);
     const handSoldRoyaltyRate = Math.round(book.handSoldAuthorRoyaltyRate * 100);
     const publicationSortKey = publicationSortKeyFromDate(book.publicationDate as Date);
@@ -367,9 +410,11 @@ export async function getBooksData({
       coverPrice: Number(book.coverPrice),
       printCost: Number(book.printCost),
       totalSales,
+      ...royalties,
       seriesName: book.series?.name ?? null,
       seriesOrder: book.seriesOrder ?? null,
       coverArtPath: book.coverArtPath ?? null,
+      asin: book.asin ?? null,
     };
   });
 
@@ -396,7 +441,8 @@ export async function getBooksByAuthorId(
   });
 
   return books.map((book) => {
-    const totalSales = book.sales.reduce((sum, sale) => sum + sale.quantity, 0);
+    const totalSales = book.sales.reduce((sum, sale) => sum + (sale.quantity ?? 0), 0);
+    const royalties = authorRoyaltyTotalsFromSales(book.sales);
     const distRoyaltyRate = Math.round(book.distAuthorRoyaltyRate * 100);
     const handSoldRoyaltyRate = Math.round(book.handSoldAuthorRoyaltyRate * 100);
     const publicationSortKey = publicationSortKeyFromDate(
@@ -415,9 +461,11 @@ export async function getBooksByAuthorId(
       coverPrice: Number(book.coverPrice),
       printCost: Number(book.printCost),
       totalSales,
+      ...royalties,
       seriesName: book.series?.name ?? null,
       seriesOrder: book.seriesOrder ?? null,
       coverArtPath: book.coverArtPath ?? null,
+      asin: book.asin ?? null,
     };
   });
 }
@@ -467,6 +515,7 @@ export async function getBookById(id: number): Promise<BookDetail | null> {
     email: book.author.email,
     isbn13: book.isbn13 as string,
     isbn10: book.isbn10,
+    asin: book.asin ?? null,
     publicationDate: book.publicationDate as Date,
     distRoyaltyRate,
     handSoldRoyaltyRate,
@@ -547,6 +596,7 @@ export async function createBook(
           title: input.title,
           isbn13: input.isbn13,
           isbn10: input.isbn10 || null,
+          asin: input.asin ?? null,
           distAuthorRoyaltyRate,
           handSoldAuthorRoyaltyRate,
           coverPrice: input.coverPrice,
@@ -575,11 +625,15 @@ export async function createBook(
     ) {
       const field = (error as { meta?: { target?: string[] } }).meta
         ?.target?.[0];
+      const label =
+        field === "isbn13"
+          ? "ISBN-13"
+          : field === "asin"
+            ? "ASIN"
+            : "ISBN-10";
       return {
         success: false,
-        error: `A book with this ${
-          field === "isbn13" ? "ISBN-13" : "ISBN-10"
-        } already exists`,
+        error: `A book with this ${label} already exists`,
       };
     }
 
@@ -628,6 +682,9 @@ export async function updateBook(
         updateData.isbn13 = input.isbn13;
       if (input.isbn10 !== undefined)
         updateData.isbn10 = input.isbn10 || null;
+      if (input.asin !== undefined) {
+        updateData.asin = input.asin;
+      }
       if (input.distRoyaltyRate !== undefined) {
         updateData.distAuthorRoyaltyRate = input.distRoyaltyRate / 100;
       }
@@ -701,11 +758,15 @@ export async function updateBook(
     ) {
       const field = (error as { meta?: { target?: string[] } }).meta
         ?.target?.[0];
+      const label =
+        field === "isbn13"
+          ? "ISBN-13"
+          : field === "asin"
+            ? "ASIN"
+            : "ISBN-10";
       return {
         success: false,
-        error: `A book with this ${
-          field === "isbn13" ? "ISBN-13" : "ISBN-10"
-        } already exists`,
+        error: `A book with this ${label} already exists`,
       };
     }
 
@@ -811,6 +872,31 @@ export async function uploadBookCoverArt(
     data: { coverArtPath: result.path },
   });
   return { success: true, path: result.path };
+}
+
+/** Replace existing cover art by deleting old object first, then uploading new file. */
+export async function replaceBookCoverArt(
+  bookId: number,
+  file: File
+): Promise<
+  { success: true; path: string } | { success: false; error: string }
+> {
+  const book = await prisma.book.findUnique({
+    where: { id: bookId },
+    select: { coverArtPath: true },
+  });
+  if (!book) {
+    return { success: false, error: "Book not found." };
+  }
+
+  if (book.coverArtPath) {
+    const del = await deleteCoverArt(book.coverArtPath);
+    if (del.error) {
+      return { success: false, error: del.error };
+    }
+  }
+
+  return uploadBookCoverArt(bookId, file);
 }
 
 /** Remove cover art from storage and clear book.coverArtPath. */

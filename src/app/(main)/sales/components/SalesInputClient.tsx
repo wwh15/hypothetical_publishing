@@ -6,6 +6,7 @@ import { BookListItem } from "@/lib/data/books";
 import PendingRecordsTable from "./PendingRecordsTable";
 import InputRecordForm from "./InputRecordForm";
 import BulkPasteSalesPanel from "./BulkPasteSalesPanel";
+import AmazonXlsxImportPanel from "./AmazonXlsxImportPanel";
 import { addSale } from "../action";
 
 interface SalesInputClientProps {
@@ -40,11 +41,14 @@ export default function SalesInputClient({
         bookId: record.bookId,
         date: record.date,
         quantity: record.quantity,
+        kenp: record.kenp,
+        format: record.format,
+        distributor:
+          record.source === "DISTRIBUTOR" ? record.distributor : null,
         publisherRevenueUSD: record.publisherRevenueUSD,
         publisherRevenueOriginal: record.publisherRevenueOriginal,
         currency: record.currency,
         authorRoyalty: record.authorRoyalty,
-        royaltyOverridden: record.royaltyOverridden,
         paid: record.paid,
         comment: record.comment ?? null,
         source: record.source,
@@ -70,38 +74,22 @@ export default function SalesInputClient({
   };
 
   const handleRemove = (row: PendingSaleItem) => {
-    setPendingRecords((prev) => {
-      const index = prev.findIndex(
-        (r) =>
-          r.bookId === row.bookId &&
-          r.date === row.date &&
-          r.quantity === row.quantity &&
-          r.publisherRevenueUSD === row.publisherRevenueUSD &&
-          r.publisherRevenueOriginal === row.publisherRevenueOriginal &&
-          r.currency === row.currency
-      );
-      return index !== -1 ? prev.filter((_, i) => i !== index) : prev;
-    });
+    setPendingRecords((prev) => prev.filter((r) => r.id !== row.id));
   };
 
   const handleTogglePaid = (row: PendingSaleItem) => {
     setPendingRecords((prev) =>
-      prev.map((r) =>
-        r.bookId === row.bookId &&
-        r.date === row.date &&
-        r.quantity === row.quantity &&
-        r.publisherRevenueUSD === row.publisherRevenueUSD &&
-        r.publisherRevenueOriginal === row.publisherRevenueOriginal &&
-        r.currency === row.currency
-          ? { ...r, paid: !r.paid }
-          : r,
-      ),
+      prev.map((r) => (r.id === row.id ? { ...r, paid: !r.paid } : r)),
     );
   };
 
   return (
     <>
       <BulkPasteSalesPanel
+        onAddRecord={handleAddRecord}
+        booksData={booksData}
+      />
+      <AmazonXlsxImportPanel
         onAddRecord={handleAddRecord}
         booksData={booksData}
       />

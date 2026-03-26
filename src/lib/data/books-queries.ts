@@ -138,6 +138,7 @@ export async function getBooksSortedByTotalSales(
       a.name AS author,
       b.isbn13,
       b.isbn10,
+      b.asin,
       b.publication_date,
       b.dist_author_royalty_rate,
       b.hand_sold_author_royalty_rate,
@@ -146,13 +147,16 @@ export async function getBooksSortedByTotalSales(
       b.series_order,
       ser.name AS series_name,
       b.cover_art_path,
-      COALESCE(SUM(s.quantity), 0)::INTEGER AS total_sales
+      COALESCE(SUM(s.quantity), 0)::INTEGER AS total_sales,
+      COALESCE(SUM(s.author_royalty), 0)::DOUBLE PRECISION AS total_author_royalty,
+      COALESCE(SUM(s.author_royalty) FILTER (WHERE s.paid = true), 0)::DOUBLE PRECISION AS paid_author_royalty,
+      COALESCE(SUM(s.author_royalty) FILTER (WHERE s.paid = false), 0)::DOUBLE PRECISION AS unpaid_author_royalty
     FROM books b
     INNER JOIN authors a ON a.id = b."authorId"
     LEFT JOIN sales s ON s.book_id = b.id
     LEFT JOIN series ser ON ser.id = b.series_id
     ${whereClause}
-    GROUP BY b.id, b.title, a.name, b.isbn13, b.isbn10, b.publication_date, b.dist_author_royalty_rate, b.hand_sold_author_royalty_rate, b.cover_price, b.print_cost, b.series_order, ser.name, b.cover_art_path
+    GROUP BY b.id, b.title, a.name, b.isbn13, b.isbn10, b.asin, b.publication_date, b.dist_author_royalty_rate, b.hand_sold_author_royalty_rate, b.cover_price, b.print_cost, b.series_order, ser.name, b.cover_art_path
     ORDER BY ${orderByClause}
     LIMIT $${limitParamIndex}
     OFFSET $${offsetParamIndex}
@@ -177,6 +181,7 @@ export async function getBooksSortedByTotalSales(
       author: string;
       isbn13: string;
       isbn10: string | null;
+      asin: string | null;
       publication_date: Date;
       dist_author_royalty_rate: number;
       hand_sold_author_royalty_rate: number;
@@ -186,6 +191,9 @@ export async function getBooksSortedByTotalSales(
       series_name: string | null;
       cover_art_path: string | null;
       total_sales: number;
+      total_author_royalty: number;
+      paid_author_royalty: number;
+      unpaid_author_royalty: number;
     }>>(resultsQuery, ...allParams),
     prisma.$queryRawUnsafe<Array<{ total: bigint }>>(
       countQuery,
@@ -208,6 +216,7 @@ export async function getBooksSortedByTotalSales(
       author: row.author,
       isbn13: row.isbn13,
       isbn10: row.isbn10,
+      asin: row.asin ?? null,
       publicationDate: row.publication_date,
       publicationSortKey,
       distRoyaltyRate,
@@ -218,6 +227,9 @@ export async function getBooksSortedByTotalSales(
       seriesOrder: row.series_order,
       coverArtPath: row.cover_art_path ?? null,
       totalSales: row.total_sales,
+      totalAuthorRoyalty: Number(row.total_author_royalty),
+      paidAuthorRoyalty: Number(row.paid_author_royalty),
+      unpaidAuthorRoyalty: Number(row.unpaid_author_royalty),
     };
   });
 

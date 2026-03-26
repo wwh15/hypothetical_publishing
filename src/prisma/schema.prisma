@@ -56,6 +56,7 @@ model Book {
   title                     String
   isbn13                    String    @unique // ISBN-13 format, stored without dashes
   isbn10                    String?   @unique // ISBN-10 format, stored without dashes
+  asin                      String?   @unique @map("asin") // Amazon ASIN for ebook edition (optional)
   distAuthorRoyaltyRate     Float     @default(0.5) @map("dist_author_royalty_rate") // Distributor royalty rate, stored as decimal (0.5 = 50%)
   handSoldAuthorRoyaltyRate Float     @default(0.2) @map("hand_sold_author_royalty_rate") // Hand-sold royalty rate, stored as decimal (0.2 = 20%)
   coverPrice                Decimal   @map("cover_price") // Retail cover price
@@ -85,29 +86,43 @@ enum SaleSource {
   HAND_SOLD
 }
 
+enum Distributor {
+  INGRAM_SPARK
+  AMAZON
+  OTHER
+}
+
+enum SaleFormat {
+  PRINT
+  EBOOK
+  KINDLE_UNLIMITED
+}
+
 model Sale {
-  id               Int        @id @default(autoincrement())
-  bookId           Int        @map("book_id")
-  date             DateTime   @db.Timestamptz @map("date") // First day of sale month (e.g. 2025-01-01)
-  quantity         Int
-  publisherRevenueUSD Decimal @default(0)    @map("publisher_revenue_USD")
-  publisherRevenueOriginal Decimal @default(0) @map("publisher_revenue_original")
-  currency String @db.VarChar(3) @map("currency")
-  authorRoyalty    Decimal @default(0)    @map("author_royalty")
-  royaltyOverridden Boolean @default(false) @map("royalty_overridden") // Track if manually set
-  paid             Boolean  @default(false) // Payment status
-  comment          String?  @db.VarChar(256) @map("comment")
-  source           SaleSource @default(DISTRIBUTOR) // Sales channel
-  createdAt        DateTime @default(now()) @db.Timestamptz @map("created_at")
-  updatedAt        DateTime @updatedAt @db.Timestamptz @map("updated_at")
-  
+  id                        Int          @id @default(autoincrement())
+  bookId                    Int          @map("book_id")
+  date                      DateTime     @db.Timestamptz @map("date") // First day of sale month (month/year)
+  source                    SaleSource   // distributor or handsold; required
+  distributor               Distributor? // Required if source=DISTRIBUTOR; null when HAND_SOLD
+  format                    SaleFormat   // print, ebook, or kindle_unlimited; constrained by distributor/source
+  quantity                  Int?         // Required if format is PRINT or EBOOK; null if KINDLE_UNLIMITED
+  kenp                      Decimal?     @db.Decimal(12, 2) @map("kenp") // Required if format=KINDLE_UNLIMITED; non-negative
+  currency                  String       @default("USD") @db.VarChar(3) @map("currency") // Three-letter code; locked USD for handsold
+  publisherRevenueOriginal  Decimal      @default(0) @map("publisher_revenue_original") // In chosen currency; computed for handsold
+  publisherRevenueUSD       Decimal      @default(0) @map("publisher_revenue_USD") // Converted to USD
+  authorRoyalty             Decimal      @default(0) @map("author_royalty") // Computed; cannot be overridden
+  paid                      Boolean      @default(false) // Author paid for these sales
+  comment                   String?      @db.VarChar(256) @map("comment") // Optional; max 256 chars
+  createdAt                 DateTime     @default(now()) @db.Timestamptz @map("created_at")
+  updatedAt                 DateTime     @updatedAt @db.Timestamptz @map("updated_at")
+
   // Relations
-  book             Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  book                      Book         @relation(fields: [bookId], references: [id], onDelete: Cascade)
 
   // Indexes for common query patterns
-  @@index([bookId]) // For filtering by book
-  @@index([paid]) // For filtering paid/unpaid
-  @@index([date]) // For date range filtering and sorting
-  @@index([bookId, date]) // Composite for book sales over time
+  @@index([bookId])
+  @@index([paid])
+  @@index([date])
+  @@index([bookId, date])
   @@map("sales")
 }

@@ -10,7 +10,6 @@ import { cn } from "@/lib/utils";
  * Stable column IDs for type-safe column selection (author list table only)
  */
 export type AuthorColumnId =
-  | "id"
   | "name"
   | "email"
   | "authoredBooks"
@@ -46,12 +45,6 @@ export const authorCellRenderers = {
  * Complete column definitions for author records
  */
 export const authorColumns: ColumnDef<AuthorListItem>[] = [
-  {
-    key: "id",
-    header: "ID",
-    className: "w-[80px]",
-    render: (row) => row.id,
-  },
   {
     key: "name",
     header: "Author Name",
@@ -119,7 +112,6 @@ export const authorTablePresets = {
   // Table for getting author details (All Authors Page)
   full: {
     columnIds: [
-      "id",
       "name",
       "email",
       "authoredBooks",

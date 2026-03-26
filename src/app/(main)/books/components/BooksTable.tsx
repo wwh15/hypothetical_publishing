@@ -49,85 +49,133 @@ export default function BooksTable({
     router.push(`/books/${book.id}`);
   };
 
-  const columns: ColumnDef<BookListItem>[] = [
-    {
-      key: "cover",
-      header: "Cover",
-      accessor: "coverArtPath",
-      sortable: false,
-      render: (row) => {
-        if (row.coverArtPath) {
-          return (
-            <img
-              src={`/api/books/cover?path=${encodeURIComponent(row.coverArtPath)}`}
-              alt=""
-              className="h-10 w-7 object-cover rounded border border-gray-200 dark:border-gray-600"
-            />
-          );
-        }
-        return <span className="text-muted-foreground text-xs">No cover</span>;
+  const columns: ColumnDef<BookListItem>[] = useMemo(() => {
+    const core: ColumnDef<BookListItem>[] = [
+      {
+        key: "cover",
+        header: "Cover",
+        accessor: "coverArtPath",
+        sortable: false,
+        render: (row) => {
+          if (row.coverArtPath) {
+            return (
+              <img
+                src={`/api/books/cover?path=${encodeURIComponent(row.coverArtPath)}&size=thumb`}
+                alt=""
+                className="h-10 w-7 object-cover rounded border border-gray-200 dark:border-gray-600"
+              />
+            );
+          }
+          return null;
+        },
       },
-    },
-    {
-      key: "title",
-      header: "Title",
-      accessor: "title",
-      sortable: true,
-    },
-    {
-      key: "author",
-      header: "Author",
-      accessor: "author",
-      sortable: true,
-    },
-    {
-      key: "series",
-      header: "Series",
-      accessor: "seriesName",
-      sortable: true,
-      render: (row) => {
-        if (!row.seriesName) {
-          return <span>-</span>;
-        }
-        const label =
-          row.seriesOrder != null
-            ? `${row.seriesName} #${row.seriesOrder}`
-            : row.seriesName;
-        return <span>{label}</span>;
+      {
+        key: "title",
+        header: "Title",
+        accessor: "title",
+        sortable: true,
       },
-    },
-    {
-      key: "isbn13",
-      header: "ISBN-13",
-      accessor: "isbn13",
-      sortable: true,
-      render: (row) => <span>{row.isbn13}</span>,
-    },
-    {
-      key: "publication",
-      header: "Publication",
-      accessor: "publicationSortKey",
-      sortable: true,
-      render: (row) => (
-        <span>
-          {new Intl.DateTimeFormat("en-US", {
-            month: "short",
-            year: "numeric",
-            timeZone: "UTC",
-          }).format(row.publicationDate)}
-        </span>
-      ),
-    },
-    {
-      key: "totalSales",
-      header: "Total Sales",
-      accessor: "totalSales",
-      sortable: true,
-      render: (row) => (
-        <span className="font-medium">{row.totalSales.toLocaleString()}</span>
-      ),
-    },
-  ];
+      {
+        key: "author",
+        header: "Author",
+        accessor: "author",
+        sortable: true,
+      },
+      {
+        key: "series",
+        header: "Series",
+        accessor: "seriesName",
+        sortable: true,
+        render: (row) => {
+          if (!row.seriesName) {
+            return <span>-</span>;
+          }
+          const label =
+            row.seriesOrder != null
+              ? `${row.seriesName} #${row.seriesOrder}`
+              : row.seriesName;
+          return <span>{label}</span>;
+        },
+      },
+      {
+        key: "isbn13",
+        header: "ISBN-13",
+        accessor: "isbn13",
+        sortable: true,
+        render: (row) => <span>{row.isbn13}</span>,
+      },
+      {
+        key: "publication",
+        header: "Publication",
+        accessor: "publicationSortKey",
+        sortable: true,
+        render: (row) => (
+          <span>
+            {new Intl.DateTimeFormat("en-US", {
+              month: "short",
+              year: "numeric",
+              timeZone: "UTC",
+            }).format(row.publicationDate)}
+          </span>
+        ),
+      },
+      {
+        key: "totalSales",
+        header: "Total Sales",
+        accessor: "totalSales",
+        sortable: true,
+        render: (row) => (
+          <span className="font-medium">{row.totalSales.toLocaleString()}</span>
+        ),
+      },
+    ];
+
+    if (!embedded) return core;
+
+    return [
+      ...core,
+      {
+        key: "totalAuthorRoyalty",
+        header: "Total Royalty",
+        accessor: "totalAuthorRoyalty",
+        sortable: false,
+        render: (row) => (
+          <span className="font-medium">
+            ${row.totalAuthorRoyalty.toFixed(2)}
+          </span>
+        ),
+      },
+      {
+        key: "paidAuthorRoyalty",
+        header: "Paid",
+        accessor: "paidAuthorRoyalty",
+        sortable: false,
+        render: (row) => (
+          <span className="font-medium text-green-600 dark:text-green-400">
+            ${row.paidAuthorRoyalty.toFixed(2)}
+          </span>
+        ),
+      },
+      {
+        key: "unpaidAuthorRoyalty",
+        header: "Unpaid Balance",
+        accessor: "unpaidAuthorRoyalty",
+        sortable: false,
+        render: (row) => (
+          <span
+            className={cn(
+              "font-medium",
+              row.unpaidAuthorRoyalty > 0
+                ? "text-red-600 dark:text-red-400"
+                : "text-gray-400",
+            )}
+          >
+            ${row.unpaidAuthorRoyalty.toFixed(2)}
+          </span>
+        ),
+      },
+    ];
+  }, [embedded]);
 
   const filteredColumns = (hideAuthorColumn
     ? columns.filter((c) => c.key !== "author")
