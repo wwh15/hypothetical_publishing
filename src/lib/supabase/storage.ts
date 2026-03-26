@@ -164,13 +164,21 @@ export async function uploadCoverArt(
 }
 
 /** Create a signed URL for a cover art path (private bucket). Use supabaseAdmin so it works regardless of Storage RLS. */
+type CoverArtTransformOptions = {
+  width?: number;
+  height?: number;
+  resize?: "cover" | "contain" | "fill";
+};
+
 export async function getCoverArtSignedUrl(
   path: string,
-  expiresIn: number = 360000
+  expiresIn: number = 360000,
+  transform?: CoverArtTransformOptions
 ): Promise<{ url: string | null; error: string | null }> {
+  const options = transform ? { transform } : undefined;
   const { data, error } = await supabaseAdmin.storage
     .from(COVER_ART_BUCKET)
-    .createSignedUrl(path, expiresIn);
+    .createSignedUrl(path, expiresIn, options);
 
   if (error) {
     return { url: null, error: error.message };

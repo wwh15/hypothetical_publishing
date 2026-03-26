@@ -60,7 +60,7 @@ export default function BooksTable({
           if (row.coverArtPath) {
             return (
               <img
-                src={`/api/books/cover?path=${encodeURIComponent(row.coverArtPath)}`}
+                src={`/api/books/cover?path=${encodeURIComponent(row.coverArtPath)}&size=thumb`}
                 alt=""
                 className="h-10 w-7 object-cover rounded border border-gray-200 dark:border-gray-600"
               />
