@@ -153,7 +153,7 @@ export async function uploadCoverArt(
     .from(COVER_ART_BUCKET)
     .upload(path, file, {
       cacheControl: "3600",
-      upsert: true,
+      upsert: false,
     });
 
   if (error) {

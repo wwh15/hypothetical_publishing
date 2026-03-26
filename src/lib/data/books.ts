@@ -874,6 +874,31 @@ export async function uploadBookCoverArt(
   return { success: true, path: result.path };
 }
 
+/** Replace existing cover art by deleting old object first, then uploading new file. */
+export async function replaceBookCoverArt(
+  bookId: number,
+  file: File
+): Promise<
+  { success: true; path: string } | { success: false; error: string }
+> {
+  const book = await prisma.book.findUnique({
+    where: { id: bookId },
+    select: { coverArtPath: true },
+  });
+  if (!book) {
+    return { success: false, error: "Book not found." };
+  }
+
+  if (book.coverArtPath) {
+    const del = await deleteCoverArt(book.coverArtPath);
+    if (del.error) {
+      return { success: false, error: del.error };
+    }
+  }
+
+  return uploadBookCoverArt(bookId, file);
+}
+
 /** Remove cover art from storage and clear book.coverArtPath. */
 export async function removeBookCoverArt(
   bookId: number
