@@ -147,7 +147,10 @@ export async function getBooksSortedByTotalSales(
       b.series_order,
       ser.name AS series_name,
       b.cover_art_path,
-      COALESCE(SUM(s.quantity), 0)::INTEGER AS total_sales
+      COALESCE(SUM(s.quantity), 0)::INTEGER AS total_sales,
+      COALESCE(SUM(s.author_royalty), 0)::DOUBLE PRECISION AS total_author_royalty,
+      COALESCE(SUM(s.author_royalty) FILTER (WHERE s.paid = true), 0)::DOUBLE PRECISION AS paid_author_royalty,
+      COALESCE(SUM(s.author_royalty) FILTER (WHERE s.paid = false), 0)::DOUBLE PRECISION AS unpaid_author_royalty
     FROM books b
     INNER JOIN authors a ON a.id = b."authorId"
     LEFT JOIN sales s ON s.book_id = b.id
@@ -188,6 +191,9 @@ export async function getBooksSortedByTotalSales(
       series_name: string | null;
       cover_art_path: string | null;
       total_sales: number;
+      total_author_royalty: number;
+      paid_author_royalty: number;
+      unpaid_author_royalty: number;
     }>>(resultsQuery, ...allParams),
     prisma.$queryRawUnsafe<Array<{ total: bigint }>>(
       countQuery,
@@ -221,6 +227,9 @@ export async function getBooksSortedByTotalSales(
       seriesOrder: row.series_order,
       coverArtPath: row.cover_art_path ?? null,
       totalSales: row.total_sales,
+      totalAuthorRoyalty: Number(row.total_author_royalty),
+      paidAuthorRoyalty: Number(row.paid_author_royalty),
+      unpaidAuthorRoyalty: Number(row.unpaid_author_royalty),
     };
   });
 

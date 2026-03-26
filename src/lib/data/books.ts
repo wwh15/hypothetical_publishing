@@ -32,9 +32,35 @@ export interface BookListItem {
   coverPrice: number; // Retail cover price
   printCost: number; // Cost to print one copy
   totalSales: number;
+  /** Aggregated from sales (USD). */
+  totalAuthorRoyalty: number;
+  paidAuthorRoyalty: number;
+  unpaidAuthorRoyalty: number;
   seriesName: string | null;
   seriesOrder: number | null;
   coverArtPath: string | null;
+}
+
+/** Sum author royalties from sale rows (USD). */
+export function authorRoyaltyTotalsFromSales(
+  sales: ReadonlyArray<{
+    authorRoyalty: Prisma.Decimal | null | undefined;
+    paid: boolean;
+  }>
+): Pick<
+  BookListItem,
+  "totalAuthorRoyalty" | "paidAuthorRoyalty" | "unpaidAuthorRoyalty"
+> {
+  let totalAuthorRoyalty = 0;
+  let paidAuthorRoyalty = 0;
+  let unpaidAuthorRoyalty = 0;
+  for (const s of sales) {
+    const v = new Prisma.Decimal(s.authorRoyalty ?? 0).toNumber();
+    totalAuthorRoyalty += v;
+    if (s.paid) paidAuthorRoyalty += v;
+    else unpaidAuthorRoyalty += v;
+  }
+  return { totalAuthorRoyalty, paidAuthorRoyalty, unpaidAuthorRoyalty };
 }
 
 // Series type for UI
@@ -227,6 +253,7 @@ export async function getAllBooks(): Promise<BookListItem[]> {
 
   return books.map((book) => {
     const totalSales = book.sales.reduce((sum, sale) => sum + (sale.quantity ?? 0), 0);
+    const royalties = authorRoyaltyTotalsFromSales(book.sales);
     const distRoyaltyRate = Math.round(book.distAuthorRoyaltyRate * 100);
     const handSoldRoyaltyRate = Math.round(book.handSoldAuthorRoyaltyRate * 100);
     const publicationSortKey = publicationSortKeyFromDate(book.publicationDate as Date);
@@ -243,6 +270,7 @@ export async function getAllBooks(): Promise<BookListItem[]> {
       coverPrice: Number(book.coverPrice),
       printCost: Number(book.printCost),
       totalSales,
+      ...royalties,
       seriesName: book.series?.name ?? null,
       seriesOrder: book.seriesOrder ?? null,
       coverArtPath: book.coverArtPath ?? null,
@@ -365,6 +393,7 @@ export async function getBooksData({
 
   const items: BookListItem[] = books.map((book) => {
     const totalSales = book.sales.reduce((sum, sale) => sum + (sale.quantity ?? 0), 0);
+    const royalties = authorRoyaltyTotalsFromSales(book.sales);
     const distRoyaltyRate = Math.round(book.distAuthorRoyaltyRate * 100);
     const handSoldRoyaltyRate = Math.round(book.handSoldAuthorRoyaltyRate * 100);
     const publicationSortKey = publicationSortKeyFromDate(book.publicationDate as Date);
@@ -381,6 +410,7 @@ export async function getBooksData({
       coverPrice: Number(book.coverPrice),
       printCost: Number(book.printCost),
       totalSales,
+      ...royalties,
       seriesName: book.series?.name ?? null,
       seriesOrder: book.seriesOrder ?? null,
       coverArtPath: book.coverArtPath ?? null,
@@ -412,6 +442,7 @@ export async function getBooksByAuthorId(
 
   return books.map((book) => {
     const totalSales = book.sales.reduce((sum, sale) => sum + (sale.quantity ?? 0), 0);
+    const royalties = authorRoyaltyTotalsFromSales(book.sales);
     const distRoyaltyRate = Math.round(book.distAuthorRoyaltyRate * 100);
     const handSoldRoyaltyRate = Math.round(book.handSoldAuthorRoyaltyRate * 100);
     const publicationSortKey = publicationSortKeyFromDate(
@@ -430,6 +461,7 @@ export async function getBooksByAuthorId(
       coverPrice: Number(book.coverPrice),
       printCost: Number(book.printCost),
       totalSales,
+      ...royalties,
       seriesName: book.series?.name ?? null,
       seriesOrder: book.seriesOrder ?? null,
       coverArtPath: book.coverArtPath ?? null,
