@@ -1,4 +1,4 @@
-name: QA Database Backup
+name: Prod Database Backup
 
 on:
   schedule:
@@ -20,13 +20,13 @@ jobs:
           sudo apt-get install -y postgresql-client-17
       - name: Run backup
         env:
-          DATABASE_URL: ${{ secrets.QA_DATABASE_URL }}
-          B2_APPLICATION_KEY_ID: ${{ secrets.QA_B2_APPLICATION_KEY_ID }}
-          B2_APPLICATION_KEY: ${{ secrets.QA_B2_APPLICATION_KEY }}
-          B2_BACKUP_BUCKET: ${{ secrets.QA_B2_BACKUP_BUCKET }}
-          B2_MEDIA_BUCKET: ${{ secrets.QA_B2_MEDIA_BUCKET }}
-          SUPABASE_URL: ${{ secrets.QA_SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.QA_SUPABASE_SERVICE_ROLE_KEY }}
+          DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+          B2_APPLICATION_KEY_ID: ${{ secrets.PROD_B2_APPLICATION_KEY_ID }}
+          B2_APPLICATION_KEY: ${{ secrets.PROD_B2_APPLICATION_KEY }}
+          B2_BACKUP_BUCKET: ${{ secrets.PROD_B2_BACKUP_BUCKET }}
+          B2_MEDIA_BUCKET: ${{ secrets.PROD_B2_MEDIA_BUCKET }}
+          SUPABASE_URL: ${{ secrets.PROD_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.PROD_SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           set -e
           TODAY=$(date +%Y%m%d)
@@ -39,7 +39,7 @@ jobs:
           # ──────────────────────────────────────────
           # 1. DUMP DATABASE
           # ──────────────────────────────────────────
-          DB_FILENAME="hyp_qa_daily_${TODAY}.dump"
+          DB_FILENAME="hyp_prod_daily_${TODAY}.dump"
           echo "Dumping database to $DB_FILENAME..."
           /usr/lib/postgresql/17/bin/pg_dump -Fc "$DATABASE_URL" -f "/tmp/$DB_FILENAME"
           /usr/lib/postgresql/17/bin/pg_restore --list "/tmp/$DB_FILENAME" > /dev/null
@@ -53,7 +53,7 @@ jobs:
           # 3. UPLOAD WEEKLY DB BACKUP (Sundays only)
           # ──────────────────────────────────────────
           if [ "$DAY_OF_WEEK" = "7" ]; then
-            WEEKLY_DB_FILENAME="hyp_qa_weekly_${WEEK_NUM}.dump"
+            WEEKLY_DB_FILENAME="hyp_prod_weekly_${WEEK_NUM}.dump"
             cp "/tmp/$DB_FILENAME" "/tmp/$WEEKLY_DB_FILENAME"
             b2 file upload "$B2_BACKUP_BUCKET" "/tmp/$WEEKLY_DB_FILENAME" "db/weekly/$WEEKLY_DB_FILENAME"
             echo "Uploaded weekly DB backup"
@@ -63,7 +63,7 @@ jobs:
           # 4. UPLOAD MONTHLY DB BACKUP (1st of month only)
           # ──────────────────────────────────────────
           if [ "$DAY_OF_MONTH" = "01" ]; then
-            MONTHLY_DB_FILENAME="hyp_qa_monthly_${MONTH}.dump"
+            MONTHLY_DB_FILENAME="hyp_prod_monthly_${MONTH}.dump"
             cp "/tmp/$DB_FILENAME" "/tmp/$MONTHLY_DB_FILENAME"
             b2 file upload "$B2_BACKUP_BUCKET" "/tmp/$MONTHLY_DB_FILENAME" "db/monthly/$MONTHLY_DB_FILENAME"
             echo "Uploaded monthly DB backup"
@@ -74,7 +74,7 @@ jobs:
           # ──────────────────────────────────────────
           YEAR=$(date +%Y)
           if [ "$DAY_OF_MONTH" = "01" ] && [ "$(date +%m)" = "01" ]; then
-            YEARLY_DB_FILENAME="hyp_qa_yearly_${YEAR}.dump"
+            YEARLY_DB_FILENAME="hyp_prod_yearly_${YEAR}.dump"
             cp "/tmp/$DB_FILENAME" "/tmp/$YEARLY_DB_FILENAME"
             b2 file upload "$B2_BACKUP_BUCKET" "/tmp/$YEARLY_DB_FILENAME" "db/yearly/$YEARLY_DB_FILENAME"
             echo "Uploaded yearly DB backup"
@@ -143,9 +143,9 @@ jobs:
         id: cleanup
         continue-on-error: true
         env:
-          B2_BACKUP_BUCKET: ${{ secrets.QA_B2_BACKUP_BUCKET }}
-          B2_APPLICATION_KEY_ID: ${{ secrets.QA_B2_APPLICATION_KEY_ID }}
-          B2_APPLICATION_KEY: ${{ secrets.QA_B2_APPLICATION_KEY }}
+          B2_BACKUP_BUCKET: ${{ secrets.PROD_B2_BACKUP_BUCKET }}
+          B2_APPLICATION_KEY_ID: ${{ secrets.PROD_B2_APPLICATION_KEY_ID }}
+          B2_APPLICATION_KEY: ${{ secrets.PROD_B2_APPLICATION_KEY }}
         run: |
           pip install b2 --break-system-packages
           b2 account authorize "$B2_APPLICATION_KEY_ID" "$B2_APPLICATION_KEY"
@@ -189,18 +189,18 @@ jobs:
       - name: Notify cleanup failure
         if: steps.cleanup.outcome == 'failure'
         run: |
-          curl -X POST "${{ secrets.QA_DISCORD_WEBHOOK_URL }}" \
+          curl -X POST "${{ secrets.PROD_DISCORD_WEBHOOK_URL }}" \
             -H "Content-Type: application/json" \
-            -d "{\"content\": \"QA backup cleanup failed (backup itself succeeded). Check logs: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}"
+            -d "{\"content\": \"Prod backup cleanup failed (backup itself succeeded). Check logs: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}"
       - name: Notify success
         if: success()
         run: |
-          curl -X POST "${{ secrets.QA_DISCORD_WEBHOOK_URL }}" \
+          curl -X POST "${{ secrets.PROD_DISCORD_WEBHOOK_URL }}" \
             -H "Content-Type: application/json" \
-            -d "{\"content\": \"✅ QA backup succeeded! Run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}"
+            -d "{\"content\": \"✅ Prod backup succeeded! Run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}"
       - name: Notify failure
         if: failure()
         run: |
-          curl -X POST "${{ secrets.QA_DISCORD_WEBHOOK_URL }}" \
+          curl -X POST "${{ secrets.PROD_DISCORD_WEBHOOK_URL }}" \
             -H "Content-Type: application/json" \
-            -d "{\"content\": \"QA backup FAILED! Check logs: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}"
+            -d "{\"content\": \"Prod backup FAILED! Check logs: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}"
