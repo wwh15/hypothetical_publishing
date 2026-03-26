@@ -289,6 +289,38 @@ export interface GetSalesByBookIdParams {
   sortDir?: "asc" | "desc";
 }
 
+export async function asyncAddSalesBulk(records: PendingSaleItem[]) {
+  try {
+    // Map the UI items to exactly what the Prisma Schema expects
+    const data = records.map((record) => ({
+      bookId: record.bookId,
+      date: record.date,
+      quantity: record.quantity,
+      kenp: record.kenp,
+      format: record.format,
+      // Logic: Distributor is null if it's Handsold
+      distributor: record.source === "DISTRIBUTOR" ? record.distributor : null,
+      publisherRevenueUSD: record.publisherRevenueUSD,
+      publisherRevenueOriginal: record.publisherRevenueOriginal,
+      currency: record.currency,
+      authorRoyalty: record.authorRoyalty,
+      paid: record.paid,
+      comment: record.comment ?? null,
+      source: record.source,
+    }));
+
+    await prisma.sale.createMany({
+      data,
+      skipDuplicates: false, // Set to true if you have a unique constraint you want to ignore
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error("Bulk Save Error:", error);
+    return { success: false, error: "Failed to save records to database." };
+  }
+}
+
 /** Server-side paginated/sorted sales for a single book. */
 export async function getSalesByBookId(
   bookId: number,

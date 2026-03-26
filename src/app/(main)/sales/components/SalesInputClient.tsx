@@ -7,7 +7,7 @@ import PendingRecordsTable from "./PendingRecordsTable";
 import InputRecordForm from "./InputRecordForm";
 import BulkPasteSalesPanel from "./BulkPasteSalesPanel";
 import AmazonXlsxImportPanel from "./AmazonXlsxImportPanel";
-import { addSale } from "../action";
+import { addSale, addSalesBulk } from "../action";
 
 interface SalesInputClientProps {
   booksData: BookListItem[];
@@ -29,41 +29,27 @@ export default function SalesInputClient({
     setSubmitError(null);
   };
 
+  
   const handleSubmit = async () => {
     setShowSaveConfirm(false);
     if (pendingRecords.length === 0) return;
+    
     setIsSubmitting(true);
     setSubmitError(null);
-
-    let failed = 0;
-    for (const record of pendingRecords) {
-      const result = await addSale({
-        bookId: record.bookId,
-        date: record.date,
-        quantity: record.quantity,
-        kenp: record.kenp,
-        format: record.format,
-        distributor:
-          record.source === "DISTRIBUTOR" ? record.distributor : null,
-        publisherRevenueUSD: record.publisherRevenueUSD,
-        publisherRevenueOriginal: record.publisherRevenueOriginal,
-        currency: record.currency,
-        authorRoyalty: record.authorRoyalty,
-        paid: record.paid,
-        comment: record.comment ?? null,
-        source: record.source,
-      });
-      if (!result.success) failed += 1;
-    }
-
+  
+    // Capture the result from your server action
+    const result = await addSalesBulk(pendingRecords);
+  
     setIsSubmitting(false);
-
-    if (failed === 0) {
+  
+    // Check the response object instead of a 'failed' counter
+    if (result.success) {
       setPendingRecords([]);
-      // optional: set a short-lived "Saved!" message
+      // Success! The "Pending" table is now cleared.
     } else {
+      // Display the error returned by the server
       setSubmitError(
-        `Failed to save ${failed} of ${pendingRecords.length} record(s).`,
+        result.error || "Failed to save records. Please check your connection."
       );
     }
   };
