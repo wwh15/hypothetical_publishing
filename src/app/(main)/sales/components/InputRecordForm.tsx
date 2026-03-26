@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Plus } from "lucide-react";
 import { PendingSaleItem } from "@/lib/data/records";
 import { Input } from "@/components/ui/input";
@@ -11,12 +11,19 @@ import { BookSelectBox } from "@/components/BookSelectBox";
 import { BookListItem } from "@/lib/data/books";
 import MonthYearSelector from "@/components/MonthYearSelector";
 import { SUPPORTED_CURRENCIES } from "@/lib/currency-conversion";
+import type { SaleFormat } from "@prisma/client";
 
 interface InputRecordFormProps {
   onAddRecord: (record: PendingSaleItem) => void;
   booksData: BookListItem[];
   initialBookId?: number;
 }
+
+const FORMAT_LABELS: Record<SaleFormat, string> = {
+  PRINT: "Print",
+  EBOOK: "Ebook",
+  KINDLE_UNLIMITED: "Kindle Unlimited",
+};
 
 function FormField({
   label,
@@ -48,8 +55,29 @@ export default function InputRecordForm({
   initialBookId,
 }: InputRecordFormProps) {
   const [books] = useState<BookListItem[]>(booksData);
-  const { formData, formErrors, handleInputChange, handleBlur, handleSubmit } =
-    useSalesForm(books, onAddRecord, initialBookId);
+  const {
+    formData,
+    formErrors,
+    handleInputChange,
+    handleBlur,
+    handleSubmit,
+    allowedFormats,
+    lastAddedAt,
+  } = useSalesForm(books, onAddRecord, initialBookId);
+  const quantityInputRef = useRef<HTMLInputElement>(null);
+  const kenpInputRef = useRef<HTMLInputElement>(null);
+
+  const isKu = formData.format === "KINDLE_UNLIMITED";
+  const isDistributor = formData.source === "DISTRIBUTOR";
+
+  useEffect(() => {
+    if (!lastAddedAt) return;
+    if (isKu) {
+      kenpInputRef.current?.focus();
+      return;
+    }
+    quantityInputRef.current?.focus();
+  }, [isKu, lastAddedAt]);
 
   return (
     <form
@@ -61,15 +89,16 @@ export default function InputRecordForm({
           Add single sales record
         </h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Fill in details for a manual sale.
+          Optimized for fast entry: search by title, ISBN-13/10, or Amazon ASIN
+          (dashes ignored). Defaults: distributor source, Other distributor,
+          print format, USD.
         </p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {/* Month & Year Selection */}
         <FormField label="Sale Period" required error={formErrors.date}>
           <MonthYearSelector
-            className="w-full justify-start text-left" // Forces the trigger to fill the column width
+            className="w-full justify-start text-left"
             value={
               formData.year && formData.month
                 ? `${formData.year}-${formData.month}`
@@ -92,25 +121,91 @@ export default function InputRecordForm({
           />
         </FormField>
 
-        <FormField label="Quantity" required error={formErrors.quantity}>
-          <Input
-            type="text"
-            value={formData.quantity}
-            onChange={(e) => handleInputChange("quantity", e.target.value)}
-            placeholder="0"
-          />
+        <FormField label="Sale source" required>
+          <select
+            value={formData.source}
+            onChange={(e) =>
+              handleInputChange(
+                "source",
+                e.target.value as "DISTRIBUTOR" | "HAND_SOLD"
+              )
+            }
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          >
+            <option value="DISTRIBUTOR">Distributor</option>
+            <option value="HAND_SOLD">Hand sold</option>
+          </select>
         </FormField>
+
+        {isDistributor && (
+          <FormField label="Distributor" required>
+            <select
+              value={formData.distributor}
+              onChange={(e) =>
+                handleInputChange("distributor", e.target.value)
+              }
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            >
+              <option value="OTHER">Other</option>
+              <option value="AMAZON">Amazon</option>
+              <option value="INGRAM_SPARK">Ingram Spark</option>
+            </select>
+          </FormField>
+        )}
+
+        <FormField label="Format" required>
+          <select
+            value={formData.format}
+            onChange={(e) =>
+              handleInputChange("format", e.target.value as SaleFormat)
+            }
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          >
+            {allowedFormats.map((f) => (
+              <option key={f} value={f}>
+                {FORMAT_LABELS[f]}
+              </option>
+            ))}
+          </select>
+          {isKu && (
+            <p className="text-xs text-muted-foreground mt-1">
+              Kindle Unlimited uses KENP instead of units sold. Distributor is
+              set to Amazon.
+            </p>
+          )}
+        </FormField>
+
+        {isKu ? (
+          <FormField label="KENP" required error={formErrors.kenp}>
+            <Input
+              ref={kenpInputRef}
+              type="text"
+              inputMode="decimal"
+              value={formData.kenp}
+              onChange={(e) => handleInputChange("kenp", e.target.value)}
+              placeholder="0"
+            />
+          </FormField>
+        ) : (
+          <FormField label="Quantity sold" required error={formErrors.quantity}>
+            <Input
+              ref={quantityInputRef}
+              type="text"
+              inputMode="numeric"
+              value={formData.quantity}
+              onChange={(e) => handleInputChange("quantity", e.target.value)}
+              placeholder="0"
+            />
+          </FormField>
+        )}
 
         <FormField label="Currency" required>
           <select
-            /* Requirement 3.4.1: Force USD for Hand Sold */
-            value={formData.source === "HAND_SOLD" ? "USD" : formData.currency}
-            disabled={formData.source === "HAND_SOLD"}
+            value={isDistributor ? formData.currency : "USD"}
+            disabled={!isDistributor}
             onChange={(e) => handleInputChange("currency", e.target.value)}
             className={`flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ${
-              formData.source === "HAND_SOLD"
-                ? "opacity-50 cursor-not-allowed"
-                : ""
+              !isDistributor ? "opacity-50 cursor-not-allowed" : ""
             }`}
           >
             {SUPPORTED_CURRENCIES.map((curr) => (
@@ -121,9 +216,8 @@ export default function InputRecordForm({
           </select>
         </FormField>
 
-        {/* Original Revenue Input */}
         <FormField
-          label={`Publisher Revenue (${formData.currency})`}
+          label={`Publisher revenue (${formData.currency})`}
           required
           error={formErrors.publisherRevenue}
         >
@@ -135,37 +229,35 @@ export default function InputRecordForm({
               handleInputChange("publisherRevenueOriginal", e.target.value)
             }
             onBlur={() => handleBlur("publisherRevenueOriginal")}
-            readOnly={formData.source === "HAND_SOLD"}
+            readOnly={!isDistributor}
             className={
-              formData.source === "HAND_SOLD"
-                ? "bg-muted cursor-not-allowed"
-                : ""
+              !isDistributor ? "bg-muted cursor-not-allowed" : ""
             }
           />
+          {!isDistributor && (
+            <p className="text-xs text-muted-foreground mt-1">
+              Hand sold: computed as (cover price − print cost) × quantity in USD
+              (definition 9).
+            </p>
+          )}
         </FormField>
 
-        {/* Converted USD Display (Non-Modifiable) */}
-        <FormField label="Publisher Revenue (USD Equivalent)">
+        <FormField label="Publisher revenue (USD)">
           <Input
             type="text"
             value={formData.publisherRevenueUSD}
             placeholder="0.00"
-            /* Always read-only as it's a derived/converted value */
             readOnly
             className="bg-muted cursor-default font-medium"
           />
           <p className="text-xs text-muted-foreground mt-1">
-            {formData.source === "HAND_SOLD"
-              ? "Calculated automatically from book costs."
-              : `Converted from ${formData.currency} to USD using current exchange rates.`}
+            {isDistributor
+              ? `Converted from ${formData.currency} using current rates (req. 3.7).`
+              : "Same as original for hand sold (USD)."}
           </p>
         </FormField>
 
-        <FormField
-          label="Author Royalty ($)"
-          required
-          error={formErrors.authorRoyalty}
-        >
+        <FormField label="Author royalty (USD)" required>
           <Input
             type="text"
             value={formData.authorRoyalty}
@@ -173,17 +265,10 @@ export default function InputRecordForm({
             readOnly
             className="bg-muted cursor-not-allowed"
           />
-        </FormField>
-
-        <FormField label="Source" required>
-          <select
-            value={formData.source}
-            onChange={(e) => handleInputChange("source", e.target.value)}
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-          >
-            <option value="DISTRIBUTOR">Distributor</option>
-            <option value="HAND_SOLD">Hand Sold</option>
-          </select>
+          <p className="text-xs text-muted-foreground mt-1">
+            Rate × publisher revenue (USD); not editable. Author-paid defaults to
+            false when you add the row.
+          </p>
         </FormField>
 
         <div className="lg:col-span-2">
@@ -201,9 +286,12 @@ export default function InputRecordForm({
 
       <div className="mt-6 flex justify-end">
         <Button type="submit">
-          <Plus className="mr-2 h-4 w-4" /> Add Record
+          <Plus className="mr-2 h-4 w-4" /> Add record
         </Button>
       </div>
+      <p className="mt-3 text-xs text-muted-foreground">
+        After adding, period/book/source/distributor/format stay selected for the next row.
+      </p>
     </form>
   );
 }

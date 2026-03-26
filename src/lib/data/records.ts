@@ -2,6 +2,7 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "../prisma";
 import { Decimal } from "@prisma/client/runtime/library";
+import { validateSaleRecord } from "../validation/sale";
 
 export interface SaleListItem {
   id: number;
@@ -9,7 +10,10 @@ export interface SaleListItem {
   title: string;
   author: string;
   date: Date; // First day of sale month
-  quantity: number;
+  quantity: number | null;
+  kenp: number | null;
+  format: "PRINT" | "EBOOK" | "KINDLE_UNLIMITED";
+  distributor: "INGRAM_SPARK" | "AMAZON" | "OTHER" | null;
   publisherRevenueUSD: number;
   publisherRevenueOriginal: number;
   currency: string;
@@ -19,19 +23,22 @@ export interface SaleListItem {
   source: "DISTRIBUTOR" | "HAND_SOLD";
 }
 
+/** Staging row before DB insert; `id` disambiguates duplicate lines in the UI. */
 export interface PendingSaleItem {
-  // No id - these aren't saved yet
+  id: string;
   bookId: number;
   title: string;
   author: string;
-  date: Date; // MM-YYYY format
-  quantity: number;
+  date: Date; // First day of sale month
+  quantity: number | null;
+  kenp: number | null;
+  format: "PRINT" | "EBOOK" | "KINDLE_UNLIMITED";
+  distributor: "INGRAM_SPARK" | "AMAZON" | "OTHER" | null;
   publisherRevenueUSD: number;
   publisherRevenueOriginal: number;
   currency: string;
   authorRoyalty: number;
-  royaltyOverridden: boolean; // Whether user manually overrode the calculated royalty
-  paid: boolean; // Always false for pending, but included for consistency
+  paid: boolean;
   comment?: string | null;
   source: "DISTRIBUTOR" | "HAND_SOLD";
 }
@@ -40,13 +47,15 @@ export interface PendingSaleItem {
 export type SaleDetailPayload = {
   id: number;
   date: Date;
-  quantity: number;
+  quantity: number | null;
+  kenp: number | null;
+  format: "PRINT" | "EBOOK" | "KINDLE_UNLIMITED";
+  distributor: "INGRAM_SPARK" | "AMAZON" | "OTHER" | null;
   publisherRevenueUSD: number;
   publisherRevenueOriginal: number;
   currency: string;
-  authorRoyalty: number; // Changed from Decimal to number
+  authorRoyalty: number;
   paid: boolean;
-  royaltyOverridden: boolean;
   comment: string | null;
   source: "DISTRIBUTOR" | "HAND_SOLD";
   book: {
@@ -62,15 +71,17 @@ export type SaleDetailPayload = {
 export interface UpdateSaleItem {
   bookId?: number;
   date?: Date;
-  quantity?: number;
+  quantity?: number | null;
+  kenp?: number | null;
   publisherRevenueUSD?: number;
   publisherRevenueOriginal?: number;
   currency?: string;
   authorRoyalty?: number;
-  royaltyOverridden?: boolean;
   paid?: boolean;
   comment?: string | null;
   source?: "DISTRIBUTOR" | "HAND_SOLD";
+  distributor?: "INGRAM_SPARK" | "AMAZON" | "OTHER" | null;
+  format?: "PRINT" | "EBOOK" | "KINDLE_UNLIMITED";
 }
 
 // Sort field map for server-side sorting (column key -> Prisma orderBy asc)
@@ -80,9 +91,12 @@ const SORT_ASC: Record<string, Prisma.SaleOrderByWithRelationInput> = {
   author: { book: { author: { name: "asc" } } },
   date: { date: "asc" },
   quantity: { quantity: "asc" },
+  kenp: { kenp: "asc" },
+  format: { format: "asc" },
+  distributor: { distributor: "asc" },
   publisherRevenueUSD: { publisherRevenueUSD: "asc" },
-  publisherRevenueOriginal: { publisherRevenueOriginal: "desc"},
-  currency: { currency: "asc"},
+  publisherRevenueOriginal: { publisherRevenueOriginal: "desc" },
+  currency: { currency: "asc" },
   authorRoyalty: { authorRoyalty: "asc" },
   paid: { paid: "asc" },
   source: { source: "asc" },
@@ -94,9 +108,12 @@ const SORT_DESC: Record<string, Prisma.SaleOrderByWithRelationInput> = {
   author: { book: { author: { name: "desc" } } },
   date: { date: "desc" },
   quantity: { quantity: "desc" },
+  kenp: { kenp: "desc" },
+  format: { format: "desc" },
+  distributor: { distributor: "desc" },
   publisherRevenueUSD: { publisherRevenueUSD: "desc" },
-  publisherRevenueOriginal: { publisherRevenueOriginal: "desc"},
-  currency: { currency: "desc"},
+  publisherRevenueOriginal: { publisherRevenueOriginal: "desc" },
+  currency: { currency: "desc" },
   authorRoyalty: { authorRoyalty: "desc" },
   paid: { paid: "desc" },
   source: { source: "desc" },
@@ -160,6 +177,8 @@ export interface GetSalesDataParams {
   dateFrom?: string; // YYYY-MM (parsed in parseDate)
   dateTo?: string; // YYYY-MM (parsed in parseDate)
   source?: "DISTRIBUTOR" | "HAND_SOLD";
+  distributor?: "INGRAM_SPARK" | "AMAZON" | "OTHER";
+  format?: "PRINT" | "EBOOK" | "KINDLE_UNLIMITED";
 }
 
 export interface GetSalesDataResult {
@@ -179,6 +198,8 @@ export async function getSalesData({
   dateFrom,
   dateTo,
   source,
+  distributor,
+  format,
 }: GetSalesDataParams): Promise<GetSalesDataResult> {
   const currentPage = Math.max(1, page);
   const limit = Math.max(1, Math.min(pageSize, 100));
@@ -188,6 +209,16 @@ export async function getSalesData({
   // Source filter
   if (source) {
     where.source = source;
+  }
+
+  // Distributor filter (only applies to distributor sales)
+  if (distributor) {
+    where.distributor = distributor;
+  }
+
+  // Format filter
+  if (format) {
+    where.format = format;
   }
 
   // 1. Build Filter Logic
@@ -310,11 +341,13 @@ export async function asyncGetSaleById(
     id: sale.id,
     date: sale.date,
     quantity: sale.quantity,
+    kenp: sale.kenp != null ? sale.kenp.toNumber() : null,
+    format: sale.format,
+    distributor: sale.distributor,
     publisherRevenueUSD: sale.publisherRevenueUSD.toNumber(),
     publisherRevenueOriginal: sale.publisherRevenueOriginal.toNumber(),
     currency: sale.currency,
     authorRoyalty: sale.authorRoyalty.toNumber(),
-    royaltyOverridden: sale.royaltyOverridden,
     paid: sale.paid,
     comment: sale.comment ?? null,
     source: sale.source,
@@ -334,7 +367,10 @@ export function toSaleListItem(sale: {
   id: number;
   bookId: number;
   date: Date;
-  quantity: number;
+  quantity: number | null;
+  kenp: Decimal | null;
+  format: "PRINT" | "EBOOK" | "KINDLE_UNLIMITED";
+  distributor: "INGRAM_SPARK" | "AMAZON" | "OTHER" | null;
   publisherRevenueUSD: Decimal;
   publisherRevenueOriginal: Decimal;
   currency: string;
@@ -351,6 +387,9 @@ export function toSaleListItem(sale: {
     author: sale.book.author.name,
     date: sale.date,
     quantity: sale.quantity,
+    kenp: sale.kenp != null ? sale.kenp.toNumber() : null,
+    format: sale.format,
+    distributor: sale.distributor,
     publisherRevenueUSD: sale.publisherRevenueUSD.toNumber(),
     publisherRevenueOriginal: sale.publisherRevenueOriginal.toNumber(),
     currency: sale.currency,
@@ -362,17 +401,116 @@ export function toSaleListItem(sale: {
 }
 
 export async function asyncAddSale(data: Prisma.SaleUncheckedCreateInput) {
-  return await prisma.sale.create({ data });
+  const kenpNum =
+    data.kenp != null
+      ? typeof data.kenp === "object" &&
+          data.kenp !== null &&
+          "toNumber" in data.kenp
+        ? (data.kenp as Decimal).toNumber()
+        : Number(data.kenp)
+      : null;
+
+  const validated = validateSaleRecord({
+    source: data.source,
+    distributor: data.distributor ?? null,
+    format: data.format,
+    quantity: data.quantity ?? null,
+    kenp: kenpNum,
+    currency: String(data.currency ?? "USD"),
+    publisherRevenueOriginal: Number(data.publisherRevenueOriginal),
+    publisherRevenueUSD: Number(data.publisherRevenueUSD),
+    authorRoyalty: Number(data.authorRoyalty),
+    comment: data.comment ?? null,
+  });
+  if (!validated.success) {
+    throw new Error(validated.error);
+  }
+
+  const v = validated.data;
+  return await prisma.sale.create({
+    data: {
+      bookId: data.bookId,
+      date: data.date,
+      source: v.source,
+      distributor: v.distributor,
+      format: v.format,
+      quantity: v.quantity,
+      kenp: v.kenp != null ? new Decimal(v.kenp) : null,
+      currency: v.currency,
+      publisherRevenueOriginal: new Decimal(v.publisherRevenueOriginal),
+      publisherRevenueUSD: new Decimal(v.publisherRevenueUSD),
+      authorRoyalty: new Decimal(v.authorRoyalty),
+      paid: data.paid ?? false,
+      comment: v.comment ?? null,
+    },
+  });
 }
 
 // write ops moved here
-export async function asyncUpdateSale(
-  id: number,
-  data: UpdateSaleItem
-) {
+export async function asyncUpdateSale(id: number, data: UpdateSaleItem) {
+  const existing = await prisma.sale.findUnique({ where: { id } });
+  if (!existing) throw new Error("Sale not found.");
+
+  const mergedBookId = data.bookId ?? existing.bookId;
+  const mergedDate = data.date ?? existing.date;
+  const mergedSource = data.source ?? existing.source;
+  const mergedDistributor =
+    data.distributor !== undefined ? data.distributor : existing.distributor;
+  const mergedFormat = data.format ?? existing.format;
+  const mergedQuantity =
+    data.quantity !== undefined ? data.quantity : existing.quantity;
+  const mergedKenp =
+    data.kenp !== undefined
+      ? data.kenp
+      : existing.kenp != null
+        ? existing.kenp.toNumber()
+        : null;
+  const mergedCurrency = (data.currency ?? existing.currency).trim().toUpperCase();
+  const mergedPubOrig =
+    data.publisherRevenueOriginal ??
+    existing.publisherRevenueOriginal.toNumber();
+  const mergedPubUsd =
+    data.publisherRevenueUSD ?? existing.publisherRevenueUSD.toNumber();
+  const mergedRoyalty =
+    data.authorRoyalty ?? existing.authorRoyalty.toNumber();
+  const mergedComment =
+    data.comment !== undefined ? data.comment : existing.comment;
+
+  const validated = validateSaleRecord({
+    source: mergedSource,
+    distributor: mergedDistributor,
+    format: mergedFormat,
+    quantity: mergedQuantity,
+    kenp: mergedKenp,
+    currency: mergedCurrency,
+    publisherRevenueOriginal: mergedPubOrig,
+    publisherRevenueUSD: mergedPubUsd,
+    authorRoyalty: mergedRoyalty,
+    comment: mergedComment,
+  });
+
+  if (!validated.success) {
+    throw new Error(validated.error);
+  }
+
+  const v = validated.data;
+
   return await prisma.sale.update({
     where: { id },
-    data,
+    data: {
+      bookId: mergedBookId,
+      date: mergedDate,
+      source: v.source,
+      distributor: v.distributor,
+      format: v.format,
+      quantity: v.quantity,
+      kenp: v.kenp != null ? new Decimal(v.kenp) : null,
+      currency: v.currency,
+      publisherRevenueOriginal: new Decimal(v.publisherRevenueOriginal),
+      publisherRevenueUSD: new Decimal(v.publisherRevenueUSD),
+      authorRoyalty: new Decimal(v.authorRoyalty),
+      comment: v.comment ?? null,
+    },
     include: { book: true },
   });
 }

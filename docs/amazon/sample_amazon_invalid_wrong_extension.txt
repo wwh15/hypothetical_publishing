@@ -1,0 +1,1 @@
+This is not an Excel file. Use it to verify the UI rejects non-.xlsx/.xls uploads (choose All Files in the file picker).

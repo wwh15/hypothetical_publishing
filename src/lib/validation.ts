@@ -94,6 +94,22 @@ export const validateQuantity = (val: string | number): ValidationResult<number>
 
 export const isValidQuantityInput = (value: string): boolean => /^\d*$/.test(value) || value === "";
 
+/** Non-negative number (e.g. for KENP). Allows 0 and decimals. */
+export const validateNonNegativeNumber = (
+  val: string | number,
+  label: string = "Value"
+): ValidationResult<number> => {
+  const cleanStr = cleanNumericString(val);
+  const num = Number(cleanStr);
+  if (cleanStr === "" || isNaN(num)) {
+    return { success: false, error: `${label} must be a valid number.` };
+  }
+  if (num < 0) {
+    return { success: false, error: `${label} must be non-negative.` };
+  }
+  return { success: true, data: num };
+};
+
 /** * Date & ISBN 
  */
 
@@ -108,8 +124,85 @@ export const validateDatePeriod = (yearStr: string, monthStr: string): Validatio
   return { success: true, data: date };
 };
 
-export const normalizeISBN = (val: string | null | undefined): string | null => 
-  val ? val.trim().replace(/[-\s]/g, "").toUpperCase() : null;
+export const normalizeISBN = (val: string | null | undefined): string | null => {
+  if (val == null) return null;
+
+  // XLSX/Excel frequently stores ISBNs as numbers, which can come through as
+  // scientific notation (e.g. "9.78147E+12"). We normalize those to digits
+  // before matching against our stored ISBNs.
+  let s = String(val).trim();
+  if (!s) return null;
+
+  s = s.replace(/[-\s]/g, "").toUpperCase();
+  let didNormalizeExcelFormatting = false;
+
+  // Convert pure "X.XXXXE+N" style scientific notation to an integer digits string.
+  // If the exponent makes the decimal shift ambiguous (e.g. negative exp), we
+  // fall back to rounding the numeric value.
+  if (s.includes("E")) {
+    const m = /^(\d+)(?:\.(\d+))?[E]([+\-]?\d+)$/.exec(s);
+    if (m) {
+      const whole = m[1];
+      const frac = m[2] ?? "";
+      const exp = parseInt(m[3], 10);
+
+      if (Number.isFinite(exp) && exp >= 0) {
+        // Shift decimal point to the right: whole.frac * 10^exp => integer digits.
+        if (exp >= frac.length) {
+          s = `${whole}${frac}${"0".repeat(exp - frac.length)}`;
+          didNormalizeExcelFormatting = true;
+        } else {
+          // exp < frac.length means decimal shift would still leave fractional digits;
+          // for ISBN matching we fall back to rounding the numeric value.
+          const n = Number(s);
+          if (Number.isFinite(n)) {
+            s = String(Math.round(n)).replace(/[-\s]/g, "").toUpperCase();
+            didNormalizeExcelFormatting = true;
+          }
+        }
+      }
+
+      // Fallback: if scientific conversion didn't run cleanly, try rounding.
+      if (!didNormalizeExcelFormatting) {
+        const n = Number(s);
+        if (Number.isFinite(n)) {
+          s = String(Math.round(n)).replace(/[-\s]/g, "").toUpperCase();
+          didNormalizeExcelFormatting = true;
+        }
+      }
+    }
+  }
+
+  // Common case: sometimes strings look like "9781234567890.0" due to number formatting.
+  if (/^\d+\.0+$/.test(s)) {
+    s = s.replace(/\.0+$/, "");
+    didNormalizeExcelFormatting = true;
+  }
+
+  return s;
+};
+
+/** ASIN / marketplace id: strip non-alphanumeric for matching (dashes/spaces ignored). */
+export const normalizeASIN = (val: string | null | undefined): string | null => {
+  if (!val) return null;
+  const n = val.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+  return n.length > 0 ? n : null;
+};
+
+/** Optional Amazon ASIN (ebook edition); empty clears. Normalized to 10 alphanumeric chars. */
+export const validateASINOptional = (
+  val: string | null | undefined
+): ValidationResult<string | null> => {
+  const normalized = normalizeASIN(val);
+  if (!normalized) return { success: true, data: null };
+  if (normalized.length !== 10) {
+    return {
+      success: false,
+      error: "ASIN must be exactly 10 letters or digits",
+    };
+  }
+  return { success: true, data: normalized };
+};
 
 export const validateISBN = (val: string): ValidationResult<string> => {
   const clean = normalizeISBN(val);

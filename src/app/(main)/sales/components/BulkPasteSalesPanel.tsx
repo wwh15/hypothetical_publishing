@@ -18,6 +18,7 @@ import { AlertCircle, CheckCircle2, Import } from "lucide-react";
 import MonthYearSelector from "@/components/MonthYearSelector";
 import {
   normalizeISBN,
+  normalizeASIN,
   validateCurrency,
   validateISBN,
   validateQuantity,
@@ -41,8 +42,10 @@ function buildIsbnLookup(booksData: BookListItem[]): Map<string, BookListItem> {
   for (const book of [...booksData]) {
     const isbn13 = normalizeISBN(book.isbn13 ?? null);
     const isbn10 = normalizeISBN(book.isbn10 ?? null);
+    const asin = normalizeASIN(book.asin ?? null);
     if (isbn13) map.set(isbn13, book);
     if (isbn10) map.set(isbn10, book);
+    if (asin) map.set(asin, book);
   }
   return map;
 }
@@ -277,7 +280,7 @@ export default function BulkPasteSalesPanel({
         {/* Step 2: Data Input */}
         <div className="space-y-2">
           <Label className="text-base font-bold">
-            Step 2: Provide Ingram Data
+            Step 2: Provide Ingram Spark Data
           </Label>
         </div>
 
@@ -297,7 +300,7 @@ export default function BulkPasteSalesPanel({
             className="flex cursor-pointer items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
           >
             <Import className="h-4 w-4 " />
-            Import Ingram CSV
+            Import Ingram Spark CSV
             <input
               id="csv-import"
               type="file"

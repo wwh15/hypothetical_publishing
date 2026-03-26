@@ -102,6 +102,10 @@ export default async function BookDetailPage({ params, searchParams }: PageProps
               <p className="text-lg">{book.isbn10 || '-'}</p>
             </div>
             <div>
+              <label className="text-sm font-medium text-muted-foreground">ASIN</label>
+              <p className="text-lg">{book.asin || "-"}</p>
+            </div>
+            <div>
               <label className="text-sm font-medium text-muted-foreground">Publication Date</label>
               <p className="text-lg">{formatPublicationDate()}</p>
             </div>

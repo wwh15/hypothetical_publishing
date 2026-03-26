@@ -9,6 +9,7 @@ import {
   fetchBookFromOpenLibrary,
   getAllSeries,
   uploadCoverArt,
+  replaceCoverArt,
   removeCoverArt,
 } from "../action";
 import { BookDetail, BookListItem, SeriesListItem } from "@/lib/data/books";
@@ -21,7 +22,7 @@ import { AuthorSelectBox } from "../../authors/components/AuthorSelectBox";
 import { getAllAuthors } from "../../authors/actions";
 import { Author } from "@prisma/client";
 import MonthYearSelector from "@/components/MonthYearSelector";
-import { validateISBN10 } from "@/lib/validation";
+import { validateISBN10, validateASINOptional } from "@/lib/validation";
 
 interface BookFormProps {
   bookId?: number;
@@ -63,6 +64,7 @@ export default function BookForm({
   >(null);
   const [isUploadingCover, setIsUploadingCover] = useState(false);
   const [coverError, setCoverError] = useState<string | null>(null);
+  const [coverRefreshKey, setCoverRefreshKey] = useState(0);
   const [pendingCoverFile, setPendingCoverFile] = useState<File | null>(null);
   const [pendingCoverPreview, setPendingCoverPreview] = useState<string | null>(null);
   const [formData, setFormData] = useState({
@@ -71,6 +73,7 @@ export default function BookForm({
     email: "",
     isbn13: "",
     isbn10: "",
+    asin: "",
     publicationDate: "", // YYYY-MM or empty
     distRoyaltyRate: "50", // Default 50%
     handSoldRoyaltyRate: "20", // Default 20%
@@ -80,6 +83,7 @@ export default function BookForm({
 
   // Track if form has been initialized to prevent resetting user changes
   const formInitializedRef = useRef(false);
+  const replaceCoverInputRef = useRef<HTMLInputElement | null>(null);
 
   // Reset initialization flag when bookId or mode changes
   useEffect(() => {
@@ -108,6 +112,7 @@ export default function BookForm({
         email: initialData.email,
         isbn13: initialData.isbn13 || "",
         isbn10: initialData.isbn10 || "",
+        asin: initialData.asin || "",
         publicationDate,
         distRoyaltyRate: initialData.distRoyaltyRate.toString(),
         handSoldRoyaltyRate: initialData.handSoldRoyaltyRate.toString(),
@@ -215,6 +220,7 @@ export default function BookForm({
           email: matchedAuthor ? (data.matchedAuthorEmail ?? "") : "",
           isbn13: data.isbn13 || "",
           isbn10: data.isbn10 || "",
+          asin: "",
           publicationDate,
           distRoyaltyRate: "50",
           handSoldRoyaltyRate: "20",
@@ -269,6 +275,14 @@ export default function BookForm({
       return;
     }
     const isbn10 = isbn10Result.data ?? undefined;
+
+    const asinResult = validateASINOptional(formData.asin);
+    if (!asinResult.success) {
+      setError(asinResult.error);
+      setIsSubmitting(false);
+      return;
+    }
+    const asin = asinResult.data;
 
     // Validate ISBN-13 length (should be 13 digits)
     if (isbn13 && isbn13.length !== 13) {
@@ -357,6 +371,7 @@ export default function BookForm({
         email: formData.email.trim(),
         isbn13: isbn13.trim(),
         isbn10: isbn10 || undefined,
+        asin,
         publicationDate,
         distRoyaltyRate: distRate,
         handSoldRoyaltyRate: handSoldRate,
@@ -436,9 +451,13 @@ export default function BookForm({
             coverPrice: coverPriceNum,
             printCost: printCostNum,
             totalSales: 0,
+            totalAuthorRoyalty: 0,
+            paidAuthorRoyalty: 0,
+            unpaidAuthorRoyalty: 0,
             seriesName: null,
             seriesOrder: null,
             coverArtPath: null,
+            asin,
           };
 
           onBookCreated?.(book);
@@ -642,6 +661,36 @@ export default function BookForm({
             placeholder="1234567890"
             maxLength={13} // Allow for dashes/spaces
           />
+        </div>
+
+        {/* ASIN (Amazon ebook) */}
+        <div className="space-y-2">
+          <label
+            htmlFor="asin"
+            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+          >
+            ASIN
+          </label>
+          <input
+            id="asin"
+            type="text"
+            value={formData.asin}
+            onChange={(e) => handleInputChange("asin", e.target.value)}
+            className={cn(
+              "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background",
+              "file:border-0 file:bg-transparent file:text-sm file:font-medium",
+              "placeholder:text-muted-foreground",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+              "disabled:cursor-not-allowed disabled:opacity-50",
+              "dark:bg-gray-700",
+            )}
+            placeholder="B012345678"
+            maxLength={14}
+            autoComplete="off"
+          />
+          <p className="text-xs text-muted-foreground">
+            Optional. Amazon Standard Identification Number for the ebook edition (10 characters; dashes ignored).
+          </p>
         </div>
 
         {/* Publication Date (Month/Year) */}
@@ -880,11 +929,47 @@ export default function BookForm({
           {mode === "edit" && initialData?.coverArtPath ? (
             <div className="flex flex-wrap items-start gap-4">
               <img
-                src={`/api/books/cover?path=${encodeURIComponent(initialData.coverArtPath)}`}
+                src={`/api/books/cover?path=${encodeURIComponent(initialData.coverArtPath)}&v=${coverRefreshKey}`}
                 alt="Cover"
                 className="h-40 w-28 object-cover rounded border border-gray-200 dark:border-gray-600"
               />
               <div className="flex flex-col gap-2">
+                <p className="text-xs text-muted-foreground">
+                  Current cover uploaded.
+                </p>
+                <input
+                  ref={replaceCoverInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/gif,image/webp"
+                  className="hidden"
+                  disabled={isUploadingCover}
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file || !bookId) return;
+                    setCoverError(null);
+                    setIsUploadingCover(true);
+                    const coverFormData = new FormData();
+                    coverFormData.set("cover", file);
+                    const result = await replaceCoverArt(bookId, coverFormData);
+                    setIsUploadingCover(false);
+                    e.target.value = "";
+                    if (result.success) {
+                      setCoverRefreshKey(Date.now());
+                      router.refresh();
+                    } else {
+                      setCoverError(result.error ?? "Failed to replace cover");
+                    }
+                  }}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={isUploadingCover}
+                  onClick={() => replaceCoverInputRef.current?.click()}
+                >
+                  Replace cover
+                </Button>
                 <Button
                   type="button"
                   variant="outline"
@@ -894,6 +979,7 @@ export default function BookForm({
                     setCoverError(null);
                     const result = await removeCoverArt(bookId!);
                     if (result.success) {
+                      setCoverRefreshKey(Date.now());
                       router.refresh();
                     } else {
                       setCoverError(result.error ?? "Failed to remove cover");
@@ -933,38 +1019,43 @@ export default function BookForm({
             </div>
           ) : null}
           <div className="flex flex-wrap items-center gap-2">
-            <input
-              type="file"
-              accept="image/jpeg,image/png,image/gif,image/webp"
-              className="text-sm text-muted-foreground file:mr-2 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 dark:file:bg-blue-900/30 dark:file:text-blue-300"
-              id="cover-upload"
-              disabled={isUploadingCover}
-              onChange={async (e) => {
-                const file = e.target.files?.[0];
-                if (!file) return;
-                setCoverError(null);
-                if (mode === "edit" && bookId) {
-                  setIsUploadingCover(true);
-                  const formData = new FormData();
-                  formData.set("cover", file);
-                  const result = await uploadCoverArt(bookId, formData);
-                  setIsUploadingCover(false);
-                  e.target.value = "";
-                  if (result.success) {
-                    router.refresh();
-                  } else {
-                    setCoverError(result.error ?? "Upload failed");
+            {(mode === "create" ||
+              (mode === "edit" && !initialData?.coverArtPath)) && (
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/gif,image/webp"
+                className="text-sm text-muted-foreground file:mr-2 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 dark:file:bg-blue-900/30 dark:file:text-blue-300"
+                id="cover-upload"
+                disabled={isUploadingCover}
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  setCoverError(null);
+                  if (mode === "edit" && bookId) {
+                    setIsUploadingCover(true);
+                    const formData = new FormData();
+                    formData.set("cover", file);
+                    const result = await uploadCoverArt(bookId, formData);
+                    setIsUploadingCover(false);
+                    e.target.value = "";
+                    if (result.success) {
+                      setCoverRefreshKey(Date.now());
+                      router.refresh();
+                    } else {
+                      setCoverError(result.error ?? "Upload failed");
+                    }
+                    return;
                   }
-                } else {
+
                   if (pendingCoverPreview) {
                     URL.revokeObjectURL(pendingCoverPreview);
                   }
                   setPendingCoverFile(file);
                   setPendingCoverPreview(URL.createObjectURL(file));
                   e.target.value = "";
-                }
-              }}
-            />
+                }}
+              />
+            )}
             {isUploadingCover && (
               <span className="text-sm text-muted-foreground">Uploading...</span>
             )}

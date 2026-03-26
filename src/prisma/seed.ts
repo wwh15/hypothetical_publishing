@@ -1,15 +1,31 @@
 /**
- * Seed using ev2-sample-data content (embedded inline so the seed does not read from the filesystem).
- * Creates authors, series, books, and sales from the same CSV data as ev2-sample-data/books.csv and sales_records.csv.
- * Order: clear → authors → series → books → sales.
+ * Seed data embedded inline (no filesystem reads). Baseline catalog is ev2-style sample books/sales,
+ * plus QA fixtures aligned with `docs/requirements/Test Plan.xlsx` (Ingram Test Book 9780599999999,
+ * QA Pagination 1–5, QA Lonely Series, Orphan Author, extra Ingram Test sales, ASIN on Ready Player One).
+ * Order: clear → authors (from books + Orphan Author) → series → books → sales.
  */
 import "dotenv/config";
 import Papa from "papaparse";
+import type { Prisma } from "@prisma/client";
 import { PrismaClient } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
-import { convertCurrency } from "@/lib/currency-conversion";
 
 const prisma = new PrismaClient();
+
+// Inline currency list and conversion (matches @/lib/currency-conversion; no import for Docker/tsx)
+const SEED_CURRENCIES = ["USD", "GBP", "EUR", "CAD", "JPY", "AUD"];
+const EXCHANGE_RATES_TO_USD: Record<string, number> = {
+  USD: 1.0,
+  GBP: 1.34,
+  EUR: 1.16,
+  CAD: 0.73,
+  JPY: 0.0063,
+  AUD: 0.7,
+};
+function seedConvertToUSD(amount: number, currencyCode: string): number {
+  const rate = EXCHANGE_RATES_TO_USD[currencyCode] ?? 1.0;
+  return Math.round(amount * rate * 100) / 100;
+}
 
 const MONTH_NAMES: Record<string, number> = {
   January: 0,
@@ -70,6 +86,12 @@ interface SalesRow {
   total_revenue: string;
   royalty_paid: string;
   comment: string;
+  /** ingram_spark | amazon | other (empty → other for distributor sales) */
+  distributor?: string;
+  /** print | ebook | kindle_unlimited (empty → print) */
+  format?: string;
+  /** Required when format is kindle_unlimited */
+  kenp?: string;
 }
 
 // ─── ev2-sample-data content (embedded; no file reads) ─────────────────────
@@ -91,34 +113,89 @@ The Martan,Andy Weir,,,9780553418026,0553418025,February 2014,50,20,9.99,3.00,97
 Ready Player One,Ernest Cline,,,9780307887436,030788743X,August 2011,60,25,12.99,4.00,9780307887436.jpg
 The Hitchhiker's Guide to the Galaxy,Douglas Adams,,,9780345391803,0345391802,October 1979,50,20,7.50,2.00,9780345391803.png
 The Night Circus,Erin Morgenstern,,,9780307744432,0307744434,September 2011,50,20,10.99,4.00,9780307744432.jxl
+Ingram Test Book,Test Author,,,9780599999999,0599999999,January 2025,50,20,24.99,5.00,
+QA Pagination 1,Test Author,,,9780600000006,,January 2025,50,20,10.99,3.00,
+QA Pagination 2,Test Author,,,9780600000013,,January 2025,50,20,10.99,3.00,
+QA Pagination 3,Test Author,,,9780600000020,,January 2025,50,20,10.99,3.00,
+QA Pagination 4,Test Author,,,9780600000037,,January 2025,50,20,10.99,3.00,
+QA Pagination 5,Test Author,,,9780600000044,,January 2025,50,20,10.99,3.00,
+QA Lonely Series Book,Test Author,QA Lonely Series,1,9780610000003,,January 2025,50,20,11.99,4.00,
 `;
 
-const SALES_CSV = `isbn13,source,record_month_year,units_sold,total_revenue,royalty_paid,comment
-9780062444141,handsold,October 2024,21,,y,
-9780307744432,handsold,April 2025,31,,y,
-9780765397553,distributor,September 2023,47,382.03,y,recalled for misprints
-9780307744432,handsold,October 2025,21,,n,
-9780765397553,distributor,June 2023,39,299.04,y,
-9780345391803,handsold,July 2024,31,,y,sales from bookcon
-9780062699237,handsold,November 2025,22,,n,
-9780345391803,handsold,December 2023,41,,y,
-9780765397539,distributor,December 2024,27,168.00,y,
-9780765397546,handsold,September 2024,8,,y,
-9780062444134,distributor,April 2023,26,233.74,y,
-9780062444134,distributor,July 2024,35,314.65,y,
-9780547928210,distributor,July 2025,22,197.78,n,
-9780307887436,distributor,April 2023,24,215.76,y,
-9780345391803,handsold,August 2025,15,,n,
-9780345391803,distributor,August 2024,24,132.00,y,
-9780547928203,handsold,October 2025,38,,n,
-9780547928210,distributor,February 2025,28,251.72,y,
-9780062444134,handsold,July 2024,33,,y,sales from bookcon
-9780765397546,distributor,August 2023,36,323.64,y,
-`;
+/** Optional Amazon ebook ASIN for manual / EV3 tests (key = normalized ISBN-13). */
+const SEED_EBOOK_ASIN_BY_ISBN13: Record<string, string> = {
+  "9780307887436": "B00SEED123", // Ready Player One
+};
 
-const currencies = ["USD", "GBP", "EUR", "CAD", "JPY", "AUD"];
+// distributor / format / kenp: covers every valid combo for UI testing (see validateSaleRecord).
+// HAND_SOLD → print only; INGRAM_SPARK → print; AMAZON → print | ebook | kindle_unlimited; OTHER → print | ebook
+const SALES_CSV = `isbn13,source,record_month_year,units_sold,total_revenue,royalty_paid,comment,distributor,format,kenp
+9780599999999,distributor,January 2025,10,95.00,y,seed QA — Ingram Jan,ingram_spark,print,
+9780599999999,handsold,February 2025,5,,y,seed QA — handsold Feb,,,
+9780062444141,handsold,October 2024,21,,y,,,,
+9780307744432,handsold,April 2025,31,,y,,,,
+9780765397553,distributor,September 2023,47,382.03,y,recalled for misprints,ingram_spark,print,
+9780307744432,handsold,October 2025,21,,n,,,,
+9780765397553,distributor,June 2023,39,299.04,y,,ingram_spark,print,
+9780345391803,handsold,July 2024,31,,y,sales from bookcon,,,
+9780062699237,handsold,November 2025,22,,n,,,,
+9780345391803,handsold,December 2023,41,,y,,,,
+9780765397539,distributor,December 2024,27,168.00,y,,amazon,print,
+9780765397546,handsold,September 2024,8,,y,,,,
+9780062444134,distributor,April 2023,26,233.74,y,,other,print,
+9780062444134,distributor,July 2024,35,314.65,y,,amazon,ebook,
+9780547928210,distributor,July 2025,22,197.78,n,,other,print,
+9780307887436,distributor,April 2023,24,215.76,y,,amazon,print,
+9780345391803,handsold,August 2025,15,,n,,,,
+9780345391803,distributor,August 2024,24,132.00,y,,other,ebook,
+9780547928203,handsold,October 2025,38,,n,,,,
+9780547928210,distributor,February 2025,28,251.72,y,,ingram_spark,print,
+9780062444134,handsold,July 2024,33,,y,sales from bookcon,,,
+9780765397546,distributor,August 2023,36,323.64,y,,amazon,print,
+9780316246620,distributor,March 2025,,112.75,y,seed Amazon Kindle Unlimited,amazon,kindle_unlimited,2400
+9780547928197,distributor,May 2025,,67.20,n,seed Amazon KU unpaid,amazon,kindle_unlimited,1800
+`;
 
 // ─── Seed execution ─────────────────────────────────────────────────────────
+
+function pickRandomCurrency(): string {
+  return SEED_CURRENCIES[Math.floor(Math.random() * SEED_CURRENCIES.length)];
+}
+
+type SeedDistributor = "INGRAM_SPARK" | "AMAZON" | "OTHER";
+type SeedSaleFormat = "PRINT" | "EBOOK" | "KINDLE_UNLIMITED";
+
+function parseSeedDistributor(raw: string | undefined): SeedDistributor {
+  const s = (raw ?? "").trim().toLowerCase().replace(/-/g, "_");
+  if (s.includes("ingram")) return "INGRAM_SPARK";
+  if (s.includes("amazon")) return "AMAZON";
+  return "OTHER";
+}
+
+function parseSeedFormat(raw: string | undefined): SeedSaleFormat {
+  const s = (raw ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/-/g, "_")
+    .replace(/\s+/g, "_");
+  if (s.includes("kindle") || s === "ku") return "KINDLE_UNLIMITED";
+  if (s.includes("ebook")) return "EBOOK";
+  return "PRINT";
+}
+
+/** Enforce spec: KU only on Amazon; Ingram → print only; Other → print or ebook. */
+function normalizeDistributorFormat(
+  distributor: SeedDistributor,
+  format: SeedSaleFormat
+): { distributor: SeedDistributor; format: SeedSaleFormat } {
+  if (format === "KINDLE_UNLIMITED" && distributor !== "AMAZON") {
+    return { distributor, format: "PRINT" };
+  }
+  if (distributor === "INGRAM_SPARK" && format !== "PRINT") {
+    return { distributor, format: "PRINT" };
+  }
+  return { distributor, format };
+}
 
 async function main() {
   console.log("🌱 Starting seed (ev2-sample-data content, inline)...");
@@ -158,7 +235,9 @@ async function main() {
     });
     authorMap[name] = { id: author.id };
   }
-  console.log(`✅ Authors: ${authorNames.length} (${authorNames.join(", ")})`);
+  console.log(
+    `✅ Authors from books: ${authorNames.length} (${authorNames.join(", ")})`
+  );
 
   // ─── SERIES (unique non-empty series_name from books) ───
   const seriesNames = [
@@ -202,12 +281,14 @@ async function main() {
     const coverPrice = new Decimal(row.cover_price?.trim() || "0");
     const printCost = new Decimal(row.print_cost?.trim() || "0");
 
+    const isbn13Norm = row.isbn13.trim().replace(/[-\s]/g, "");
     const book = await prisma.book.create({
       data: {
         title: row.title.trim(),
         authorId,
-        isbn13: row.isbn13.trim().replace(/[-\s]/g, ""),
+        isbn13: isbn13Norm,
         isbn10: row.isbn10?.trim().replace(/[-\s]/g, "") || null,
+        asin: SEED_EBOOK_ASIN_BY_ISBN13[isbn13Norm] ?? null,
         distAuthorRoyaltyRate: distRate,
         handSoldAuthorRoyaltyRate: handSoldRate,
         coverPrice,
@@ -230,7 +311,20 @@ async function main() {
   }
   console.log(`✅ Books: ${booksRows.length}`);
 
+  // Author with no books (manual tests: orphan author flows)
+  await prisma.author.upsert({
+    where: { canonicalName: seedCanonicalName("Orphan Author") },
+    update: {},
+    create: {
+      name: "Orphan Author",
+      email: "orphan.author@example.com",
+      canonicalName: seedCanonicalName("Orphan Author"),
+    },
+  });
+  console.log("✅ Orphan Author (no books) ensured for manual tests");
+
   // ─── SALES ──────────────────────────────────────────────────────────────
+  let salesCreated = 0;
   for (const row of salesRows) {
     const isbn13 = row.isbn13.trim().replace(/[-\s]/g, "");
     const book = bookByIsbn13[isbn13];
@@ -239,76 +333,108 @@ async function main() {
       continue;
     }
     const date = parseMonthYear(row.record_month_year);
-    const quantity = parseInt(row.units_sold, 10) || 0;
-    if (quantity <= 0) continue;
-
     const source = row.source?.toLowerCase().includes("hand")
       ? "HAND_SOLD"
       : "DISTRIBUTOR";
     const paid = row.royalty_paid?.toLowerCase() === "y";
     const comment = row.comment?.trim() || null;
 
-    // 1. Helper to simulate a random currency from your supported list
-    const selectedCurrency =
-      currencies[Math.floor(Math.random() * currencies.length)];
+    let distributor: SeedDistributor | null = null;
+    let format: SeedSaleFormat;
+    let quantity: number | null = null;
+    let kenp: Decimal | null = null;
+
+    if (source === "HAND_SOLD") {
+      distributor = null;
+      format = "PRINT";
+      const q = parseInt(String(row.units_sold ?? "").trim(), 10);
+      if (!Number.isFinite(q) || q < 1) continue;
+      quantity = q;
+      kenp = null;
+    } else {
+      let dist = parseSeedDistributor(row.distributor);
+      let fmt = parseSeedFormat(row.format);
+      ({ distributor: dist, format: fmt } = normalizeDistributorFormat(dist, fmt));
+      distributor = dist;
+      format = fmt;
+
+      if (format === "KINDLE_UNLIMITED") {
+        quantity = null;
+        const k = parseFloat(String(row.kenp ?? "").trim());
+        if (!Number.isFinite(k) || k < 0) {
+          console.warn(`⚠️ Sale skipped: KU row needs non-negative kenp (ISBN ${isbn13})`);
+          continue;
+        }
+        kenp = new Decimal(k);
+      } else {
+        const q = parseInt(String(row.units_sold ?? "").trim(), 10);
+        if (!Number.isFinite(q) || q < 1) continue;
+        quantity = q;
+        kenp = null;
+      }
+    }
+
+    const selectedCurrency = pickRandomCurrency();
 
     let publisherRevenueOriginal: Decimal;
     let publisherRevenueUSD: Decimal;
     let finalCurrency: string;
 
-    // 2. Determine Revenue based on Source
     if (source === "HAND_SOLD") {
-      // Hand-sold formula: (Price - Cost) * Qty
       const netPerCopy = new Decimal(book.coverPrice).sub(book.printCost);
-      const rev = netPerCopy.mul(quantity);
-
+      const rev = netPerCopy.mul(quantity!);
       publisherRevenueOriginal = rev;
-      publisherRevenueUSD = rev; // Hand-sold is always USD
-      // Override currency to USD for hand-sold logic
+      publisherRevenueUSD = rev;
       finalCurrency = "USD";
-    } else {
-      // Distributor: Treat the total_revenue as the "Original" foreign amount
+    } else if (format === "KINDLE_UNLIMITED") {
       const totalRevenueStr = row.total_revenue?.trim();
       const rawAmount =
         totalRevenueStr && !Number.isNaN(parseFloat(totalRevenueStr))
           ? new Decimal(totalRevenueStr)
           : new Decimal(0);
-
       publisherRevenueOriginal = rawAmount;
-
-      // Convert to USD for system management
-      // We use your convertCurrency helper here
-      const convertedAmount = convertCurrency(
-        rawAmount.toNumber(),
-        selectedCurrency
-      );
-      publisherRevenueUSD = new Decimal(convertedAmount);
+      publisherRevenueUSD = rawAmount;
+      finalCurrency = "USD";
+    } else {
+      const totalRevenueStr = row.total_revenue?.trim();
+      const rawAmount =
+        totalRevenueStr && !Number.isNaN(parseFloat(totalRevenueStr))
+          ? new Decimal(totalRevenueStr)
+          : new Decimal(0);
+      publisherRevenueOriginal = rawAmount;
+      const usdAmount = seedConvertToUSD(rawAmount.toNumber(), selectedCurrency);
+      publisherRevenueUSD = new Decimal(usdAmount);
       finalCurrency = selectedCurrency;
     }
 
-    // 3. Calculate Royalty based on the USD managed value 
     const rate = source === "HAND_SOLD" ? book.handSoldRate : book.distRate;
-    // Per your earlier code, we multiply USD revenue by the decimal rate
     const authorRoyalty = new Decimal(publisherRevenueUSD.mul(rate).toFixed(2));
 
+    // quantity null + kenp set for KU matches DB; Prisma input types can disagree on nullability
     await prisma.sale.create({
       data: {
         bookId: book.id,
         date,
         quantity,
-        // Map the same value to both fields for consistency in USD-based samples
-        publisherRevenueUSD: publisherRevenueUSD,
-        publisherRevenueOriginal: publisherRevenueOriginal,
+        format,
+        distributor,
+        publisherRevenueUSD,
+        publisherRevenueOriginal,
         currency: finalCurrency,
         authorRoyalty,
         source,
         paid,
         comment,
-      },
+        kenp,
+      } as Prisma.SaleUncheckedCreateInput,
     });
+    salesCreated += 1;
   }
-  console.log(`✅ Sales: ${salesRows.length} records`);
-  console.log("🏁 Seed complete. Data from ev2-sample-data (embedded).");
+  console.log(`✅ Sales: ${salesCreated} records (${salesRows.length} rows in CSV)`);
+  console.log(
+    "   Coverage: HAND_SOLD+PRINT | INGRAM_SPARK+PRINT | AMAZON+PRINT/EBOOK/KU | OTHER+PRINT/EBOOK"
+  );
+  console.log("🏁 Seed complete (see file header for Test Plan / QA fixtures).");
 }
 
 main()

@@ -10,14 +10,97 @@ import { X } from "lucide-react";
 import { CURRENCY_SYMBOLS } from "../currency-conversion";
 import { cn } from "../utils";
 
+/** Table cells use compact pills; sale detail page uses comfortable. */
+export type SaleBadgeSize = "compact" | "comfortable";
+
+const saleBadgeSizeClass: Record<SaleBadgeSize, string> = {
+  compact: "text-xs px-2.5 py-0.5",
+  comfortable: "text-sm px-3 py-1",
+};
+
+const FORMAT_BADGE_STYLES: Record<
+  "PRINT" | "EBOOK" | "KINDLE_UNLIMITED",
+  string
+> = {
+  PRINT:
+    "bg-emerald-100 text-emerald-900 dark:bg-emerald-900/40 dark:text-emerald-200",
+  EBOOK:
+    "bg-indigo-100 text-indigo-900 dark:bg-indigo-900/40 dark:text-indigo-200",
+  KINDLE_UNLIMITED:
+    "bg-amber-100 text-amber-950 dark:bg-amber-900/40 dark:text-amber-200",
+};
+
+const FORMAT_BADGE_LABELS = {
+  PRINT: "Print",
+  EBOOK: "Ebook",
+  KINDLE_UNLIMITED: "Kindle Unlimited",
+} as const;
+
+export function saleFormatBadge(
+  value: "PRINT" | "EBOOK" | "KINDLE_UNLIMITED",
+  size: SaleBadgeSize = "compact"
+) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center rounded-full font-medium",
+        saleBadgeSizeClass[size],
+        FORMAT_BADGE_STYLES[value]
+      )}
+    >
+      {FORMAT_BADGE_LABELS[value]}
+    </span>
+  );
+}
+
+const DISTRIBUTOR_BADGE_STYLES: Record<
+  "INGRAM_SPARK" | "AMAZON" | "OTHER",
+  string
+> = {
+  INGRAM_SPARK:
+    "bg-teal-100 text-teal-900 dark:bg-teal-900/40 dark:text-teal-200",
+  AMAZON:
+    "bg-orange-100 text-orange-900 dark:bg-orange-900/40 dark:text-orange-200",
+  OTHER:
+    "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200",
+};
+
+const DISTRIBUTOR_BADGE_LABELS = {
+  INGRAM_SPARK: "Ingram Spark",
+  AMAZON: "Amazon",
+  OTHER: "Other",
+} as const;
+
+export function saleDistributorBadge(
+  value: "INGRAM_SPARK" | "AMAZON" | "OTHER" | null,
+  size: SaleBadgeSize = "compact"
+) {
+  if (value == null) {
+    return <span className="text-muted-foreground">—</span>;
+  }
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center rounded-full font-medium",
+        saleBadgeSizeClass[size],
+        DISTRIBUTOR_BADGE_STYLES[value]
+      )}
+    >
+      {DISTRIBUTOR_BADGE_LABELS[value]}
+    </span>
+  );
+}
+
 /**
  * Stable column IDs for type-safe column selection.
  */
 export type SalesColumnId =
-  | "id"
   | "title"
   | "author"
   | "quantity"
+  | "kenp"
+  | "format"
+  | "distributor"
   | "publisherRevenue"
   | "authorRoyalty"
   | "date"
@@ -57,7 +140,19 @@ export const salesCellRenderers = {
     );
   },
 
-  quantity: (value: number) => <span>{value}</span>,
+  quantity: (value: number | null) => (
+    <span>{value != null ? value : "—"}</span>
+  ),
+
+  kenp: (value: number | null) => (
+    <span>{value != null ? value.toLocaleString() : "—"}</span>
+  ),
+
+  format: (value: "PRINT" | "EBOOK" | "KINDLE_UNLIMITED") =>
+    saleFormatBadge(value, "compact"),
+
+  distributor: (value: "INGRAM_SPARK" | "AMAZON" | "OTHER" | null) =>
+    saleDistributorBadge(value, "compact"),
 
   source: (value: "DISTRIBUTOR" | "HAND_SOLD") => {
     const styles = {
@@ -92,12 +187,6 @@ export const salesCellRenderers = {
 
 export const salesColumns: ColumnDef<SaleListItem>[] = [
   {
-    key: "id",
-    header: "ID",
-    className: "w-[80px]",
-    render: (row) => row.id,
-  },
-  {
     key: "title",
     header: "Title",
     render: (row) => (
@@ -119,6 +208,21 @@ export const salesColumns: ColumnDef<SaleListItem>[] = [
     key: "quantity",
     header: "Quantity",
     render: (row) => salesCellRenderers.quantity(row.quantity),
+  },
+  {
+    key: "kenp",
+    header: "KENP",
+    render: (row) => salesCellRenderers.kenp(row.kenp),
+  },
+  {
+    key: "format",
+    header: "Format",
+    render: (row) => salesCellRenderers.format(row.format),
+  },
+  {
+    key: "distributor",
+    header: "Distributor",
+    render: (row) => salesCellRenderers.distributor(row.distributor),
   },
   {
     key: "currency",
@@ -212,9 +316,27 @@ export function getPendingColumns(
       render: (row) => row.author,
     },
     {
+      key: "format",
+      header: "Format",
+      render: (row) => salesCellRenderers.format(row.format),
+    },
+    {
+      key: "distributor",
+      header: "Distributor",
+      render: (row) => salesCellRenderers.distributor(row.distributor),
+    },
+    {
       key: "quantity",
-      header: "Quantity",
-      render: (row) => salesCellRenderers.quantity(row.quantity),
+      header: "Qty / KENP",
+      render: (row) =>
+        row.format === "KINDLE_UNLIMITED"
+          ? salesCellRenderers.kenp(row.kenp)
+          : salesCellRenderers.quantity(row.quantity),
+    },
+    {
+      key: "kenp",
+      header: "KENP",
+      render: (row) => salesCellRenderers.kenp(row.kenp),
     },
     {
       key: "currency",
@@ -235,13 +357,13 @@ export function getPendingColumns(
       key: "publisherRevenueUSD",
       header: "Pub. Revenue (USD)",
       render: (row) =>
-        salesCellRenderers.currency(row.publisherRevenueUSD, row.currency),
+        salesCellRenderers.currency(row.publisherRevenueUSD, "USD"),
     },
     {
       key: "authorRoyalty",
-      header: "Author Royalty",
+      header: "Author Royalty (USD)",
       render: (row) =>
-        salesCellRenderers.currency(row.authorRoyalty, row.currency),
+        salesCellRenderers.currency(row.authorRoyalty, "USD"),
     },
     {
       key: "source",
@@ -326,10 +448,12 @@ export const salesTablePresets = {
   // Full table with all columns (for the main sales listing page)
   full: {
     columnIds: [
-      "id",
       "title",
       "author",
       "quantity",
+      "kenp",
+      "format",
+      "distributor",
       "currency",
       "publisherRevenueOriginal",
       "publisherRevenueUSD",
@@ -344,7 +468,7 @@ export const salesTablePresets = {
     showDateFilter: true,
   },
 
-  // Staging table for adding new records (adds 'actions', hides 'id')
+  // Staging table for adding new records (adds 'actions')
   pending: {
     columnIds: [
       "title",
@@ -368,9 +492,11 @@ export const salesTablePresets = {
   // Book detail view (hides redundant title/author info)
   bookDetail: {
     columnIds: [
-      "id",
       "quantity",
-      "publisherRevenue",
+      "kenp",
+      "format",
+      "distributor",
+      "publisherRevenueUSD",
       "authorRoyalty",
       "date",
       "source",
