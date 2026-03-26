@@ -72,6 +72,66 @@ describe("filterBooksBySearch", () => {
     expect(result[0].isbn13).toBe("9781617293856");
   });
 
+  it("matches ISBN with dashes and ISBN-10 X check digit", () => {
+    const booksWithX: BookListItem[] = [
+      ...mockBooks,
+      {
+        id: 3,
+        title: "Domain-Driven Design",
+        author: "Eric Evans",
+        isbn13: "9780321125217",
+        isbn10: "0321125215",
+        asin: "B00TEST123",
+        publicationDate: new Date(2003, 7, 1),
+        publicationSortKey: "2003-08",
+        distRoyaltyRate: 12,
+        handSoldRoyaltyRate: 6,
+        coverPrice: 49.99,
+        printCost: 8,
+        totalSales: 10,
+        totalAuthorRoyalty: 0,
+        paidAuthorRoyalty: 0,
+        unpaidAuthorRoyalty: 0,
+        seriesName: null,
+        seriesOrder: null,
+        coverArtPath: null,
+      },
+    ];
+
+    const dashed = filterBooksBySearch(booksWithX, "978-0-321-12521-7");
+    expect(dashed[0].id).toBe(3);
+  });
+
+  it("matches ASIN regardless of punctuation", () => {
+    const booksWithAsin: BookListItem[] = [
+      ...mockBooks,
+      {
+        id: 3,
+        title: "ASIN Book",
+        author: "A Author",
+        isbn13: "9780000000001",
+        isbn10: "0000000000",
+        asin: "B0A1-2C3D4E",
+        publicationDate: new Date(2021, 0, 1),
+        publicationSortKey: "2021-01",
+        distRoyaltyRate: 10,
+        handSoldRoyaltyRate: 5,
+        coverPrice: 9.99,
+        printCost: 2,
+        totalSales: 1,
+        totalAuthorRoyalty: 0,
+        paidAuthorRoyalty: 0,
+        unpaidAuthorRoyalty: 0,
+        seriesName: null,
+        seriesOrder: null,
+        coverArtPath: null,
+      },
+    ];
+
+    const result = filterBooksBySearch(booksWithAsin, "B0A1 2C3D4E");
+    expect(result[0].id).toBe(3);
+  });
+
   it("returns empty array when no match", () => {
     expect(filterBooksBySearch(mockBooks, "nonexistent")).toHaveLength(0);
   });

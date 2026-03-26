@@ -280,7 +280,7 @@ export default function BulkPasteSalesPanel({
         {/* Step 2: Data Input */}
         <div className="space-y-2">
           <Label className="text-base font-bold">
-            Step 2: Provide Ingram Data
+            Step 2: Provide Ingram Spark Data
           </Label>
         </div>
 
@@ -300,7 +300,7 @@ export default function BulkPasteSalesPanel({
             className="flex cursor-pointer items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
           >
             <Import className="h-4 w-4 " />
-            Import Ingram CSV
+            Import Ingram Spark CSV
             <input
               id="csv-import"
               type="file"

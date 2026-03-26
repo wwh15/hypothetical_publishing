@@ -66,9 +66,7 @@ export default function BooksTable({
               />
             );
           }
-          return (
-            <span className="text-muted-foreground text-xs">No cover</span>
-          );
+          return null;
         },
       },
       {

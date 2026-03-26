@@ -109,6 +109,7 @@ export function useSalesForm(
 
   const [isCalculating, setIsCalculating] = useState(false);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [lastAddedAt, setLastAddedAt] = useState<number>(0);
 
   const allowedFormats = useMemo(
     () =>
@@ -355,6 +356,7 @@ export function useSalesForm(
       authorRoyalty: "",
       comment: "",
     }));
+    setLastAddedAt(Date.now());
   };
 
   return {
@@ -365,5 +367,6 @@ export function useSalesForm(
     handleBlur,
     handleSubmit,
     allowedFormats,
+    lastAddedAt,
   };
 }

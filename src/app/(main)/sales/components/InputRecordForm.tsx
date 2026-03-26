@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Plus } from "lucide-react";
 import { PendingSaleItem } from "@/lib/data/records";
 import { Input } from "@/components/ui/input";
@@ -62,10 +62,22 @@ export default function InputRecordForm({
     handleBlur,
     handleSubmit,
     allowedFormats,
+    lastAddedAt,
   } = useSalesForm(books, onAddRecord, initialBookId);
+  const quantityInputRef = useRef<HTMLInputElement>(null);
+  const kenpInputRef = useRef<HTMLInputElement>(null);
 
   const isKu = formData.format === "KINDLE_UNLIMITED";
   const isDistributor = formData.source === "DISTRIBUTOR";
+
+  useEffect(() => {
+    if (!lastAddedAt) return;
+    if (isKu) {
+      kenpInputRef.current?.focus();
+      return;
+    }
+    quantityInputRef.current?.focus();
+  }, [isKu, lastAddedAt]);
 
   return (
     <form
@@ -166,6 +178,7 @@ export default function InputRecordForm({
         {isKu ? (
           <FormField label="KENP" required error={formErrors.kenp}>
             <Input
+              ref={kenpInputRef}
               type="text"
               inputMode="decimal"
               value={formData.kenp}
@@ -176,6 +189,7 @@ export default function InputRecordForm({
         ) : (
           <FormField label="Quantity sold" required error={formErrors.quantity}>
             <Input
+              ref={quantityInputRef}
               type="text"
               inputMode="numeric"
               value={formData.quantity}
@@ -275,6 +289,9 @@ export default function InputRecordForm({
           <Plus className="mr-2 h-4 w-4" /> Add record
         </Button>
       </div>
+      <p className="mt-3 text-xs text-muted-foreground">
+        After adding, period/book/source/distributor/format stay selected for the next row.
+      </p>
     </form>
   );
 }
