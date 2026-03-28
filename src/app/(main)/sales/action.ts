@@ -67,6 +67,45 @@ export async function convertCurrencyToUsd(
   }
 }
 
+/**
+ * Latest "foreign units per 1 USD" table (same as ExchangeRate-API `conversion_rates` with base USD).
+ * Cached on the server for one hour. Used by sales forms for instant USD equivalents without
+ * a round trip per keystroke.
+ */
+export async function getUsdConversionRates(): Promise<Record<string, number>> {
+  const apiKey = process.env.EXCHANGE_RATE_API_KEY;
+
+  if (apiKey) {
+    const url = `https://v6.exchangerate-api.com/v6/${apiKey}/latest/USD`;
+    const response = await fetch(url, { next: { revalidate: 3600 } });
+    if (!response.ok) {
+      throw new Error(`Exchange rate API error: ${response.status}`);
+    }
+    const data = (await response.json()) as {
+      result?: string;
+      conversion_rates?: Record<string, number>;
+    };
+    if (data.result !== "success" || !data.conversion_rates) {
+      throw new Error("Exchange rate API returned an unexpected payload");
+    }
+    return data.conversion_rates;
+  }
+
+  const response = await fetch("https://api.frankfurter.app/latest?from=USD", {
+    next: { revalidate: 3600 },
+  });
+  if (!response.ok) {
+    throw new Error(`Frankfurter API error: ${response.status}`);
+  }
+  const data = (await response.json()) as {
+    rates?: Record<string, number>;
+  };
+  if (!data.rates || typeof data.rates !== "object") {
+    throw new Error("Frankfurter returned an unexpected payload");
+  }
+  return { USD: 1, ...data.rates };
+}
+
 export async function addSale(data: Prisma.SaleUncheckedCreateInput) {
   try {
     const created = await asyncAddSale(data);
