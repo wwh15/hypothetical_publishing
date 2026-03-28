@@ -46,7 +46,7 @@ export default function SalesRecordView({ sale, onEdit }: SalesRecordViewProps) 
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg border p-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid min-w-0 grid-cols-1 md:grid-cols-2 gap-6">
         <div>
           <label className="text-sm font-medium text-gray-500">
             Record ID
@@ -199,11 +199,11 @@ export default function SalesRecordView({ sale, onEdit }: SalesRecordViewProps) 
           </div>
         </div>
 
-        <div className="md:col-span-2">
+        <div className="md:col-span-2 min-w-0 max-w-full">
           <label className="text-sm font-medium text-gray-500">
             Comment
           </label>
-          <p className="text-lg font-semibold mt-1 whitespace-pre-wrap text-muted-foreground">
+          <p className="mt-1 max-w-full whitespace-pre-wrap break-words text-lg font-semibold text-muted-foreground">
             {sale.comment != null && sale.comment !== ""
               ? sale.comment
               : "—"}

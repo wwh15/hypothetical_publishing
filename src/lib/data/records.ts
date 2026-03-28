@@ -95,7 +95,7 @@ const SORT_ASC: Record<string, Prisma.SaleOrderByWithRelationInput> = {
   format: { format: "asc" },
   distributor: { distributor: "asc" },
   publisherRevenueUSD: { publisherRevenueUSD: "asc" },
-  publisherRevenueOriginal: { publisherRevenueOriginal: "desc" },
+  publisherRevenueOriginal: { publisherRevenueOriginal: "asc" },
   currency: { currency: "asc" },
   authorRoyalty: { authorRoyalty: "asc" },
   paid: { paid: "asc" },
@@ -125,11 +125,11 @@ function buildOrderBy(
 ): Prisma.SaleOrderByWithRelationInput | Prisma.SaleOrderByWithRelationInput[] {
   const map = sortDir === "desc" ? SORT_DESC : SORT_ASC;
   
-  // Requirement 3.1.1: Sort first by currency type, then by amount
   if (sortBy === "publisherRevenueOriginal") {
     return [
-      { currency: "asc" },           
-      { publisherRevenueOriginal: sortDir } 
+      { currency: "asc" },
+      { publisherRevenueOriginal: sortDir },
+      { id: "asc" },
     ];
   }
   

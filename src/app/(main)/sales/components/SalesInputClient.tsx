@@ -13,11 +13,14 @@ interface SalesInputClientProps {
   booksData: BookListItem[];
   /** When set (e.g. from /sales/add-record?bookId=123), the single-record form opens with this book pre-selected. */
   initialBookId?: number;
+  /** Preloaded USD base rates for instant FX in the single-record form (from server). */
+  usdRatesInitial?: Record<string, number> | null;
 }
 
 export default function SalesInputClient({
   booksData,
   initialBookId,
+  usdRatesInitial,
 }: SalesInputClientProps) {
   const [pendingRecords, setPendingRecords] = useState<PendingSaleItem[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -83,6 +86,7 @@ export default function SalesInputClient({
         onAddRecord={handleAddRecord}
         booksData={booksData}
         initialBookId={initialBookId}
+        usdRatesInitial={usdRatesInitial}
       />
       <PendingRecordsTable
         pendingRecords={pendingRecords}

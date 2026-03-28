@@ -17,6 +17,7 @@ interface InputRecordFormProps {
   onAddRecord: (record: PendingSaleItem) => void;
   booksData: BookListItem[];
   initialBookId?: number;
+  usdRatesInitial?: Record<string, number> | null;
 }
 
 const FORMAT_LABELS: Record<SaleFormat, string> = {
@@ -53,6 +54,7 @@ export default function InputRecordForm({
   onAddRecord,
   booksData,
   initialBookId,
+  usdRatesInitial,
 }: InputRecordFormProps) {
   const [books] = useState<BookListItem[]>(booksData);
   const {
@@ -63,7 +65,7 @@ export default function InputRecordForm({
     handleSubmit,
     allowedFormats,
     lastAddedAt,
-  } = useSalesForm(books, onAddRecord, initialBookId);
+  } = useSalesForm(books, onAddRecord, initialBookId, usdRatesInitial);
   const quantityInputRef = useRef<HTMLInputElement>(null);
   const kenpInputRef = useRef<HTMLInputElement>(null);
 

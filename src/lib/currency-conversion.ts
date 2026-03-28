@@ -5,12 +5,11 @@ export {
   CURRENCY_SYMBOLS,
 } from "./currency-constants";
 
+export { convertOriginalToUsd } from "./exchange-rates";
+
 /**
- * Converts an original currency amount to USD (client-safe).
- * Delegates to the convertCurrencyToUsd server action (Frankfurter on the server),
- * same pattern as ISBN lookup → Open Library.
- *
- * Per Req 3.3, if currency is not USD, it should be converted to USD.
+ * Converts an original currency amount to USD via the server (one HTTP call per invocation).
+ * Prefer `convertOriginalToUsd` with `getUsdConversionRates()` for interactive forms.
  */
 export async function convertCurrency(
   amount: number,

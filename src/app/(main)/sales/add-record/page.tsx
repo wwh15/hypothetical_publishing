@@ -1,5 +1,6 @@
 import { getBooksData } from "@/app/(main)/books/action";
 import SalesInputClient from "../components/SalesInputClient";
+import { getUsdConversionRates } from "../action";
 import Link from "next/link";
 import { BackLink } from "@/components/BackLink";
 
@@ -21,11 +22,15 @@ export default async function SalesInputPage({ searchParams }: PageProps) {
       ? initialBookId
       : undefined;
 
-  const { items: booksData } = await getBooksData({
-    search: "",
-    page: 1,
-    pageSize: 2000,
-  });
+  const [booksResult, usdRates] = await Promise.all([
+    getBooksData({
+      search: "",
+      page: 1,
+      pageSize: 2000,
+    }),
+    getUsdConversionRates().catch((): Record<string, number> | null => null),
+  ]);
+  const { items: booksData } = booksResult;
 
   return (
     <div className="container mx-auto py-10 px-4 sm:px-6">
@@ -49,6 +54,7 @@ export default async function SalesInputPage({ searchParams }: PageProps) {
       <SalesInputClient
         booksData={booksData}
         initialBookId={validInitialBookId}
+        usdRatesInitial={usdRates}
       />
     </div>
   );
