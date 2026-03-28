@@ -62,7 +62,12 @@ function coerceSaleForm(next: FormData, changedField: string): FormData {
     n = { ...n, format: "PRINT", kenp: "" };
   }
 
-  if (n.format === "KINDLE_UNLIMITED" && n.source === "DISTRIBUTOR") {
+  // KU is only valid for Amazon; picking KU switches distributor to Amazon (not when user picks Other/etc.)
+  if (
+    changedField === "format" &&
+    n.format === "KINDLE_UNLIMITED" &&
+    n.source === "DISTRIBUTOR"
+  ) {
     n = { ...n, distributor: "AMAZON" };
   }
 
@@ -72,12 +77,11 @@ function coerceSaleForm(next: FormData, changedField: string): FormData {
     n = { ...n, format: allowed[0] ?? "PRINT" };
   }
 
-  if (changedField === "format") {
-    if (n.format === "KINDLE_UNLIMITED") {
-      n = { ...n, quantity: "" };
-    } else {
-      n = { ...n, kenp: "" };
-    }
+  // Match qty vs KENP to final format (e.g. switching distributor off Amazon may coerce KU → print/ebook)
+  if (n.format === "KINDLE_UNLIMITED") {
+    n = { ...n, quantity: "" };
+  } else {
+    n = { ...n, kenp: "" };
   }
 
   if (changedField === "source" && n.source === "HAND_SOLD") {
