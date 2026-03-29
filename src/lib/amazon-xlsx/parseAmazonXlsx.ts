@@ -523,8 +523,17 @@ export async function parseAmazonXlsx(
         }
 
         const kenpVal = parseNumericCell(row[colKenp!]);
-        if (kenpVal == null || kenpVal < 0) {
-          pushError(errors, sheetName, excelRow, `KENP must be a non-negative number (got "${String(row[colKenp!] ?? "")}").`);
+        if (
+          kenpVal == null ||
+          !Number.isInteger(kenpVal) ||
+          kenpVal < 1
+        ) {
+          pushError(
+            errors,
+            sheetName,
+            excelRow,
+            `KENP must be a positive whole number (got "${String(row[colKenp!] ?? "")}").`
+          );
           continue;
         }
         kenp = kenpVal;
