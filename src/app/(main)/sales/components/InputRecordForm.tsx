@@ -92,8 +92,10 @@ export default function InputRecordForm({
         </h2>
         <p className="mt-1 text-sm text-muted-foreground">
           Optimized for fast entry: search by title, ISBN-13/10, or Amazon ASIN
-          (dashes ignored). Defaults: distributor source, Other distributor,
-          print format, USD.
+          (dashes ignored).
+        </p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Defaults: Distributor (Sales source) • Other (Distributor) • Print (Format) • USD (Currency)
         </p>
       </div>
 
@@ -254,7 +256,7 @@ export default function InputRecordForm({
           />
           <p className="text-xs text-muted-foreground mt-1">
             {isDistributor
-              ? `Converted from ${formData.currency} using current rates (req. 3.7).`
+              ? `Converted from ${formData.currency} using currency exchange rates.`
               : "Same as original for hand sold (USD)."}
           </p>
         </FormField>
@@ -278,7 +280,7 @@ export default function InputRecordForm({
             <Textarea
               value={formData.comment}
               onChange={(e) => handleInputChange("comment", e.target.value)}
-              placeholder="Optional note"
+              placeholder="Optional note (Maximum 256 characters)"
               maxLength={256}
               className="resize-none"
             />
