@@ -1,5 +1,6 @@
 "use server";
 
+import { STATIC_FALLBACK_RATES } from "@/lib/currency-constants";
 import asyncGetAuthorPaymentData from "@/lib/data/author-payment";
 import asyncGetSalesData, {
   getSalesData,
@@ -60,50 +61,50 @@ export async function convertCurrencyToUsd(
 
     return conversion;
   } catch (error) {
-    console.error("convertCurrencyToUsd failed:", error);
-    // CRITICAL: We throw the error so the UI code stops
-    // instead of trying to call .toFixed() on undefined.
+    console.warn(`Conversion API failed for ${currencyCode}. Using static fallback.`);
+    
+    const rate = STATIC_FALLBACK_RATES[currencyCode];
+    
+    if (rate) {
+      // Logic: Since the rate is "Units per 1 USD", we divide.
+      // Example: 15,150 JPY / 151.50 = 100 USD
+      return amount / rate;
+    }
+
+    // 4. Final Fail-Safe: If currency isn't in our static map
+    console.error(`Critical: No fallback rate for ${currencyCode}`);
     throw error;
   }
 }
 
 /**
- * Latest "foreign units per 1 USD" table (same as ExchangeRate-API `conversion_rates` with base USD).
- * Cached on the server for one hour. Used by sales forms for instant USD equivalents without
- * a round trip per keystroke.
+ * Static fallback rates (Units per 1 USD). 
+ * Used only if the primary ExchangeRate-API call fails.
  */
+
 export async function getUsdConversionRates(): Promise<Record<string, number>> {
   const apiKey = process.env.EXCHANGE_RATE_API_KEY;
 
-  if (apiKey) {
+  try {
+    if (!apiKey) throw new Error("API Key missing");
+
     const url = `https://v6.exchangerate-api.com/v6/${apiKey}/latest/USD`;
     const response = await fetch(url, { next: { revalidate: 3600 } });
-    if (!response.ok) {
-      throw new Error(`Exchange rate API error: ${response.status}`);
-    }
-    const data = (await response.json()) as {
-      result?: string;
-      conversion_rates?: Record<string, number>;
-    };
-    if (data.result !== "success" || !data.conversion_rates) {
-      throw new Error("Exchange rate API returned an unexpected payload");
-    }
-    return data.conversion_rates;
-  }
 
-  const response = await fetch("https://api.frankfurter.app/latest?from=USD", {
-    next: { revalidate: 3600 },
-  });
-  if (!response.ok) {
-    throw new Error(`Frankfurter API error: ${response.status}`);
+    if (!response.ok) throw new Error(`API Error: ${response.status}`);
+
+    const data = await response.json();
+    if (data.result === "success" && data.conversion_rates) {
+      return data.conversion_rates;
+    }
+    
+    throw new Error("Invalid API response format");
+
+  } catch (error) {
+    console.error("Currency Fetch Failed. Falling back to static rates.", error);
+    // Returning static rates ensures the UI doesn't crash
+    return STATIC_FALLBACK_RATES;
   }
-  const data = (await response.json()) as {
-    rates?: Record<string, number>;
-  };
-  if (!data.rates || typeof data.rates !== "object") {
-    throw new Error("Frankfurter returned an unexpected payload");
-  }
-  return { USD: 1, ...data.rates };
 }
 
 export async function addSale(data: Prisma.SaleUncheckedCreateInput) {

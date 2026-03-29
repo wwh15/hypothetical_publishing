@@ -18,6 +18,30 @@ export const SUPPORTED_CURRENCIES = [
   { code: "USD", name: "US Dollar", symbol: "$" },
 ];
 
+/**
+ * Static fallback rates (Units per 1 USD). 
+ * Used only if all external API calls fail.
+ */
+export const STATIC_FALLBACK_RATES: Record<string, number> = {
+  USD: 1.0,
+  AED: 3.67,  // Pegged
+  AUD: 1.53,
+  BRL: 5.10,
+  CAD: 1.36,
+  CNY: 7.23,
+  EGP: 47.50,
+  EUR: 0.92,
+  GBP: 0.79,
+  INR: 83.30,
+  JPY: 151.50,
+  MXN: 16.75,
+  PLN: 3.98,
+  SAR: 3.75,  // Pegged
+  SEK: 10.55,
+  SGD: 1.35,
+  TRY: 32.40,
+};
+
 export const CURRENCY_SYMBOLS: Record<string, string> = Object.fromEntries(
   SUPPORTED_CURRENCIES.map((curr) => [curr.code, curr.symbol])
 );
