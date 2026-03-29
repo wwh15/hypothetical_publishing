@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { updateSale } from "@/app/(main)/sales/action";
+import { getUsdConversionRates, updateSale } from "@/app/(main)/sales/action";
 import type { SaleDetailPayload } from "@/lib/data/records";
 import { BookSelectBox } from "@/components/BookSelectBox";
 import { BookListItem } from "@/lib/data/books";
@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
 import {
   convertCurrency,
+  convertOriginalToUsd,
   CURRENCY_SYMBOLS,
   SUPPORTED_CURRENCIES,
 } from "@/lib/currency-conversion";
@@ -49,6 +50,7 @@ interface SalesRecordEditFormProps {
   books: BookListItem[];
   sale: SaleDetailPayload;
   onClose: () => void;
+  usdRatesInitial?: Record<string, number> | null;
 }
 
 const SALES_YEAR_MIN = 1000;
@@ -84,8 +86,39 @@ export default function SalesRecordEditForm({
   sale,
   books,
   onClose,
+  usdRatesInitial,
 }: SalesRecordEditFormProps) {
   const router = useRouter();
+  const [usdRates, setUsdRates] = useState<Record<string, number> | null>(
+    () => usdRatesInitial ?? null
+  );
+
+  useEffect(() => {
+    if (usdRatesInitial != null) {
+      setUsdRates(usdRatesInitial);
+      return;
+    }
+    let cancelled = false;
+    getUsdConversionRates()
+      .then((r) => {
+        if (!cancelled) setUsdRates(r);
+      })
+      .catch(() => {
+        if (!cancelled) setUsdRates(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [usdRatesInitial]);
+
+  const toUsd = useCallback(
+    async (amount: number, code: string) => {
+      const sync = convertOriginalToUsd(amount, code, usdRates);
+      if (sync !== null) return sync;
+      return convertCurrency(amount, code);
+    },
+    [usdRates]
+  );
   const [formData, setFormData] = useState({
     bookId: sale.book.id,
     dateMonth: initialDateMonth(sale.date),
@@ -292,7 +325,7 @@ export default function SalesRecordEditForm({
                 setDisplayRevenueOriginal(revOriginal.toFixed(2));
                 setDisplayRevenueUSD(revUSD.toFixed(2));
               } else {
-                revUSD = await convertCurrency(revOriginal, formData.currency);
+                revUSD = await toUsd(revOriginal, formData.currency);
                 setDisplayRevenueUSD(revUSD.toFixed(2));
               }
 
@@ -385,7 +418,7 @@ export default function SalesRecordEditForm({
               let fmt = formData.format;
               if (!nextAllowed.includes(fmt)) fmt = nextAllowed[0];
               const orig = formData.publisherRevenueOriginal;
-              const usd = await convertCurrency(orig, formData.currency);
+              const usd = await toUsd(orig, formData.currency);
               const rate = book != null ? getRateForSource(book, "DISTRIBUTOR") : 0;
               const roy = usd * (rate / 100);
               setDisplayRevenueUSD(usd.toFixed(2));
@@ -461,7 +494,7 @@ export default function SalesRecordEditForm({
               if (fmt === "KINDLE_UNLIMITED") {
                 setDisplayQuantity("");
                 setDisplayKenp((k) => (k === "" ? "0" : k));
-                const usd = await convertCurrency(
+                const usd = await toUsd(
                   formData.publisherRevenueOriginal,
                   formData.currency
                 );
@@ -503,7 +536,7 @@ export default function SalesRecordEditForm({
                   authorRoyalty: roy,
                 }));
               } else if (book) {
-                const usd = await convertCurrency(
+                const usd = await toUsd(
                   formData.publisherRevenueOriginal,
                   formData.currency
                 );
@@ -654,7 +687,7 @@ export default function SalesRecordEditForm({
                 const code = e.target.value.toUpperCase();
                 const book = books.find((b) => b.id === formData.bookId);
                 const orig = formData.publisherRevenueOriginal;
-                const usd = await convertCurrency(orig, code);
+                const usd = await toUsd(orig, code);
                 const rate =
                   book != null ? getRateForSource(book, formData.source) : 0;
                 const roy = usd * (rate / 100);
@@ -699,7 +732,7 @@ export default function SalesRecordEditForm({
               formData.source === "HAND_SOLD" &&
                 "bg-gray-100 dark:bg-gray-700 cursor-not-allowed"
             )}
-            onChange={async (e) => {
+            onChange={(e) => {
               if (formData.source === "HAND_SOLD") return;
 
               const val = e.target.value;
@@ -711,27 +744,34 @@ export default function SalesRecordEditForm({
                 val,
                 "Publisher revenue"
               );
-              if (revCheck.success) {
-                const originalValue = revCheck.data;
-                const usdValue = await convertCurrency(
-                  originalValue,
-                  formData.currency
-                );
-                setDisplayRevenueUSD(usdValue.toFixed(2));
+              if (!revCheck.success) return;
 
+              const originalValue = revCheck.data;
+              const applyUsd = (usdValue: number) => {
+                setDisplayRevenueUSD(usdValue.toFixed(2));
                 const book = books.find(
                   (b) => b.id === Number(formData.bookId)
                 );
                 const rate = book ? getRateForSource(book, formData.source) : 0;
                 const newRoyalty = usdValue * (rate / 100);
                 setDisplayRoyalty(newRoyalty.toFixed(2));
-
                 setFormData((prev) => ({
                   ...prev,
                   publisherRevenueOriginal: originalValue,
                   publisherRevenueUSD: usdValue,
                   authorRoyalty: newRoyalty,
                 }));
+              };
+
+              const sync = convertOriginalToUsd(
+                originalValue,
+                formData.currency,
+                usdRates
+              );
+              if (sync !== null) {
+                applyUsd(sync);
+              } else {
+                void toUsd(originalValue, formData.currency).then(applyUsd);
               }
             }}
             onBlur={() => {
@@ -745,7 +785,8 @@ export default function SalesRecordEditForm({
                 "Publisher revenue"
               );
               if (revCheck.success) {
-                setDisplayRevenueOriginal(revCheck.data.toFixed(2));
+                const precision = formData.currency === "JPY" ? 0 : 2;
+                setDisplayRevenueOriginal(revCheck.data.toFixed(precision));
               }
             }}
           />

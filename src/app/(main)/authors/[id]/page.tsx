@@ -1,12 +1,16 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BackLink } from "@/components/BackLink";
-import { getAuthorById } from "../actions";
+import { getAuthorBooks, getAuthorById } from "../actions";
 import { getBooksByAuthorId } from "@/lib/data/books";
 import BooksTable from "../../books/components/BooksTable";
 import { DeleteAuthorButton } from "../components/DeleteAuthorButton";
 import { AuthorRoyaltyReportForm } from "../../reports/author-royalty/components/AuthorRoyaltyReportForm";
 import { getDefaultQuarterRange } from "../../reports/author-royalty/lib/quarters";
+import { BaseDataTable } from "@/components/BaseDataTable";
+import { AuthorBookItem } from "@/lib/data/author";
+import { authorBookColumns } from "@/lib/table-configs/author-columns";
+import AuthorBooksTable from "../components/AuthorBooksTable";
 // import { getAuthorById } from "../action"; // Future server action
 
 export const dynamic = "force-dynamic";
@@ -20,7 +24,7 @@ export default async function AuthorDetailPage({ params }: PageProps) {
   const authorId = parseInt(id);
 
   const authorByIdResponse = await getAuthorById(authorId);
-  const authorBooks = await getBooksByAuthorId(authorId);
+  const authorBooksResponse = await getAuthorBooks(authorId);
 
   const defaultRange = getDefaultQuarterRange();
   // 1. Handle Hard Failures (DB is down, etc.)
@@ -34,6 +38,20 @@ export default async function AuthorDetailPage({ params }: PageProps) {
   }
 
   const author = authorByIdResponse.data;
+  
+  // 1. Handle Hard Failures (DB is down, etc.)
+  if (!authorBooksResponse.success) {
+    throw new Error(authorBooksResponse.error); // Triggers your error.tsx boundary
+  }
+
+  // 2. Handle "Quiet" Failure (ID doesn't exist in DB)
+  if (authorBooksResponse.data === null) {
+    notFound(); // Redirects to your 404 page
+  }
+
+  const authorBooks = authorBooksResponse.data;
+
+  
 
   return (
     <div className="container mx-auto py-10 px-4 md:px-6">
@@ -90,7 +108,8 @@ export default async function AuthorDetailPage({ params }: PageProps) {
           <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
             <h2 className="text-xl font-semibold">Books</h2>
           </div>
-          <BooksTable
+          <AuthorBooksTable rows={authorBooks} />
+          {/* <BooksTable
             books={authorBooks}
             total={authorBooks.length}
             page={1}
@@ -99,7 +118,7 @@ export default async function AuthorDetailPage({ params }: PageProps) {
             sortColumns={[]}
             embedded
             hideAuthorColumn
-          />
+          /> */}
         </section>
 
         {/* Action Buttons Section */}

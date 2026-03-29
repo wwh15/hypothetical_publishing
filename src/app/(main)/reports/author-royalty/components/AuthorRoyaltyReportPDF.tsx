@@ -283,6 +283,7 @@ export function AuthorRoyaltyReportPDF({ data }: AuthorRoyaltyReportPDFProps) {
     year: "numeric",
     month: "long",
     day: "numeric",
+    timeZone: "UTC",
   });
 
   return (

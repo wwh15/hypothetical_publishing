@@ -95,7 +95,7 @@ const SORT_ASC: Record<string, Prisma.SaleOrderByWithRelationInput> = {
   format: { format: "asc" },
   distributor: { distributor: "asc" },
   publisherRevenueUSD: { publisherRevenueUSD: "asc" },
-  publisherRevenueOriginal: { publisherRevenueOriginal: "desc" },
+  publisherRevenueOriginal: { publisherRevenueOriginal: "asc" },
   currency: { currency: "asc" },
   authorRoyalty: { authorRoyalty: "asc" },
   paid: { paid: "asc" },
@@ -125,11 +125,11 @@ function buildOrderBy(
 ): Prisma.SaleOrderByWithRelationInput | Prisma.SaleOrderByWithRelationInput[] {
   const map = sortDir === "desc" ? SORT_DESC : SORT_ASC;
   
-  // Requirement 3.1.1: Sort first by currency type, then by amount
   if (sortBy === "publisherRevenueOriginal") {
     return [
-      { currency: "asc" },           
-      { publisherRevenueOriginal: sortDir } 
+      { currency: "asc" },
+      { publisherRevenueOriginal: sortDir },
+      { id: "asc" },
     ];
   }
   
@@ -179,6 +179,7 @@ export interface GetSalesDataParams {
   source?: "DISTRIBUTOR" | "HAND_SOLD";
   distributor?: "INGRAM_SPARK" | "AMAZON" | "OTHER";
   format?: "PRINT" | "EBOOK" | "KINDLE_UNLIMITED";
+  pagination?: boolean;
 }
 
 export interface GetSalesDataResult {
@@ -200,6 +201,7 @@ export async function getSalesData({
   source,
   distributor,
   format,
+  pagination = true,
 }: GetSalesDataParams): Promise<GetSalesDataResult> {
   const currentPage = Math.max(1, page);
   const limit = Math.max(1, Math.min(pageSize, 100));
@@ -221,7 +223,7 @@ export async function getSalesData({
     where.format = format;
   }
 
-  // 1. Build Filter Logic
+  // Build Filter Logic
   const trimmedSearch = search?.trim();
   if (trimmedSearch) {
     where.OR = [
@@ -241,7 +243,7 @@ export async function getSalesData({
     ];
   }
 
-  // 2. Handle Date Range Filtering
+  // Handle Date Range Filtering
   const fromDate = dateFrom?.trim() ? parseDate(dateFrom) : undefined;
   const toDate = dateTo?.trim() ? parseDate(dateTo, true) : undefined;
   if (fromDate || toDate) {
@@ -250,30 +252,33 @@ export async function getSalesData({
     if (toDate) where.date.lte = toDate;
   }
 
-  // 3. Single, Optimized Database Query
-  // No more "if (sortBy === 'date')" branch!
-  const [sales, total] = await Promise.all([
-    prisma.sale.findMany({
-      where,
-      include: {
-        book: {
-          include: { author: true },
-        },
+  // Conditionally add pagination (limit and offset) to query
+  const queryOptions = {
+    where,
+    include: {
+      book: {
+        include: { author: true },
       },
-      // Database handles the sort
-      orderBy: buildOrderBy(sortBy, sortDir),
-      // Database handles the pagination
-      skip: (currentPage - 1) * limit,
-      take: limit,
-    }),
+    },
+    orderBy: buildOrderBy(sortBy, sortDir),
+    ...(pagination
+      ? {
+          skip: (currentPage - 1) * limit,
+          take: limit,
+        }
+      : {}),
+  };
+
+  const [sales, total] = await Promise.all([
+    prisma.sale.findMany(queryOptions),
     prisma.sale.count({ where }),
   ]);
 
   return {
     items: sales.map(toSaleListItem),
     total,
-    page: currentPage,
-    pageSize: limit,
+    page: pagination ? currentPage : 1,
+    pageSize: pagination ? limit : total,
   };
 }
 
@@ -282,6 +287,38 @@ export interface GetSalesByBookIdParams {
   pageSize?: number;
   sortBy?: string;
   sortDir?: "asc" | "desc";
+}
+
+export async function asyncAddSalesBulk(records: PendingSaleItem[]) {
+  try {
+    // Map the UI items to exactly what the Prisma Schema expects
+    const data = records.map((record) => ({
+      bookId: record.bookId,
+      date: record.date,
+      quantity: record.quantity,
+      kenp: record.kenp,
+      format: record.format,
+      // Logic: Distributor is null if it's Handsold
+      distributor: record.source === "DISTRIBUTOR" ? record.distributor : null,
+      publisherRevenueUSD: record.publisherRevenueUSD,
+      publisherRevenueOriginal: record.publisherRevenueOriginal,
+      currency: record.currency,
+      authorRoyalty: record.authorRoyalty,
+      paid: record.paid,
+      comment: record.comment ?? null,
+      source: record.source,
+    }));
+
+    await prisma.sale.createMany({
+      data,
+      skipDuplicates: false, // Set to true if you have a unique constraint you want to ignore
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error("Bulk Save Error:", error);
+    return { success: false, error: "Failed to save records to database." };
+  }
 }
 
 /** Server-side paginated/sorted sales for a single book. */
