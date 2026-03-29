@@ -11,6 +11,7 @@ import { Decimal } from "decimal.js";
 import {
   normalizeCurrency,
   validateDatePeriod,
+  validateKenp,
   validateNonNegativeNumber,
   validateQuantity,
 } from "@/lib/validation";
@@ -173,9 +174,7 @@ export default function SalesRecordEditForm({
     const dateCheck = validateDatePeriod(formData.dateYear, formData.dateMonth);
     const isKu = formData.format === "KINDLE_UNLIMITED";
     const qtyCheck = isKu ? null : validateQuantity(displayQuantity);
-    const kenpCheck = isKu
-      ? validateNonNegativeNumber(displayKenp, "KENP")
-      : null;
+    const kenpCheck = isKu ? validateKenp(displayKenp) : null;
     const revenueOriginalCheck = validateNonNegativeNumber(
       displayRevenueOriginal,
       "Publisher revenue"
@@ -459,12 +458,12 @@ export default function SalesRecordEditForm({
                     distributor: dist,
                     format: fmt,
                     quantity: ku ? null : prev.quantity ?? 1,
-                    kenp: ku ? prev.kenp ?? 0 : null,
+                    kenp: ku ? prev.kenp : null,
                   };
                 });
                 if (fmt === "KINDLE_UNLIMITED") {
                   setDisplayQuantity("");
-                  if (!displayKenp) setDisplayKenp("0");
+                  if (!displayKenp) setDisplayKenp("");
                 } else {
                   setDisplayQuantity(
                     (formData.quantity ?? 1) > 0
@@ -493,7 +492,7 @@ export default function SalesRecordEditForm({
               const book = books.find((b) => b.id === formData.bookId);
               if (fmt === "KINDLE_UNLIMITED") {
                 setDisplayQuantity("");
-                setDisplayKenp((k) => (k === "" ? "0" : k));
+                setDisplayKenp((k) => k);
                 const usd = await toUsd(
                   formData.publisherRevenueOriginal,
                   formData.currency
@@ -507,7 +506,7 @@ export default function SalesRecordEditForm({
                   ...prev,
                   format: fmt,
                   quantity: null,
-                  kenp: prev.kenp ?? 0,
+                  kenp: prev.kenp,
                   publisherRevenueUSD: usd,
                   authorRoyalty: roy,
                 }));
@@ -645,8 +644,8 @@ export default function SalesRecordEditForm({
             <label className="block text-sm font-medium mb-2">KENP</label>
             <input
               type="text"
-              inputMode="decimal"
-              placeholder="0"
+              inputMode="numeric"
+              placeholder="e.g. 2400"
               value={displayKenp}
               className={cn(
                 "w-full px-3 py-2 border rounded-md transition-colors",
@@ -655,15 +654,17 @@ export default function SalesRecordEditForm({
                   : "border-gray-300 dark:border-gray-600"
               )}
               onChange={(e) => {
-                const val = e.target.value;
+                const val = e.target.value.replace(/[^0-9]/g, "");
                 setDisplayKenp(val);
                 if (errors.kenp) setErrors((prev) => ({ ...prev, kenp: "" }));
-                const kenpValidation = validateNonNegativeNumber(val, "KENP");
+                const kenpValidation = validateKenp(val);
                 if (kenpValidation.success) {
                   setFormData((prev) => ({
                     ...prev,
                     kenp: kenpValidation.data,
                   }));
+                } else if (val === "") {
+                  setFormData((prev) => ({ ...prev, kenp: null }));
                 }
               }}
             />

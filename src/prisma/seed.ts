@@ -309,10 +309,10 @@ async function main() {
 
       if (format === "KINDLE_UNLIMITED") {
         quantity = null;
-        const k = parseFloat(String(row.kenp ?? "").trim());
-        if (!Number.isFinite(k) || k < 0) {
+        const k = parseInt(String(row.kenp ?? "").trim(), 10);
+        if (!Number.isFinite(k) || k < 1) {
           console.warn(
-            `⚠️ Sale skipped: KU row needs non-negative kenp (ISBN ${isbn13})`
+            `⚠️ Sale skipped: KU row needs positive integer kenp (ISBN ${isbn13})`
           );
           continue;
         }
