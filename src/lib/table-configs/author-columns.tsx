@@ -122,7 +122,7 @@ export const authorBookColumns: ColumnDef<AuthorBookItem>[] = [
       }
       const label =
         row.seriesOrder != null
-          ? `${row.seriesName} #${row.seriesOrder}`
+          ? `${row.seriesName} (${row.seriesOrder})`
           : row.seriesName;
       return <span>{label}</span>;
     },
@@ -155,7 +155,7 @@ export const authorBookColumns: ColumnDef<AuthorBookItem>[] = [
   },
   {
     key: "totalAuthorRoyalty",
-    header: "Total Royalty",
+    header: "Total Author Royalty",
     render: (row) => authorCellRenderers.currency(row.totalAuthorRoyalty),
   },
   {

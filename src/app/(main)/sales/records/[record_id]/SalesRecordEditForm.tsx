@@ -846,7 +846,7 @@ export default function SalesRecordEditForm({
             onChange={(e) =>
               setFormData((prev) => ({ ...prev, comment: e.target.value }))
             }
-            placeholder="Optional note"
+            placeholder="Optional note (Maximum 256 characters)"
             maxLength={256}
             rows={2}
             className="resize-none w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800"
