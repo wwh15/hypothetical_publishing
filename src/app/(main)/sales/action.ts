@@ -226,6 +226,15 @@ const DISTRIBUTOR_LABELS: Record<string, string> = {
   OTHER: "Other",
 };
 
+const csvEscape = (val: string | null | undefined, maxLength?: number): string => {
+  let text = val || "";
+  if (maxLength) text = text.slice(0, maxLength);
+  
+  // 1. Escape internal quotes
+  // 2. Wrap in external quotes
+  return `"${text.replace(/"/g, '""')}"`;
+};
+
 export async function exportSalesToCsvAction(params: {
   search?: string;
   sortBy?: string;
@@ -243,16 +252,20 @@ export async function exportSalesToCsvAction(params: {
       pagination: false,
     });
 
+    if (items.length === 0) {
+      return { success: false, error: "No sale records found matching your current filters." };
+    }
+
     // 2. Define Headers
     const headers = [
       "Date",
       "Author",
       "Title",
       "Source",
+      "Distributor",
       "Format",
       "Quantity",
       "KENP",
-      "Distributor",
       "Original Currency",
       "Pub. Revenue (Original)",
       "Pub. Revenue (USD)",
@@ -278,6 +291,7 @@ export async function exportSalesToCsvAction(params: {
         sale.format === "EBOOK" || sale.format === "PRINT"
           ? sale.quantity
           : "N/A";
+      
       const kenp = sale.format === "KINDLE_UNLIMITED" ? sale.kenp : "N/A";
 
       const originalRev =
@@ -288,25 +302,21 @@ export async function exportSalesToCsvAction(params: {
       const usdRev = sale.publisherRevenueUSD.toFixed(2);
       const royalty = sale.authorRoyalty.toFixed(2);
 
-      const rawComment = sale.comment || "";
-      const slicedComment = rawComment.slice(0, 256);
-      const formattedComment = `"${slicedComment.replace(/"/g, '""')}"`;
-
       return [
         sale.date.toISOString().slice(0, 7),
-        `"${sale.title.replace(/"/g, '""')}"`,
-        `"${sale.title}"`,
+        csvEscape(sale.author),
+        csvEscape(sale.title),
         displaySource,
+        displayDistributor,
         displayFormat,
         quantity,
         kenp,
-        displayDistributor,
         sale.currency,
         originalRev,
         usdRev,
         royalty,
         sale.paid === "paid" ? "Paid" : "Unpaid", // Using boolean check
-        formattedComment, // Wrap comments in quotes too!
+        csvEscape(sale.comment, 256), // Wrap comments in quotes too!
       ].join(",");
     });
 
