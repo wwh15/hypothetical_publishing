@@ -679,7 +679,7 @@ export default function SalesRecordEditForm({
         {formData.source === "DISTRIBUTOR" && (
           <div>
             <label className="block text-sm font-medium mb-2">
-              Original currency
+              Original Currency
             </label>
             <select
               value={formData.currency}
@@ -708,16 +708,13 @@ export default function SalesRecordEditForm({
               </option>
             ))}
             </select>
-            <p className="text-xs text-muted-foreground mt-1">
-              USD equivalent updates per Req 3.7 (exchange rates in app).
-            </p>
           </div>
         )}
 
         {/* Publisher revenue (original currency amount) */}
         <div>
           <label className="block text-sm font-medium mb-2">
-            Publisher Revenue (
+            Original Publisher Revenue (
             {formData.currency})
           </label>
           <input

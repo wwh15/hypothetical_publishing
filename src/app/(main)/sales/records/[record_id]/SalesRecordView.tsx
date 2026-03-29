@@ -120,8 +120,7 @@ export default function SalesRecordView({ sale, onEdit }: SalesRecordViewProps) 
 
         <div>
           <label className="text-sm font-medium text-gray-500">
-            Publisher Revenue ({CURRENCY_SYMBOLS[sale.currency]}
-            {currencyUpper})
+            Original Publisher Revenue ({currencyUpper})
           </label>
           <p className="text-lg font-semibold mt-1 text-green-600">
             <bdi>{CURRENCY_SYMBOLS[sale.currency]}</bdi>
@@ -131,7 +130,7 @@ export default function SalesRecordView({ sale, onEdit }: SalesRecordViewProps) 
 
         <div>
           <label className="text-sm font-medium text-gray-500">
-            Publisher Revenue (USD Equivalent)
+            Publisher Revenue (USD)
           </label>
           <p className="text-lg font-semibold mt-1 text-green-600">
             ${new Decimal(sale.publisherRevenueUSD).toFixed(2)}
@@ -140,7 +139,7 @@ export default function SalesRecordView({ sale, onEdit }: SalesRecordViewProps) 
 
         <div>
           <label className="text-sm font-medium text-gray-500">
-            Author Royalty
+            Author Royalty (USD)
           </label>
           <p className="text-lg font-semibold mt-1 text-blue-600">
             ${new Decimal(sale.authorRoyalty).toFixed(2)}

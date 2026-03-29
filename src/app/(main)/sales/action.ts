@@ -15,6 +15,7 @@ import asyncGetSalesData, {
   PendingSaleItem,
   asyncAddSalesBulk,
 } from "@/lib/data/records";
+import { normalizeQuantity } from "@/lib/validation";
 import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -48,8 +49,8 @@ export async function convertCurrencyToUsd(
     const conversion = data?.conversion_result;
 
     if (data.result != "success") {
-      console.error("API Request Failed:", data)
-      throw new Error("API Request Failed")
+      console.error("API Request Failed:", data);
+      throw new Error("API Request Failed");
     }
 
     if (typeof conversion !== "number") {
@@ -57,13 +58,12 @@ export async function convertCurrencyToUsd(
       throw new Error("USD rate missing from API response");
     }
 
-    return conversion
-
+    return conversion;
   } catch (error) {
     console.error("convertCurrencyToUsd failed:", error);
-    // CRITICAL: We throw the error so the UI code stops 
+    // CRITICAL: We throw the error so the UI code stops
     // instead of trying to call .toFixed() on undefined.
-    throw error; 
+    throw error;
   }
 }
 
@@ -114,28 +114,22 @@ export async function addSale(data: Prisma.SaleUncheckedCreateInput) {
     revalidatePath(`/books/${created.bookId}`);
     return { success: true };
   } catch (e) {
-    const message =
-      e instanceof Error ? e.message : "Failed to add sale";
+    const message = e instanceof Error ? e.message : "Failed to add sale";
     return { success: false, error: message };
   }
 }
 
 export async function addSalesBulk(records: PendingSaleItem[]) {
   try {
-
-    await asyncAddSalesBulk(records)
+    await asyncAddSalesBulk(records);
     return { success: true };
-    
   } catch (error) {
     console.error("Bulk Save Error:", error);
     return { success: false, error: "Failed to save records to database." };
   }
 }
 
-export async function updateSale(
-  id: number,
-  data: UpdateSaleItem
-) {
+export async function updateSale(id: number, data: UpdateSaleItem) {
   try {
     const updated = await asyncUpdateSale(id, data);
     revalidatePath(`/sales/records/${id}`);
@@ -143,8 +137,7 @@ export async function updateSale(
     revalidatePath(`/books/${updated.bookId}`);
     return { success: true };
   } catch (e) {
-    const message =
-      e instanceof Error ? e.message : "Failed to update sale";
+    const message = e instanceof Error ? e.message : "Failed to update sale";
     return { success: false, error: message };
   }
 }
@@ -188,7 +181,9 @@ export async function getSalesRecordsPage(params: {
   return getSalesData(params);
 }
 
-export async function getSaleById(id: number): Promise<SaleDetailPayload | null> {
+export async function getSaleById(
+  id: number
+): Promise<SaleDetailPayload | null> {
   return await asyncGetSaleById(id);
 }
 
@@ -202,7 +197,6 @@ export async function getAuthorPaymentDataPage(params: {
 }) {
   return await asyncGetAuthorPaymentData(params.page, params.pageSize);
 }
-
 
 /**
  * Server Action to generate CSV content based on current filters.
@@ -226,10 +220,13 @@ const DISTRIBUTOR_LABELS: Record<string, string> = {
   OTHER: "Other",
 };
 
-const csvEscape = (val: string | null | undefined, maxLength?: number): string => {
+const csvEscape = (
+  val: string | null | undefined,
+  maxLength?: number
+): string => {
   let text = val || "";
   if (maxLength) text = text.slice(0, maxLength);
-  
+
   // 1. Escape internal quotes
   // 2. Wrap in external quotes
   return `"${text.replace(/"/g, '""')}"`;
@@ -253,7 +250,10 @@ export async function exportSalesToCsvAction(params: {
     });
 
     if (items.length === 0) {
-      return { success: false, error: "No sale records found matching your current filters." };
+      return {
+        success: false,
+        error: "No sale records found matching your current filters.",
+      };
     }
 
     // 2. Define Headers
@@ -291,8 +291,19 @@ export async function exportSalesToCsvAction(params: {
         sale.format === "EBOOK" || sale.format === "PRINT"
           ? sale.quantity
           : "N/A";
-      
-      const kenp = sale.format === "KINDLE_UNLIMITED" ? sale.kenp : "N/A";
+
+      let kenp: string | number = "N/A";
+      if (sale.format === "KINDLE_UNLIMITED") {
+        const value = sale.kenp;
+
+        if (!Number.isInteger(value) || (value as number) <= 0) {
+          throw new Error(
+            `Sales Record for "${sale.title}" (Date: ${sale.date.toISOString().slice(0, 7)}) is marked as Kindle Unlimited but is missing a positive, integer KENP value: ${value}.`
+          );
+        }
+
+        kenp = value as number;
+      }
 
       const originalRev =
         sale.currency === "JPY"
@@ -310,7 +321,7 @@ export async function exportSalesToCsvAction(params: {
         displayDistributor,
         displayFormat,
         quantity,
-        kenp,
+        kenp ? normalizeQuantity(kenp) : kenp,
         sale.currency,
         originalRev,
         usdRev,
@@ -321,13 +332,22 @@ export async function exportSalesToCsvAction(params: {
     });
 
     // 4. Return the combined string
-    return { 
-      success: true, 
-      data: [headers.join(","), ...rows].join("\n") 
+    return {
+      success: true,
+      data: [headers.join(","), ...rows].join("\n"),
     };
-
   } catch (error) {
-    console.error("CSV Generation Failed:", error);
-    return { success: false, error: "Failed to generate CSV data" };
+    console.error("Export Error:", error);
+
+    // Extract the specific message we threw above
+    const errorMessage =
+      error instanceof Error
+        ? error.message
+        : "An unexpected error occurred during export.";
+
+    return {
+      success: false,
+      error: errorMessage,
+    };
   }
 }
