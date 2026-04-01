@@ -184,10 +184,10 @@ export default function InputRecordForm({
             <Input
               ref={kenpInputRef}
               type="text"
-              inputMode="decimal"
+              inputMode="numeric"
               value={formData.kenp}
               onChange={(e) => handleInputChange("kenp", e.target.value)}
-              placeholder="0"
+              placeholder="e.g. 2400"
             />
           </FormField>
         ) : (

@@ -94,7 +94,7 @@ export const validateQuantity = (val: string | number): ValidationResult<number>
 
 export const isValidQuantityInput = (value: string): boolean => /^\d*$/.test(value) || value === "";
 
-/** Non-negative number (e.g. for KENP). Allows 0 and decimals. */
+/** Non-negative number. Allows 0 and decimals. */
 export const validateNonNegativeNumber = (
   val: string | number,
   label: string = "Value"
@@ -109,6 +109,25 @@ export const validateNonNegativeNumber = (
   }
   return { success: true, data: num };
 };
+
+/** Kindle Unlimited KENP: positive integer only. */
+export const validateKenp = (val: string | number): ValidationResult<number> => {
+  const cleanStr = cleanNumericString(val);
+  const num = Number(cleanStr);
+  if (cleanStr === "" || isNaN(num)) {
+    return { success: false, error: "KENP must be a valid number." };
+  }
+  if (!Number.isInteger(num)) {
+    return { success: false, error: "KENP must be a whole number." };
+  }
+  if (num < 1) {
+    return { success: false, error: "KENP must be greater than 0." };
+  }
+  return { success: true, data: num };
+};
+
+export const isValidKenpInput = (value: string): boolean =>
+  /^\d*$/.test(value) || value === "";
 
 /** * Date & ISBN 
  */

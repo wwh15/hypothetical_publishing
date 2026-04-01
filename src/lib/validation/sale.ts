@@ -85,13 +85,21 @@ export function validateSaleRecord(input: SaleValidationInput): ValidationResult
     }
   }
 
-  // KENP: required non-negative for KINDLE_UNLIMITED; must be null otherwise
+  // KENP: required positive integer for KINDLE_UNLIMITED; must be null otherwise
   if (format === "KINDLE_UNLIMITED") {
     if (kenp == null) {
       return { success: false, error: "KENP is required when format is kindle unlimited." };
     }
-    if (typeof kenp !== "number" || isNaN(kenp) || kenp < 0) {
-      return { success: false, error: "KENP must be a non-negative number for kindle unlimited." };
+    if (
+      typeof kenp !== "number" ||
+      isNaN(kenp) ||
+      !Number.isInteger(kenp) ||
+      kenp < 1
+    ) {
+      return {
+        success: false,
+        error: "KENP must be a positive whole number for kindle unlimited.",
+      };
     }
   }
   if (format !== "KINDLE_UNLIMITED" && kenp != null) {

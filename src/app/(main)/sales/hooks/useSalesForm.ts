@@ -11,7 +11,7 @@ import {
   validateRoyaltyLimit,
   validateQuantity,
   validateCurrency,
-  validateNonNegativeNumber,
+  validateKenp,
 } from "@/lib/validation";
 import { convertOriginalToUsd } from "@/lib/exchange-rates";
 import { getUsdConversionRates } from "../action";
@@ -210,11 +210,14 @@ export function useSalesForm(
     // 1. SANITIZATION: Clean JPY inputs before they touch the state
     let processedValue = value;
     if (
-      field === "publisherRevenueOriginal" && 
-      formData.currency === "JPY" && 
+      field === "publisherRevenueOriginal" &&
+      formData.currency === "JPY" &&
       typeof value === "string"
     ) {
-      processedValue = value.replace(/[^0-9]/g, ""); // Strips decimals/letters instantly
+      processedValue = value.replace(/[^0-9]/g, "");
+    }
+    if (field === "kenp" && typeof value === "string") {
+      processedValue = value.replace(/[^0-9]/g, "");
     }
   
     // 2. BUILD THE "NEXT" OBJECT
@@ -298,9 +301,7 @@ export function useSalesForm(
     const isKu = formData.format === "KINDLE_UNLIMITED";
 
     const qtyCheck = isKu ? null : validateQuantity(formData.quantity);
-    const kenpCheck = isKu
-      ? validateNonNegativeNumber(formData.kenp, "KENP")
-      : null;
+    const kenpCheck = isKu ? validateKenp(formData.kenp) : null;
 
     if (!isKu && qtyCheck && !qtyCheck.success) {
       return setFormErrors({ quantity: qtyCheck.error });
