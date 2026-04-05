@@ -48,6 +48,7 @@ export const authorColumns: ColumnDef<AuthorListItem>[] = [
     key: "name",
     header: "Author Name",
     className: "w-1/4",
+    headerClassName: "w-1/4",
     render: (row) => <span className="font-medium">{row.name}</span>,
   },
   {

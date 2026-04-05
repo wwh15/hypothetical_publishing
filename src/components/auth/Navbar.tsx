@@ -7,7 +7,7 @@ export default async function Navbar() {
 
   return (
     <nav className="border-b bg-white dark:bg-gray-800">
-      <div className="max-w-7xl mx-auto flex items-center justify-between gap-4 min-h-14 px-4 sm:px-6">
+      <div className="mx-auto flex w-full min-w-0 items-center justify-between gap-4 min-h-14 px-4 sm:px-6">
         <Link
           href="/"
           className="font-bold text-lg py-3 -ml-2 pl-2 pr-2 rounded-md focus:outline focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 shrink-0"

@@ -225,6 +225,7 @@ export default function AuthorPaymentsTable({
         .map((col) => ({
           ...col,
           className: cn("text-center align-middle", col.className),
+          headerClassName: "text-center",
         })),
     []
   );

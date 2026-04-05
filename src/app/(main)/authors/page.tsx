@@ -50,7 +50,7 @@ export default async function AuthorsPage({ searchParams }: AuthorsPageProps) {
   });
 
   return (
-    <div className="container mx-auto py-10 px-4 md:px-6">
+    <div className="py-10">
       <div className="mb-8 space-y-6">
         <div className="flex flex-col gap-3">
           <Link href="/authors/add-author" className="w-fit">

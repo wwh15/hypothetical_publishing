@@ -96,7 +96,7 @@ export default async function SalesRecordsPage({
     });
 
   return (
-    <div className="container mx-auto py-10 px-4 md:px-6">
+    <div className="py-10">
       <div className="mb-8 space-y-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <Link href="/sales/add-record" className="sm:shrink-0">

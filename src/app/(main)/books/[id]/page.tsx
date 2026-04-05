@@ -58,7 +58,7 @@ export default async function BookDetailPage({ params, searchParams }: PageProps
     }).format(book.publicationDate);
 
   return (
-    <div className="container mx-auto py-10">
+    <div className="py-10">
       <div className="mb-6">
         <BackLink href="/books" className="mb-2">
           Back to Books

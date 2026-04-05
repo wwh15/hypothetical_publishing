@@ -28,7 +28,7 @@ export default async function SalesRecordDetailPage({
   ]);
 
   return (
-    <div className="container mx-auto py-10 px-4 sm:px-6">
+    <div className="py-10">
       <div className="mb-6">
         <BackLink href="/sales/records">Back to Sales</BackLink>
         <h1 className="text-3xl font-bold mt-4 mb-2">Sale record</h1>

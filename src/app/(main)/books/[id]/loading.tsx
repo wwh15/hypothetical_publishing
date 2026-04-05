@@ -1,6 +1,6 @@
 export default function BookDetailLoading() {
   return (
-    <div className="container mx-auto py-10">
+    <div className="py-10">
       <div className="mb-6">
         <div className="h-5 w-28 bg-muted rounded animate-pulse mb-2" />
         <div className="h-9 w-64 bg-muted rounded animate-pulse mb-2" />

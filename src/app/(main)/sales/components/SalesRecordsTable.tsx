@@ -232,13 +232,16 @@ export default function SalesRecordsTable({
 
     return baseCols.map((col) => {
       const isSorted = sortBy === col.key;
+      const label = col.header as string;
 
       return {
         ...col,
         header: (
-          <div className="flex flex-col gap-1">
-            <span className="font-semibold flex items-center gap-1">
-              {col.header as string}
+          <div className="w-full min-w-0 max-w-full">
+            <div className="flex min-w-0 items-center gap-0.5 font-semibold">
+              <span className="min-w-0 flex-1 truncate" title={label}>
+                {label}
+              </span>
               <button
                 type="button"
                 onClick={() => {
@@ -247,10 +250,10 @@ export default function SalesRecordsTable({
                   handleSortChange(col.key, nextDirection);
                 }}
                 className={cn(
-                  "ml-1 p-0.5 rounded hover:bg-muted transition-colors",
+                  "shrink-0 p-0.5 rounded hover:bg-muted transition-colors",
                   isSorted && "text-blue-600 bg-blue-50 dark:bg-blue-900/20"
                 )}
-                aria-label={`Sort by ${col.header}`}
+                aria-label={`Sort by ${label}`}
               >
                 {!isSorted ? (
                   <ArrowUpDown className="w-4 h-4 text-muted-foreground" />
@@ -260,7 +263,7 @@ export default function SalesRecordsTable({
                   <ArrowDown className="h-4 w-4" />
                 )}
               </button>
-            </span>
+            </div>
           </div>
         ),
       };
@@ -282,16 +285,15 @@ export default function SalesRecordsTable({
     });
 
   const filterSelectClass = cn(
-    "h-10 min-w-[10.5rem] max-w-full sm:w-44 shrink-0",
-    "px-3 border border-gray-300 dark:border-gray-700 rounded-lg",
+    "h-10 w-full min-w-0 border border-gray-300 dark:border-gray-700 rounded-lg",
     "bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm",
-    "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+    "px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
   );
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-3">
-        <form onSubmit={handleSearchSubmit} className="relative">
+    <div className="min-w-0 space-y-4">
+      <div className="flex min-w-0 flex-col gap-3">
+        <form onSubmit={handleSearchSubmit} className="relative min-w-0">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
             <Search className="h-5 w-5 text-gray-400" />
           </div>
@@ -319,7 +321,7 @@ export default function SalesRecordsTable({
           )}
         </form>
 
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="grid min-w-0 max-w-full grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <select
             value={source ?? ""}
             onChange={handleSourceChange}
@@ -384,17 +386,17 @@ export default function SalesRecordsTable({
             <option value="EBOOK">Ebook</option>
             <option value="KINDLE_UNLIMITED">Kindle Unlimited</option>
           </select>
+        </div>
 
-          <div className="min-w-0 shrink-0">
-            <MonthYearFilter
-              startDate={dateFrom}
-              endDate={dateTo}
-              onStartDateChange={handleDateFromChange}
-              onEndDateChange={handleDateToChange}
-              onClear={handleDateClear}
-              hasActiveFilter={hasDateFilter}
-            />
-          </div>
+        <div className="min-w-0 max-w-full">
+          <MonthYearFilter
+            startDate={dateFrom}
+            endDate={dateTo}
+            onStartDateChange={handleDateFromChange}
+            onEndDateChange={handleDateToChange}
+            onClear={handleDateClear}
+            hasActiveFilter={hasDateFilter}
+          />
         </div>
       </div>
 

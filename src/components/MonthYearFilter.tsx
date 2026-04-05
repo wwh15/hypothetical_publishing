@@ -29,8 +29,8 @@ export function MonthYearFilter({
   const isInvalidRange = startDate && endDate && startDate > endDate;
 
   return (
-    <div className="flex flex-col gap-1">
-      <div className="flex h-10 items-center gap-2 rounded-lg border border-input bg-background px-2 w-fit">
+    <div className="flex min-w-0 max-w-full flex-col gap-1">
+      <div className="flex min-h-10 min-w-0 max-w-full flex-wrap items-center gap-x-2 gap-y-2 rounded-lg border border-input bg-background px-2 py-1 sm:h-10 sm:flex-nowrap sm:py-0 sm:w-fit">
         <span className="shrink-0 text-sm font-medium leading-none">Range:</span>
 
         <MonthYearSelector

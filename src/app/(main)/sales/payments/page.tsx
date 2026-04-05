@@ -30,7 +30,7 @@ export default async function AuthorPaymentsPage({
   const totalPages = Math.ceil(totalGroups / pageSize);
 
   return (
-    <div className="container mx-auto py-8 px-4 sm:px-6">
+    <div className="py-8">
       <div className="mb-6 space-y-6">
         <div className="flex flex-col gap-3">
           <BackLink href="/sales/records">Back to Sales</BackLink>
