@@ -458,6 +458,8 @@ export default function BookForm({
             seriesOrder: null,
             coverArtPath: null,
             asin,
+            kickstarterEbookItemTag: null,
+            kickstarterPrintItemTag: null,
           };
 
           onBookCreated?.(book);

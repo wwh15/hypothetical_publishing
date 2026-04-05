@@ -63,6 +63,8 @@ model Book {
   printCost                 Decimal   @map("print_cost") // Cost to print one copy
   publicationDate           DateTime  @db.Timestamptz @map("publication_date") // First day of publication month (e.g. 2024-01-01)
   released                  Boolean   @default(true) @map("released") // false = pre-release (projected sales); true = released
+  kickstarterEbookItemTag   String?   @db.VarChar(128) @map("kickstarter_ebook_item_tag")
+  kickstarterPrintItemTag   String?   @db.VarChar(128) @map("kickstarter_print_item_tag")
   seriesId                  Int?      @map("series_id") // Optional: book can belong to at most one series
   seriesOrder               Int?      @map("series_order") // Position in series (1, 2, 3, ...) when part of a series
   coverArtPath              String?   @map("cover_art_path") // Supabase Storage path in Cover-Art bucket

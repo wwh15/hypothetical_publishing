@@ -204,6 +204,32 @@ export const validateASINOptional = (
   return { success: true, data: normalized };
 };
 
+const KICKSTARTER_ITEM_TAG_MAX_LEN = 128;
+
+/** Optional Kickstarter item/reward tag: no whitespace, max 128 chars; blank clears. */
+export const validateKickstarterItemTagOptional = (
+  val: string | null | undefined,
+  label: string
+): ValidationResult<string | null> => {
+  if (val == null || val.trim() === "") {
+    return { success: true, data: null };
+  }
+  const t = val.trim();
+  if (t.length > KICKSTARTER_ITEM_TAG_MAX_LEN) {
+    return {
+      success: false,
+      error: `${label} must be at most ${KICKSTARTER_ITEM_TAG_MAX_LEN} characters`,
+    };
+  }
+  if (/\s/.test(t)) {
+    return {
+      success: false,
+      error: `${label} must not contain whitespace`,
+    };
+  }
+  return { success: true, data: t };
+};
+
 export const validateISBN = (val: string): ValidationResult<string> => {
   const clean = normalizeISBN(val);
   if (!clean) return { success: false, error: "ISBN is required" };

@@ -6,6 +6,7 @@ import {
 } from "../supabase/storage";
 import { getBooksSortedByTotalSales } from "./books-queries";
 import { SortColumn } from "../types/sort";
+import { validateKickstarterItemTagOptional } from "../validation";
 
 /** Build YYYY-MM sort key from publication date */
 export function publicationSortKeyFromDate(d: Date): string {
@@ -39,6 +40,10 @@ export interface BookListItem {
   seriesName: string | null;
   seriesOrder: number | null;
   coverArtPath: string | null;
+  /** Kickstarter item/reward tag for ebook edition; null if unset. */
+  kickstarterEbookItemTag: string | null;
+  /** Kickstarter item/reward tag for print edition; null if unset. */
+  kickstarterPrintItemTag: string | null;
 }
 
 /** Sum author royalties from sale rows (USD). */
@@ -91,6 +96,9 @@ export interface CreateBookInput {
   seriesOrder?: number | null; // Position in series (1, 2, 3, ...)
   newSeriesName?: string; // Name for new series (if creating new series)
   coverArtPath?: string | null; // Optional; cover is usually added on edit
+  /** No whitespace; max 128 chars; omit or null for none. */
+  kickstarterEbookItemTag?: string | null;
+  kickstarterPrintItemTag?: string | null;
 }
 
 export interface UpdateBookInput extends Partial<CreateBookInput> {
@@ -131,6 +139,8 @@ export interface BookDetail {
   seriesOrder: number | null;
   seriesName: string | null;
   coverArtPath: string | null;
+  kickstarterEbookItemTag: string | null;
+  kickstarterPrintItemTag: string | null;
   sales?: import("./records").SaleListItem[]; // Sales records for this book
 }
 
@@ -275,6 +285,8 @@ export async function getAllBooks(): Promise<BookListItem[]> {
       seriesOrder: book.seriesOrder ?? null,
       coverArtPath: book.coverArtPath ?? null,
       asin: book.asin ?? null,
+      kickstarterEbookItemTag: book.kickstarterEbookItemTag ?? null,
+      kickstarterPrintItemTag: book.kickstarterPrintItemTag ?? null,
     };
   });
 }
@@ -415,6 +427,8 @@ export async function getBooksData({
       seriesOrder: book.seriesOrder ?? null,
       coverArtPath: book.coverArtPath ?? null,
       asin: book.asin ?? null,
+      kickstarterEbookItemTag: book.kickstarterEbookItemTag ?? null,
+      kickstarterPrintItemTag: book.kickstarterPrintItemTag ?? null,
     };
   });
 
@@ -466,6 +480,8 @@ export async function getBooksByAuthorId(
       seriesOrder: book.seriesOrder ?? null,
       coverArtPath: book.coverArtPath ?? null,
       asin: book.asin ?? null,
+      kickstarterEbookItemTag: book.kickstarterEbookItemTag ?? null,
+      kickstarterPrintItemTag: book.kickstarterPrintItemTag ?? null,
     };
   });
 }
@@ -532,6 +548,8 @@ export async function getBookById(id: number): Promise<BookDetail | null> {
     seriesOrder: book.seriesOrder,
     seriesName: book.series?.name ?? null,
     coverArtPath: book.coverArtPath ?? null,
+    kickstarterEbookItemTag: book.kickstarterEbookItemTag ?? null,
+    kickstarterPrintItemTag: book.kickstarterPrintItemTag ?? null,
     // Sales list is loaded separately via getSalesByBookId (paginated)
     sales: undefined,
   };
@@ -543,6 +561,17 @@ export async function createBook(
   { success: true; bookId: number } | { success: false; error: string }
 > {
   try {
+    const ksEbook = validateKickstarterItemTagOptional(
+      input.kickstarterEbookItemTag,
+      "Kickstarter ebook item tag"
+    );
+    const ksPrint = validateKickstarterItemTagOptional(
+      input.kickstarterPrintItemTag,
+      "Kickstarter print item tag"
+    );
+    if (!ksEbook.success) return { success: false, error: ksEbook.error };
+    if (!ksPrint.success) return { success: false, error: ksPrint.error };
+
     // Convert royalty rates from percentage to decimal (e.g., 50 -> 0.50)
     const distAuthorRoyaltyRate = input.distRoyaltyRate
       ? input.distRoyaltyRate / 100
@@ -604,6 +633,8 @@ export async function createBook(
           publicationDate: input.publicationDate,
           seriesId: seriesId,
           seriesOrder: seriesOrderVal,
+          kickstarterEbookItemTag: ksEbook.data,
+          kickstarterPrintItemTag: ksPrint.data,
           // Fixed: Use 'author' (singular) and connect to one ID
           authorId: author.id,
         },
@@ -711,7 +742,25 @@ export async function updateBook(
       }
       if (input.coverArtPath !== undefined) {
         updateData.coverArtPath = input.coverArtPath ?? null;
-      } else if (
+      }
+      if (input.kickstarterEbookItemTag !== undefined) {
+        const r = validateKickstarterItemTagOptional(
+          input.kickstarterEbookItemTag,
+          "Kickstarter ebook item tag"
+        );
+        if (!r.success) throw new Error(r.error);
+        updateData.kickstarterEbookItemTag = r.data;
+      }
+      if (input.kickstarterPrintItemTag !== undefined) {
+        const r = validateKickstarterItemTagOptional(
+          input.kickstarterPrintItemTag,
+          "Kickstarter print item tag"
+        );
+        if (!r.success) throw new Error(r.error);
+        updateData.kickstarterPrintItemTag = r.data;
+      }
+      if (
+        input.coverArtPath === undefined &&
         input.seriesId != null &&
         existingBook.seriesId !== input.seriesId
       ) {
