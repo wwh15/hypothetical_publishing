@@ -30,14 +30,12 @@ export function MonthYearFilter({
 
   return (
     <div className="flex min-w-0 max-w-full flex-col gap-1">
-      <div className="flex min-h-10 min-w-0 max-w-full flex-wrap items-center gap-x-2 gap-y-2 rounded-lg border border-input bg-background px-2 py-1 sm:h-10 sm:flex-nowrap sm:py-0 sm:w-fit">
-        <span className="shrink-0 text-sm font-medium leading-none">Range:</span>
-
+      <div className="flex min-h-10 min-w-0 max-w-full flex-wrap items-center gap-x-2 gap-y-2 sm:h-10 sm:flex-nowrap">
         <MonthYearSelector
           placeholder="From"
           value={startDate ?? null}
           onChange={(v: MonthYear) => onStartDateChange(v ?? "")}
-          className="h-10 min-h-10 py-0"
+          className="h-10 min-h-10 rounded-lg border-gray-300 bg-white py-0 dark:border-gray-700 dark:bg-gray-800"
         />
 
         <span className="shrink-0 text-muted-foreground text-sm leading-none">
@@ -48,7 +46,7 @@ export function MonthYearFilter({
           placeholder="To"
           value={endDate ?? null}
           onChange={(v: MonthYear) => onEndDateChange(v ?? "")}
-          className="h-10 min-h-10 py-0"
+          className="h-10 min-h-10 rounded-lg border-gray-300 bg-white py-0 dark:border-gray-700 dark:bg-gray-800"
         />
 
         {hasActiveFilter && (

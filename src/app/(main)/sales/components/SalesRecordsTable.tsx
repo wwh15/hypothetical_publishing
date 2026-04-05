@@ -321,11 +321,11 @@ export default function SalesRecordsTable({
           )}
         </form>
 
-        <div className="grid min-w-0 max-w-full grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid min-w-0 max-w-full grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-12">
           <select
             value={source ?? ""}
             onChange={handleSourceChange}
-            className={filterSelectClass}
+            className={cn(filterSelectClass, "lg:col-span-2")}
           >
             <option value="">All Sources</option>
             <option value="DISTRIBUTOR">Distributor</option>
@@ -346,7 +346,7 @@ export default function SalesRecordsTable({
               });
               router.push(`/sales/records?${params.toString()}`);
             }}
-            className={filterSelectClass}
+            className={cn(filterSelectClass, "lg:col-span-2")}
           >
             <option value="">All (projected + real)</option>
             <option value="real">Real (released book)</option>
@@ -362,7 +362,7 @@ export default function SalesRecordsTable({
               });
               router.push(`/sales/records?${params.toString()}`);
             }}
-            className={filterSelectClass}
+            className={cn(filterSelectClass, "lg:col-span-2")}
           >
             <option value="">All Distributors</option>
             <option value="INGRAM_SPARK">Ingram Spark</option>
@@ -379,24 +379,24 @@ export default function SalesRecordsTable({
               });
               router.push(`/sales/records?${params.toString()}`);
             }}
-            className={filterSelectClass}
+            className={cn(filterSelectClass, "lg:col-span-2")}
           >
             <option value="">All Formats</option>
             <option value="PRINT">Print</option>
             <option value="EBOOK">Ebook</option>
             <option value="KINDLE_UNLIMITED">Kindle Unlimited</option>
           </select>
-        </div>
 
-        <div className="min-w-0 max-w-full">
-          <MonthYearFilter
-            startDate={dateFrom}
-            endDate={dateTo}
-            onStartDateChange={handleDateFromChange}
-            onEndDateChange={handleDateToChange}
-            onClear={handleDateClear}
-            hasActiveFilter={hasDateFilter}
-          />
+          <div className="min-w-0 sm:col-span-2 lg:col-span-4">
+            <MonthYearFilter
+              startDate={dateFrom}
+              endDate={dateTo}
+              onStartDateChange={handleDateFromChange}
+              onEndDateChange={handleDateToChange}
+              onClear={handleDateClear}
+              hasActiveFilter={hasDateFilter}
+            />
+          </div>
         </div>
       </div>
 
