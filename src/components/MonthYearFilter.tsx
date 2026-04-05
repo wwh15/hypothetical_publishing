@@ -29,28 +29,35 @@ export function MonthYearFilter({
   const isInvalidRange = startDate && endDate && startDate > endDate;
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center gap-2 p-2 bg-background border rounded-lg w-fit">
-        <span className="text-sm font-medium px-2">Range:</span>
+    <div className="flex flex-col gap-1">
+      <div className="flex h-10 items-center gap-2 rounded-lg border border-input bg-background px-2 w-fit">
+        <span className="shrink-0 text-sm font-medium leading-none">Range:</span>
 
-        <MonthYearSelector 
-          placeholder="From" 
-          value={startDate ?? null} 
-          // MonthYearSelector returns MonthYear (string | null)
-          // parent expects a string, so convert null -> ""
-          onChange={(v: MonthYear) => onStartDateChange(v ?? "")} 
+        <MonthYearSelector
+          placeholder="From"
+          value={startDate ?? null}
+          onChange={(v: MonthYear) => onStartDateChange(v ?? "")}
+          className="h-10 min-h-10 py-0"
         />
-        
-        <span className="text-muted-foreground text-sm">to</span>
 
-        <MonthYearSelector 
-          placeholder="To" 
-          value={endDate ?? null} 
-          onChange={(v: MonthYear) => onEndDateChange(v ?? "")} 
+        <span className="shrink-0 text-muted-foreground text-sm leading-none">
+          to
+        </span>
+
+        <MonthYearSelector
+          placeholder="To"
+          value={endDate ?? null}
+          onChange={(v: MonthYear) => onEndDateChange(v ?? "")}
+          className="h-10 min-h-10 py-0"
         />
 
         {hasActiveFilter && (
-          <Button variant="ghost" size="sm" onClick={onClear} className="text-muted-foreground hover:text-destructive">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onClear}
+            className="h-10 shrink-0 px-2 text-muted-foreground hover:text-destructive"
+          >
             Reset
           </Button>
         )}
