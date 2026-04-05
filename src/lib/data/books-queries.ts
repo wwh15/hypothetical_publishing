@@ -77,6 +77,15 @@ function buildSearchWhereClause(
     params.push(`%${query}%`);
     paramIndex++;
 
+    // Kickstarter item tags (case-insensitive substring)
+    whereConditions.push(`b.kickstarter_ebook_item_tag ILIKE $${paramIndex}`);
+    params.push(`%${query}%`);
+    paramIndex++;
+
+    whereConditions.push(`b.kickstarter_print_item_tag ILIKE $${paramIndex}`);
+    params.push(`%${query}%`);
+    paramIndex++;
+
     // ISBN conditions - parameterized
     if (normalizedIsbn) {
       whereConditions.push(`b.isbn13 LIKE $${paramIndex}`);
@@ -139,6 +148,8 @@ export async function getBooksSortedByTotalSales(
       b.isbn13,
       b.isbn10,
       b.asin,
+      b.kickstarter_ebook_item_tag,
+      b.kickstarter_print_item_tag,
       b.publication_date,
       b.dist_author_royalty_rate,
       b.hand_sold_author_royalty_rate,
@@ -156,7 +167,7 @@ export async function getBooksSortedByTotalSales(
     LEFT JOIN sales s ON s.book_id = b.id
     LEFT JOIN series ser ON ser.id = b.series_id
     ${whereClause}
-    GROUP BY b.id, b.title, a.name, b.isbn13, b.isbn10, b.asin, b.publication_date, b.dist_author_royalty_rate, b.hand_sold_author_royalty_rate, b.cover_price, b.print_cost, b.series_order, ser.name, b.cover_art_path
+    GROUP BY b.id, b.title, a.name, b.isbn13, b.isbn10, b.asin, b.kickstarter_ebook_item_tag, b.kickstarter_print_item_tag, b.publication_date, b.dist_author_royalty_rate, b.hand_sold_author_royalty_rate, b.cover_price, b.print_cost, b.series_order, ser.name, b.cover_art_path
     ORDER BY ${orderByClause}
     LIMIT $${limitParamIndex}
     OFFSET $${offsetParamIndex}
@@ -182,6 +193,8 @@ export async function getBooksSortedByTotalSales(
       isbn13: string;
       isbn10: string | null;
       asin: string | null;
+      kickstarter_ebook_item_tag: string | null;
+      kickstarter_print_item_tag: string | null;
       publication_date: Date;
       dist_author_royalty_rate: number;
       hand_sold_author_royalty_rate: number;
@@ -217,6 +230,8 @@ export async function getBooksSortedByTotalSales(
       isbn13: row.isbn13,
       isbn10: row.isbn10,
       asin: row.asin ?? null,
+      kickstarterEbookItemTag: row.kickstarter_ebook_item_tag ?? null,
+      kickstarterPrintItemTag: row.kickstarter_print_item_tag ?? null,
       publicationDate: row.publication_date,
       publicationSortKey,
       distRoyaltyRate,

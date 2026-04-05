@@ -2,11 +2,12 @@
 
 import { useState, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { SaleListItem } from "@/lib/data/records";
+import { SaleListItem, type SaleReleaseFilter } from "@/lib/data/records";
 import {
   salesTablePresets,
   getPresetColumns,
   getColumnsByVisibleIds,
+  saleListRowClassNameForBookReleased,
   SalesColumnId,
 } from "@/lib/table-configs/sales-columns";
 import { createSalesRecordPath } from "@/lib/table-configs/navigation";
@@ -43,12 +44,14 @@ export interface SalesRecordsTableProps {
   dateTo?: string;
   /** Show all records (no pagination) */
   showAll?: boolean;
-  /** Source filter (DISTRIBUTOR or HAND_SOLD) */
+  /** Source filter (DISTRIBUTOR, HAND_SOLD, or KICKSTARTER) */
   source?: string;
   /** Distributor filter (INGRAM_SPARK, AMAZON, OTHER) */
   distributor?: string;
   /** Format filter (PRINT, EBOOK, KINDLE_UNLIMITED) */
   format?: string;
+  /** projected = unreleased book; real = released book (URL: release=…) */
+  saleRelease?: SaleReleaseFilter;
 
   /** Preset for column selection; default "full" */
   preset?: SalesTablePreset;
@@ -79,6 +82,7 @@ export default function SalesRecordsTable({
   source,
   distributor,
   format,
+  saleRelease,
   preset = "full",
   visibleColumns,
   onRowClick,
@@ -105,6 +109,7 @@ export default function SalesRecordsTable({
         source?: string;
         distributor?: string;
         format?: string;
+        saleRelease?: SaleReleaseFilter | "";
       } = {}
     ) => {
       const params = new URLSearchParams();
@@ -119,6 +124,8 @@ export default function SalesRecordsTable({
       const src = overrides.source !== undefined ? overrides.source : source;
       const dist = overrides.distributor !== undefined ? overrides.distributor : distributor;
       const fmt = overrides.format !== undefined ? overrides.format : format;
+      const rel =
+        overrides.saleRelease !== undefined ? overrides.saleRelease : saleRelease;
 
       if (q) params.set("q", q);
       params.set("page", String(p));
@@ -130,9 +137,22 @@ export default function SalesRecordsTable({
       if (src) params.set("source", src);
       if (dist) params.set("distributor", dist);
       if (fmt) params.set("format", fmt);
+      if (rel) params.set("release", rel);
       return params;
     },
-    [search, page, sortBy, sortDir, dateFrom, dateTo, showAll, source, distributor, format]
+    [
+      search,
+      page,
+      sortBy,
+      sortDir,
+      dateFrom,
+      dateTo,
+      showAll,
+      source,
+      distributor,
+      format,
+      saleRelease,
+    ]
   );
 
   const handleSearchSubmit = (e: React.FormEvent) => {
@@ -200,6 +220,7 @@ export default function SalesRecordsTable({
   const hasSourceFilter = !!source;
   const hasDistributorFilter = !!distributor;
   const hasFormatFilter = !!format;
+  const hasReleaseFilter = !!saleRelease;
   const normalPageSize = 20;
   const startRecord = showAll ? 1 : (page - 1) * normalPageSize + 1;
   const endRecord = showAll ? total : Math.min(page * normalPageSize, total);
@@ -302,6 +323,31 @@ export default function SalesRecordsTable({
         <option value="">All Sources</option>
         <option value="DISTRIBUTOR">Distributor</option>
         <option value="HAND_SOLD">Hand Sold</option>
+        <option value="KICKSTARTER">Kickstarter</option>
+      </select>
+
+      <select
+        value={saleRelease ?? ""}
+        onChange={(e) => {
+          const v = e.target.value;
+          const params = buildQueryParams({
+            saleRelease:
+              v === "projected" || v === "real"
+                ? (v as SaleReleaseFilter)
+                : "",
+            page: 1,
+          });
+          router.push(`/sales/records?${params.toString()}`);
+        }}
+        className={cn(
+          "block w-full sm:w-48 px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg",
+          "bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100",
+          "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        )}
+      >
+        <option value="">All (projected + real)</option>
+        <option value="real">Real (released book)</option>
+        <option value="projected">Projected (unreleased book)</option>
       </select>
 
       <select
@@ -363,15 +409,27 @@ export default function SalesRecordsTable({
         />
       )}
 
+      {total > 0 && (
+        <p className="text-xs text-muted-foreground">
+          Muted rows are sales for books not yet marked released (pre-release).
+        </p>
+      )}
+
       <BaseDataTable<SaleListItem>
         columns={columns}
         data={rows}
         emptyMessage={
-          hasSearch || hasDateFilter || hasSourceFilter || hasDistributorFilter || hasFormatFilter
+          hasSearch ||
+          hasDateFilter ||
+          hasSourceFilter ||
+          hasDistributorFilter ||
+          hasFormatFilter ||
+          hasReleaseFilter
             ? "No records match your filters"
             : "No sales records"
         }
         onRowClick={handleRowClick}
+        getRowClassName={saleListRowClassNameForBookReleased}
       />
 
       {totalPages > 1 && !showAll && (

@@ -106,6 +106,28 @@ export default async function BookDetailPage({ params, searchParams }: PageProps
               <p className="text-lg">{book.asin || "-"}</p>
             </div>
             <div>
+              <label className="text-sm font-medium text-muted-foreground">
+                Kickstarter item tag (ebook)
+              </label>
+              <p className="text-lg font-mono break-all">
+                {book.kickstarterEbookItemTag ?? "—"}
+              </p>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-muted-foreground">
+                Kickstarter item tag (print)
+              </label>
+              <p className="text-lg font-mono break-all">
+                {book.kickstarterPrintItemTag ?? "—"}
+              </p>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-muted-foreground">Released</label>
+              <p className="text-lg">
+                {book.released ? "Yes" : "No (pre-release)"}
+              </p>
+            </div>
+            <div>
               <label className="text-sm font-medium text-muted-foreground">Publication Date</label>
               <p className="text-lg">{formatPublicationDate()}</p>
             </div>
@@ -128,7 +150,9 @@ export default async function BookDetailPage({ params, searchParams }: PageProps
               </>
             )}
             <div>
-              <label className="text-sm font-medium text-muted-foreground">Hand-Sold Royalty Rate</label>
+              <label className="text-sm font-medium text-muted-foreground">
+                Hand sold / Kickstarter royalty rate
+              </label>
               <p className="text-lg">{book.handSoldRoyaltyRate}%</p>
             </div>
             <div>

@@ -13,13 +13,29 @@ export function filterBooksBySearch(
   books: BookListItem[],
   searchQuery: string
 ): BookListItem[] {
-  if (!searchQuery.trim()) {
+  const trimmed = searchQuery.trim();
+  if (!trimmed) {
     return books;
   }
-  const q = searchQuery.toLowerCase().trim();
-  const normalizedIsbnQuery = normalizeIsbnLike(searchQuery);
+
+  // Kickstarter ebook/print item tags: full-string exact match only (case-sensitive).
+  const kickstarterTagMatches = books.filter(
+    (b) =>
+      (b.kickstarterEbookItemTag != null &&
+        b.kickstarterEbookItemTag === trimmed) ||
+      (b.kickstarterPrintItemTag != null &&
+        b.kickstarterPrintItemTag === trimmed)
+  );
+  if (kickstarterTagMatches.length > 0) {
+    return [...kickstarterTagMatches].sort((a, b) =>
+      a.title.localeCompare(b.title)
+    );
+  }
+
+  const q = trimmed.toLowerCase();
+  const normalizedIsbnQuery = normalizeIsbnLike(trimmed);
   const hasIsbnQuery = normalizedIsbnQuery.length > 0;
-  const asinQuery = normalizeASIN(searchQuery);
+  const asinQuery = normalizeASIN(trimmed);
   const hasAsinQuery = asinQuery != null && asinQuery.length >= 2;
 
   const scored = books.flatMap((book) => {

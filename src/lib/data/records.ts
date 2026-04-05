@@ -1,5 +1,5 @@
 // lib/data/records.ts
-import { Prisma } from "@prisma/client";
+import { Prisma, type SaleSource } from "@prisma/client";
 import { prisma } from "../prisma";
 import { Decimal } from "@prisma/client/runtime/library";
 import { validateSaleRecord } from "../validation/sale";
@@ -20,7 +20,9 @@ export interface SaleListItem {
   authorRoyalty: number;
   paid: "paid" | "pending";
   comment: string | null;
-  source: "DISTRIBUTOR" | "HAND_SOLD";
+  source: SaleSource;
+  /** False when the sale’s book is not yet released (pre-release / projected). */
+  bookReleased: boolean;
 }
 
 /** Staging row before DB insert; `id` disambiguates duplicate lines in the UI. */
@@ -40,7 +42,7 @@ export interface PendingSaleItem {
   authorRoyalty: number;
   paid: boolean;
   comment?: string | null;
-  source: "DISTRIBUTOR" | "HAND_SOLD";
+  source: SaleSource;
 }
 
 // This represents the data AFTER it has been converted to numbers
@@ -57,7 +59,7 @@ export type SaleDetailPayload = {
   authorRoyalty: number;
   paid: boolean;
   comment: string | null;
-  source: "DISTRIBUTOR" | "HAND_SOLD";
+  source: SaleSource;
   book: {
     id: number;
     title: string;
@@ -79,7 +81,7 @@ export interface UpdateSaleItem {
   authorRoyalty?: number;
   paid?: boolean;
   comment?: string | null;
-  source?: "DISTRIBUTOR" | "HAND_SOLD";
+  source?: SaleSource;
   distributor?: "INGRAM_SPARK" | "AMAZON" | "OTHER" | null;
   format?: "PRINT" | "EBOOK" | "KINDLE_UNLIMITED";
 }
@@ -168,6 +170,9 @@ function parseDate(
 }
 
 
+/** Filter list sales by whether the book is released (real) or not (projected). */
+export type SaleReleaseFilter = "projected" | "real";
+
 export interface GetSalesDataParams {
   search?: string;
   page?: number;
@@ -176,9 +181,11 @@ export interface GetSalesDataParams {
   sortDir?: "asc" | "desc";
   dateFrom?: string; // YYYY-MM (parsed in parseDate)
   dateTo?: string; // YYYY-MM (parsed in parseDate)
-  source?: "DISTRIBUTOR" | "HAND_SOLD";
+  source?: SaleSource;
   distributor?: "INGRAM_SPARK" | "AMAZON" | "OTHER";
   format?: "PRINT" | "EBOOK" | "KINDLE_UNLIMITED";
+  /** projected = book.released false; real = book.released true */
+  saleRelease?: SaleReleaseFilter;
   pagination?: boolean;
 }
 
@@ -201,12 +208,19 @@ export async function getSalesData({
   source,
   distributor,
   format,
+  saleRelease,
   pagination = true,
 }: GetSalesDataParams): Promise<GetSalesDataResult> {
   const currentPage = Math.max(1, page);
   const limit = Math.max(1, Math.min(pageSize, 100));
 
   const where: Prisma.SaleWhereInput = {};
+
+  if (saleRelease === "projected") {
+    where.book = { released: false };
+  } else if (saleRelease === "real") {
+    where.book = { released: true };
+  }
 
   // Source filter
   if (source) {
@@ -298,7 +312,7 @@ export async function asyncAddSalesBulk(records: PendingSaleItem[]) {
       quantity: record.quantity,
       kenp: record.kenp,
       format: record.format,
-      // Logic: Distributor is null if it's Handsold
+      // Distributor only when source is DISTRIBUTOR
       distributor: record.source === "DISTRIBUTOR" ? record.distributor : null,
       publisherRevenueUSD: record.publisherRevenueUSD,
       publisherRevenueOriginal: record.publisherRevenueOriginal,
@@ -414,8 +428,8 @@ export function toSaleListItem(sale: {
   authorRoyalty: Decimal;
   paid: boolean;
   comment: string | null;
-  source: "DISTRIBUTOR" | "HAND_SOLD";
-  book: { title: string; author: { name: string } };
+  source: SaleSource;
+  book: { title: string; released: boolean; author: { name: string } };
 }): SaleListItem {
   return {
     id: sale.id,
@@ -434,6 +448,7 @@ export function toSaleListItem(sale: {
     paid: sale.paid ? "paid" : "pending",
     comment: sale.comment ?? null,
     source: sale.source,
+    bookReleased: sale.book.released,
   };
 }
 

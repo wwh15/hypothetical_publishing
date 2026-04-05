@@ -6,6 +6,7 @@ import { SaleListItem } from "@/lib/data/records";
 import {
   getPresetColumns,
   getColumnsByVisibleIds,
+  saleListRowClassNameForBookReleased,
   SalesColumnId,
 } from "@/lib/table-configs/sales-columns";
 import { createSalesRecordPath } from "@/lib/table-configs/navigation";
@@ -186,6 +187,7 @@ export default function SalesRowsTable({
           data={rows}
           emptyMessage="No sales found"
           onRowClick={handleRowClick}
+          getRowClassName={saleListRowClassNameForBookReleased}
         />
         {totalPages > 1 && (
           <div className="flex justify-end">
@@ -206,6 +208,7 @@ export default function SalesRowsTable({
       data={rows}
       emptyMessage="No sales found"
       onRowClick={handleRowClick}
+      getRowClassName={saleListRowClassNameForBookReleased}
     />
   );
 }

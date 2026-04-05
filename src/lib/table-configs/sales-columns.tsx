@@ -5,6 +5,7 @@
 
 import { ColumnDef } from "@/components/BaseDataTable";
 import { SaleListItem, PendingSaleItem } from "@/lib/data/records";
+import type { SaleSource } from "@prisma/client";
 import Link from "next/link";
 import { X } from "lucide-react";
 import { CURRENCY_SYMBOLS } from "../currency-conversion";
@@ -158,14 +159,21 @@ export const salesCellRenderers = {
   distributor: (value: "INGRAM_SPARK" | "AMAZON" | "OTHER" | null) =>
     saleDistributorBadge(value, "compact"),
 
-  source: (value: "DISTRIBUTOR" | "HAND_SOLD") => {
-    const styles = {
+  source: (value: SaleSource) => {
+    const styles: Record<SaleSource, string> = {
       DISTRIBUTOR:
         "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
       HAND_SOLD:
         "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
-    } as const;
-    const label = value === "HAND_SOLD" ? "Hand Sold" : "Distributor";
+      KICKSTARTER:
+        "bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-100",
+    };
+    const label =
+      value === "HAND_SOLD"
+        ? "Hand Sold"
+        : value === "KICKSTARTER"
+          ? "Kickstarter"
+          : "Distributor";
     return (
       <span
         className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${styles[value]}`}
@@ -427,6 +435,15 @@ export function getPendingColumns(
 }
 
 // ─── HELPERS & PRESETS ────────────────────────────────────────────────────
+
+/** Muted row styling for sales whose book is not yet released (pre-release). */
+export function saleListRowClassNameForBookReleased(
+  row: Pick<SaleListItem, "bookReleased">
+): string | undefined {
+  return row.bookReleased
+    ? undefined
+    : "bg-slate-200/85 text-slate-700 dark:bg-slate-800/55 dark:text-slate-300 hover:bg-slate-300/90 dark:hover:bg-slate-700/60";
+}
 
 const columnMap = new Map<SalesColumnId, ColumnDef<SaleListItem>>();
 salesColumns.forEach((col) => {

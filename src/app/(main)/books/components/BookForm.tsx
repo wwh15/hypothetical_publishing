@@ -22,7 +22,28 @@ import { AuthorSelectBox } from "../../authors/components/AuthorSelectBox";
 import { getAllAuthors } from "../../authors/actions";
 import { Author } from "@prisma/client";
 import MonthYearSelector from "@/components/MonthYearSelector";
-import { validateISBN10, validateASINOptional } from "@/lib/validation";
+import {
+  validateISBN10,
+  validateASINOptional,
+  validateKickstarterItemTagOptional,
+} from "@/lib/validation";
+
+type BookFormState = {
+  title: string;
+  author: string;
+  email: string;
+  isbn13: string;
+  isbn10: string;
+  asin: string;
+  publicationDate: string;
+  distRoyaltyRate: string;
+  handSoldRoyaltyRate: string;
+  coverPrice: string;
+  printCost: string;
+  kickstarterEbookItemTag: string;
+  kickstarterPrintItemTag: string;
+  released: boolean;
+};
 
 interface BookFormProps {
   bookId?: number;
@@ -67,7 +88,7 @@ export default function BookForm({
   const [coverRefreshKey, setCoverRefreshKey] = useState(0);
   const [pendingCoverFile, setPendingCoverFile] = useState<File | null>(null);
   const [pendingCoverPreview, setPendingCoverPreview] = useState<string | null>(null);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<BookFormState>({
     title: "",
     author: "",
     email: "",
@@ -79,6 +100,9 @@ export default function BookForm({
     handSoldRoyaltyRate: "20", // Default 20%
     coverPrice: "",
     printCost: "",
+    kickstarterEbookItemTag: "",
+    kickstarterPrintItemTag: "",
+    released: true,
   });
 
   // Track if form has been initialized to prevent resetting user changes
@@ -118,6 +142,9 @@ export default function BookForm({
         handSoldRoyaltyRate: initialData.handSoldRoyaltyRate.toString(),
         coverPrice: initialData.coverPrice?.toString() ?? "",
         printCost: initialData.printCost?.toString() ?? "",
+        kickstarterEbookItemTag: initialData.kickstarterEbookItemTag ?? "",
+        kickstarterPrintItemTag: initialData.kickstarterPrintItemTag ?? "",
+        released: initialData.released,
       });
       
       // Set series information only on initial load
@@ -305,7 +332,7 @@ export default function BookForm({
       return;
     }
     if (handSoldRate !== undefined && (handSoldRate < 0 || handSoldRate > 100)) {
-      setError("Hand-sold royalty rate must be between 0 and 100");
+      setError("Hand sold / Kickstarter royalty rate must be between 0 and 100");
       setIsSubmitting(false);
       return;
     }
@@ -363,6 +390,25 @@ export default function BookForm({
       return;
     }
 
+    const ksEbookResult = validateKickstarterItemTagOptional(
+      formData.kickstarterEbookItemTag,
+      "Kickstarter ebook item tag"
+    );
+    const ksPrintResult = validateKickstarterItemTagOptional(
+      formData.kickstarterPrintItemTag,
+      "Kickstarter print item tag"
+    );
+    if (!ksEbookResult.success) {
+      setError(ksEbookResult.error);
+      setIsSubmitting(false);
+      return;
+    }
+    if (!ksPrintResult.success) {
+      setError(ksPrintResult.error);
+      setIsSubmitting(false);
+      return;
+    }
+
     try {
       const bookData = {
         title: formData.title.trim(),
@@ -379,6 +425,9 @@ export default function BookForm({
         printCost: printCostNum,
         seriesId: seriesId ?? null,
         seriesOrder: undefined, // Backend auto-assigns when adding to series
+        kickstarterEbookItemTag: ksEbookResult.data,
+        kickstarterPrintItemTag: ksPrintResult.data,
+        released: formData.released,
       };
 
       let result;
@@ -458,6 +507,8 @@ export default function BookForm({
             seriesOrder: null,
             coverArtPath: null,
             asin,
+            kickstarterEbookItemTag: ksEbookResult.data,
+            kickstarterPrintItemTag: ksPrintResult.data,
           };
 
           onBookCreated?.(book);
@@ -693,6 +744,102 @@ export default function BookForm({
           </p>
         </div>
 
+        {/* Kickstarter item tags */}
+        <div className="space-y-2">
+          <label
+            htmlFor="kickstarterEbookItemTag"
+            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+          >
+            Kickstarter item tag (ebook)
+          </label>
+          <input
+            id="kickstarterEbookItemTag"
+            type="text"
+            value={formData.kickstarterEbookItemTag}
+            onChange={(e) =>
+              handleInputChange("kickstarterEbookItemTag", e.target.value)
+            }
+            className={cn(
+              "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono ring-offset-background",
+              "file:border-0 file:bg-transparent file:text-sm file:font-medium",
+              "placeholder:text-muted-foreground",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+              "disabled:cursor-not-allowed disabled:opacity-50",
+              "dark:bg-gray-700",
+            )}
+            placeholder="e.g. reward-slug-or-id"
+            maxLength={128}
+            autoComplete="off"
+          />
+          <p className="text-xs text-muted-foreground">
+            Optional. No spaces; max 128 characters.
+          </p>
+        </div>
+        <div className="space-y-2">
+          <label
+            htmlFor="kickstarterPrintItemTag"
+            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+          >
+            Kickstarter item tag (print)
+          </label>
+          <input
+            id="kickstarterPrintItemTag"
+            type="text"
+            value={formData.kickstarterPrintItemTag}
+            onChange={(e) =>
+              handleInputChange("kickstarterPrintItemTag", e.target.value)
+            }
+            className={cn(
+              "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono ring-offset-background",
+              "file:border-0 file:bg-transparent file:text-sm file:font-medium",
+              "placeholder:text-muted-foreground",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+              "disabled:cursor-not-allowed disabled:opacity-50",
+              "dark:bg-gray-700",
+            )}
+            placeholder="e.g. reward-slug-or-id"
+            maxLength={128}
+            autoComplete="off"
+          />
+          <p className="text-xs text-muted-foreground">
+            Optional. No spaces; max 128 characters.
+          </p>
+        </div>
+
+        {/* Released (pre-release vs live) */}
+        <div className="md:col-span-2 flex gap-3 rounded-md border border-input bg-background px-4 py-3 dark:bg-gray-700">
+          <input
+            id="released"
+            type="checkbox"
+            checked={formData.released}
+            onChange={(e) => {
+              setFormData((prev) => ({
+                ...prev,
+                released: e.target.checked,
+              }));
+              if (error) setError(null);
+              if (isImported) setIsImported(false);
+            }}
+            className={cn(
+              "mt-0.5 h-4 w-4 shrink-0 rounded border border-input text-blue-600",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+              "disabled:cursor-not-allowed disabled:opacity-50",
+            )}
+          />
+          <div className="min-w-0 space-y-1">
+            <label
+              htmlFor="released"
+              className="text-sm font-medium leading-none cursor-pointer"
+            >
+              Released
+            </label>
+            <p className="text-xs text-muted-foreground">
+              Uncheck for a pre-release title (sales count as projected until you
+              mark the book released).
+            </p>
+          </div>
+        </div>
+
         {/* Publication Date (Month/Year) */}
         <div className="space-y-3">
           <label
@@ -744,13 +891,13 @@ export default function BookForm({
           </p>
         </div>
 
-        {/* Hand-Sold Royalty Rate */}
+        {/* Hand sold / Kickstarter royalty rate */}
         <div className="space-y-2">
           <label
             htmlFor="handSoldRoyaltyRate"
             className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
           >
-            Hand-Sold Royalty Rate (%)
+            Hand sold / Kickstarter royalty rate (%)
           </label>
           <input
             id="handSoldRoyaltyRate"
@@ -773,7 +920,9 @@ export default function BookForm({
             step="0.1"
           />
           <p className="text-xs text-muted-foreground">
-            Default: 20%. Percentage of (cover price - print cost) that goes to author for hand-sold copies.
+            Default: 20%. Used as the author&apos;s share of publisher revenue for hand sold copies
+            (as a % of (cover price − print cost) × quantity) and for Kickstarter sales (as a % of
+            publisher revenue in USD).
           </p>
         </div>
 

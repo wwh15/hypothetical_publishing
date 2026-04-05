@@ -10,6 +10,7 @@ import { Decimal } from "@prisma/client/runtime/library";
 
 const prisma = new PrismaClient();
 
+// royalty_percent_handsold: author % for hand sold and Kickstarter sales (DB column name unchanged)
 const BOOKS_CSV = `title,author,series_name,series_index,isbn13,isbn10,asin,publish_date,print_cost,cover_price,royalty_percent_distribution,royalty_percent_handsold,cover_image
 "The Long Way to a Small, Angry Planet",Becky Chambers,Wayfarers,1,9780062444134,0062444131,B00ZP64F28,2014/07,6,14.99,50,20,9780062444134.jpg
 A Closed and Common Orbit,Becky Chambers,Wayfarers,2,9780062569400,0062569406,B01CNLOZ3G,2016/10,5,12.99,50,20,
@@ -268,6 +269,115 @@ async function main() {
     };
   }
   console.log(`✅ Books: ${booksRows.length}`);
+
+  // Pre-release books + sample sales (muted rows on /sales/records)
+  const preReleaseAuthorId = authorMap["Becky Chambers"]?.id;
+  if (preReleaseAuthorId) {
+    const preReleaseSpecs = [
+      {
+        title: "Wayfarers Book Five (pre-release)",
+        isbn13: "9780999999001",
+        publicationDate: new Date(Date.UTC(2027, 0, 1)),
+        coverPrice: new Decimal("15.99"),
+        printCost: new Decimal("5.5"),
+        sale: {
+          date: new Date(Date.UTC(2025, 10, 1)),
+          source: "HAND_SOLD" as const,
+          format: "PRINT" as const,
+          quantity: 8,
+          comment: "Seed: projected hand sale (unreleased book)",
+        },
+      },
+      {
+        title: "Untitled Novella (pre-release)",
+        isbn13: "9780999999002",
+        publicationDate: new Date(Date.UTC(2026, 8, 1)),
+        coverPrice: new Decimal("11.99"),
+        printCost: new Decimal("4"),
+        sale: {
+          date: new Date(Date.UTC(2025, 8, 1)),
+          source: "DISTRIBUTOR" as const,
+          distributor: "AMAZON" as const,
+          format: "EBOOK" as const,
+          quantity: 15,
+          publisherRevenueUSD: new Decimal("112.35"),
+          comment: "Seed: projected distributor sale (unreleased book)",
+        },
+      },
+    ];
+
+    for (const spec of preReleaseSpecs) {
+      const book = await prisma.book.create({
+        data: {
+          title: spec.title,
+          authorId: preReleaseAuthorId,
+          isbn13: spec.isbn13,
+          isbn10: null,
+          asin: null,
+          distAuthorRoyaltyRate: 0.5,
+          handSoldAuthorRoyaltyRate: 0.2,
+          coverPrice: spec.coverPrice,
+          printCost: spec.printCost,
+          publicationDate: spec.publicationDate,
+          released: false,
+          seriesId: null,
+          seriesOrder: null,
+        },
+      });
+      bookByIsbn13[book.isbn13] = {
+        id: book.id,
+        coverPrice: spec.coverPrice,
+        printCost: spec.printCost,
+        distRate: 0.5,
+        handSoldRate: 0.2,
+      };
+
+      const s = spec.sale;
+      if (s.source === "HAND_SOLD") {
+        const netPerCopy = spec.coverPrice.sub(spec.printCost);
+        const rev = netPerCopy.mul(s.quantity);
+        const authorRoyalty = rev.mul(0.2);
+        await prisma.sale.create({
+          data: {
+            bookId: book.id,
+            date: s.date,
+            source: "HAND_SOLD",
+            distributor: null,
+            format: "PRINT",
+            quantity: s.quantity,
+            kenp: null,
+            currency: "USD",
+            publisherRevenueOriginal: rev,
+            publisherRevenueUSD: rev,
+            authorRoyalty,
+            paid: false,
+            comment: s.comment,
+          },
+        });
+      } else {
+        const revUsd = s.publisherRevenueUSD;
+        const authorRoyalty = revUsd.mul(0.5);
+        await prisma.sale.create({
+          data: {
+            bookId: book.id,
+            date: s.date,
+            source: "DISTRIBUTOR",
+            distributor: s.distributor,
+            format: s.format,
+            quantity: s.quantity,
+            kenp: null,
+            currency: "USD",
+            publisherRevenueOriginal: revUsd,
+            publisherRevenueUSD: revUsd,
+            authorRoyalty,
+            paid: false,
+            comment: s.comment,
+          },
+        });
+      }
+    }
+    console.log(`✅ Pre-release sample books: ${preReleaseSpecs.length}`);
+  }
 
   let salesCreated = 0;
   for (const row of recordRows) {
