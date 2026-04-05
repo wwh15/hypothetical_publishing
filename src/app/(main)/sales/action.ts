@@ -15,6 +15,7 @@ import asyncGetSalesData, {
   UpdateSaleItem,
   PendingSaleItem,
   asyncAddSalesBulk,
+  type SaleReleaseFilter,
 } from "@/lib/data/records";
 import { normalizeQuantity } from "@/lib/validation";
 import { Prisma, type SaleSource } from "@prisma/client";
@@ -243,6 +244,7 @@ export async function exportSalesToCsvAction(params: {
   source?: SaleSource;
   distributor?: "INGRAM_SPARK" | "AMAZON" | "OTHER";
   format?: "PRINT" | "EBOOK" | "KINDLE_UNLIMITED";
+  saleRelease?: SaleReleaseFilter;
 }) {
   try {
     // 1. Fetch the full list matching current filters (Pagination: false)

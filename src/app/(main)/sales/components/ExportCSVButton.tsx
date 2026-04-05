@@ -6,6 +6,7 @@ import { Download } from "lucide-react";
 import { useState } from "react";
 import { exportSalesToCsvAction } from "../action";
 import type { SaleSource } from "@prisma/client";
+import type { SaleReleaseFilter } from "@/lib/data/records";
 
 export interface ExportCSVButtonProps {
   search?: string;
@@ -16,6 +17,7 @@ export interface ExportCSVButtonProps {
   source?: SaleSource;
   distributor?: "INGRAM_SPARK" | "AMAZON" | "OTHER";
   format?: "PRINT" | "EBOOK" | "KINDLE_UNLIMITED";
+  saleRelease?: SaleReleaseFilter;
 }
 
 export function ExportCSVButton({
@@ -27,6 +29,7 @@ export function ExportCSVButton({
   source,
   distributor,
   format,
+  saleRelease,
 }: ExportCSVButtonProps) {
   const [isExporting, setIsExporting] = useState(false);
 
@@ -42,6 +45,7 @@ export function ExportCSVButton({
       source,
       distributor,
       format,
+      saleRelease,
     });
 
     if (result.success && result.data) {

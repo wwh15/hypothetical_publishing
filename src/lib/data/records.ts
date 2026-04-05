@@ -170,6 +170,9 @@ function parseDate(
 }
 
 
+/** Filter list sales by whether the book is released (real) or not (projected). */
+export type SaleReleaseFilter = "projected" | "real";
+
 export interface GetSalesDataParams {
   search?: string;
   page?: number;
@@ -181,6 +184,8 @@ export interface GetSalesDataParams {
   source?: SaleSource;
   distributor?: "INGRAM_SPARK" | "AMAZON" | "OTHER";
   format?: "PRINT" | "EBOOK" | "KINDLE_UNLIMITED";
+  /** projected = book.released false; real = book.released true */
+  saleRelease?: SaleReleaseFilter;
   pagination?: boolean;
 }
 
@@ -203,12 +208,19 @@ export async function getSalesData({
   source,
   distributor,
   format,
+  saleRelease,
   pagination = true,
 }: GetSalesDataParams): Promise<GetSalesDataResult> {
   const currentPage = Math.max(1, page);
   const limit = Math.max(1, Math.min(pageSize, 100));
 
   const where: Prisma.SaleWhereInput = {};
+
+  if (saleRelease === "projected") {
+    where.book = { released: false };
+  } else if (saleRelease === "real") {
+    where.book = { released: true };
+  }
 
   // Source filter
   if (source) {

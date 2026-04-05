@@ -1,4 +1,4 @@
-import { getSalesData } from "@/lib/data/records";
+import { getSalesData, type SaleReleaseFilter } from "@/lib/data/records";
 import SalesRecordsTable from "@/app/(main)/sales/components/SalesRecordsTable";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -32,6 +32,7 @@ interface SalesRecordsPageProps {
     source?: string;
     distributor?: string;
     format?: string;
+    release?: string;
   }>;
 }
 
@@ -71,6 +72,12 @@ export default async function SalesRecordsPage({
     ? (rawFormat as (typeof VALID_FORMATS)[number])
     : undefined;
 
+  const rawRelease = params?.release;
+  const saleRelease: SaleReleaseFilter | undefined =
+    rawRelease === "projected" || rawRelease === "real"
+      ? rawRelease
+      : undefined;
+
   // 2. Fetch the data using the optimized Database logic
   // This call handles filtering, sorting, and pagination in a single SQL query.
   const { items, total, page: currentPage, pageSize: effectivePageSize } =
@@ -85,6 +92,7 @@ export default async function SalesRecordsPage({
       source,
       distributor,
       format,
+      saleRelease,
     });
 
   return (
@@ -108,6 +116,7 @@ export default async function SalesRecordsPage({
               source={source}
               distributor={distributor}
               format={format}
+              saleRelease={saleRelease}
             />
 
         {/* Page Header */}
@@ -126,7 +135,7 @@ export default async function SalesRecordsPage({
         remount/reset when the URL changes, preventing "stale" UI states. 
       */}
       <SalesRecordsTable
-        key={`${search}-${sortBy}-${sortDir}-${currentPage}-${dateFrom}-${dateTo}-${showAll}-${source ?? ""}-${distributor ?? ""}-${format ?? ""}`}
+        key={`${search}-${sortBy}-${sortDir}-${currentPage}-${dateFrom}-${dateTo}-${showAll}-${source ?? ""}-${distributor ?? ""}-${format ?? ""}-${saleRelease ?? ""}`}
         rows={items}
         total={total}
         page={currentPage}
@@ -140,6 +149,7 @@ export default async function SalesRecordsPage({
         source={source}
         distributor={distributor}
         format={format}
+        saleRelease={saleRelease}
       />
     </div>
   );
