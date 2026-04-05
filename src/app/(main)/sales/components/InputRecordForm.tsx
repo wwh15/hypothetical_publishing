@@ -91,8 +91,8 @@ export default function InputRecordForm({
           Add single sales record
         </h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Optimized for fast entry: search by title, ISBN-13/10, or Amazon ASIN
-          (dashes ignored).
+          Optimized for fast entry: search by title, ISBN-13/10, Amazon ASIN
+          (dashes ignored), or exact Kickstarter ebook/print item tag.
         </p>
         <p className="mt-1 text-sm text-muted-foreground">
           Defaults: Distributor (Sales source) • Other (Distributor) • Print (Format) • USD (Currency)
