@@ -232,13 +232,16 @@ export default function SalesRecordsTable({
 
     return baseCols.map((col) => {
       const isSorted = sortBy === col.key;
+      const label = col.header as string;
 
       return {
         ...col,
         header: (
-          <div className="flex flex-col gap-1">
-            <span className="font-semibold flex items-center gap-1">
-              {col.header as string}
+          <div className="w-full min-w-0 max-w-full">
+            <div className="flex min-w-0 items-center gap-0.5 font-semibold">
+              <span className="min-w-0 flex-1 truncate" title={label}>
+                {label}
+              </span>
               <button
                 type="button"
                 onClick={() => {
@@ -247,10 +250,10 @@ export default function SalesRecordsTable({
                   handleSortChange(col.key, nextDirection);
                 }}
                 className={cn(
-                  "ml-1 p-0.5 rounded hover:bg-muted transition-colors",
+                  "shrink-0 p-0.5 rounded hover:bg-muted transition-colors",
                   isSorted && "text-blue-600 bg-blue-50 dark:bg-blue-900/20"
                 )}
-                aria-label={`Sort by ${col.header}`}
+                aria-label={`Sort by ${label}`}
               >
                 {!isSorted ? (
                   <ArrowUpDown className="w-4 h-4 text-muted-foreground" />
@@ -260,7 +263,7 @@ export default function SalesRecordsTable({
                   <ArrowDown className="h-4 w-4" />
                 )}
               </button>
-            </span>
+            </div>
           </div>
         ),
       };
@@ -281,122 +284,121 @@ export default function SalesRecordsTable({
       }
     });
 
+  const filterSelectClass = cn(
+    "h-10 w-full min-w-0 border border-gray-300 dark:border-gray-700 rounded-lg",
+    "bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm",
+    "px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+  );
+
   return (
-    <div className="space-y-4">
-      <form onSubmit={handleSearchSubmit} className="relative">
-        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-          <Search className="h-5 w-5 text-gray-400" />
-        </div>
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search by title, author, or series..."
-          className={cn(
-            "block w-full pl-10 pr-10 py-2 border border-gray-300 dark:border-gray-700 rounded-lg",
-            "bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100",
-            "placeholder:text-gray-400 dark:placeholder:text-gray-500",
-            "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+    <div className="min-w-0 space-y-4">
+      <div className="flex min-w-0 flex-col gap-3">
+        <form onSubmit={handleSearchSubmit} className="relative min-w-0">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <Search className="h-5 w-5 text-gray-400" />
+          </div>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search by title, author, or series..."
+            className={cn(
+              "block w-full pl-10 pr-10 py-2 border border-gray-300 dark:border-gray-700 rounded-lg",
+              "bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100",
+              "placeholder:text-gray-400 dark:placeholder:text-gray-500",
+              "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            )}
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={handleClearSearch}
+              className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              aria-label="Clear search"
+            >
+              <X className="h-5 w-5" />
+            </button>
           )}
-        />
-        {searchQuery && (
-          <button
-            type="button"
-            onClick={handleClearSearch}
-            className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-            aria-label="Clear search"
+        </form>
+
+        <div className="grid min-w-0 max-w-full grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-12">
+          <select
+            value={source ?? ""}
+            onChange={handleSourceChange}
+            className={cn(filterSelectClass, "lg:col-span-2")}
           >
-            <X className="h-5 w-5" />
-          </button>
-        )}
-      </form>
+            <option value="">All Sources</option>
+            <option value="DISTRIBUTOR">Distributor</option>
+            <option value="HAND_SOLD">Hand Sold</option>
+            <option value="KICKSTARTER">Kickstarter</option>
+          </select>
 
-      <select
-        value={source ?? ""}
-        onChange={handleSourceChange}
-        className={cn(
-          "block w-full sm:w-48 px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg",
-          "bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100",
-          "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-        )}
-      >
-        <option value="">All Sources</option>
-        <option value="DISTRIBUTOR">Distributor</option>
-        <option value="HAND_SOLD">Hand Sold</option>
-        <option value="KICKSTARTER">Kickstarter</option>
-      </select>
+          <select
+            value={saleRelease ?? ""}
+            onChange={(e) => {
+              const v = e.target.value;
+              const params = buildQueryParams({
+                saleRelease:
+                  v === "projected" || v === "real"
+                    ? (v as SaleReleaseFilter)
+                    : "",
+                page: 1,
+              });
+              router.push(`/sales/records?${params.toString()}`);
+            }}
+            className={cn(filterSelectClass, "lg:col-span-2")}
+          >
+            <option value="">All (projected + real)</option>
+            <option value="real">Real (released book)</option>
+            <option value="projected">Projected (unreleased book)</option>
+          </select>
 
-      <select
-        value={saleRelease ?? ""}
-        onChange={(e) => {
-          const v = e.target.value;
-          const params = buildQueryParams({
-            saleRelease:
-              v === "projected" || v === "real"
-                ? (v as SaleReleaseFilter)
-                : "",
-            page: 1,
-          });
-          router.push(`/sales/records?${params.toString()}`);
-        }}
-        className={cn(
-          "block w-full sm:w-48 px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg",
-          "bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100",
-          "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-        )}
-      >
-        <option value="">All (projected + real)</option>
-        <option value="real">Real (released book)</option>
-        <option value="projected">Projected (unreleased book)</option>
-      </select>
+          <select
+            value={distributor ?? ""}
+            onChange={(e) => {
+              const params = buildQueryParams({
+                distributor: e.target.value,
+                page: 1,
+              });
+              router.push(`/sales/records?${params.toString()}`);
+            }}
+            className={cn(filterSelectClass, "lg:col-span-2")}
+          >
+            <option value="">All Distributors</option>
+            <option value="INGRAM_SPARK">Ingram Spark</option>
+            <option value="AMAZON">Amazon</option>
+            <option value="OTHER">Other</option>
+          </select>
 
-      <select
-        value={distributor ?? ""}
-        onChange={(e) => {
-          const params = buildQueryParams({
-            distributor: e.target.value,
-            page: 1,
-          });
-          router.push(`/sales/records?${params.toString()}`);
-        }}
-        className={cn(
-          "block w-full sm:w-48 px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg",
-          "bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100",
-          "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-        )}
-      >
-        <option value="">All Distributors</option>
-        <option value="INGRAM_SPARK">Ingram Spark</option>
-        <option value="AMAZON">Amazon</option>
-        <option value="OTHER">Other</option>
-      </select>
+          <select
+            value={format ?? ""}
+            onChange={(e) => {
+              const params = buildQueryParams({
+                format: e.target.value,
+                page: 1,
+              });
+              router.push(`/sales/records?${params.toString()}`);
+            }}
+            className={cn(filterSelectClass, "lg:col-span-2")}
+          >
+            <option value="">All Formats</option>
+            <option value="PRINT">Print</option>
+            <option value="EBOOK">Ebook</option>
+            <option value="KINDLE_UNLIMITED">Kindle Unlimited</option>
+          </select>
 
-      <select
-        value={format ?? ""}
-        onChange={(e) => {
-          const params = buildQueryParams({ format: e.target.value, page: 1 });
-          router.push(`/sales/records?${params.toString()}`);
-        }}
-        className={cn(
-          "block w-full sm:w-48 px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg",
-          "bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100",
-          "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-        )}
-      >
-        <option value="">All Formats</option>
-        <option value="PRINT">Print</option>
-        <option value="EBOOK">Ebook</option>
-        <option value="KINDLE_UNLIMITED">Kindle Unlimited</option>
-      </select>
-
-      <MonthYearFilter
-        startDate={dateFrom} // Ensure the initial prop from server is YYYY-MM
-        endDate={dateTo}
-        onStartDateChange={handleDateFromChange}
-        onEndDateChange={handleDateToChange}
-        onClear={handleDateClear}
-        hasActiveFilter={hasDateFilter}
-      />
+          <div className="min-w-0 sm:col-span-2 lg:col-span-4">
+            <MonthYearFilter
+              startDate={dateFrom}
+              endDate={dateTo}
+              onStartDateChange={handleDateFromChange}
+              onEndDateChange={handleDateToChange}
+              onClear={handleDateClear}
+              hasActiveFilter={hasDateFilter}
+            />
+          </div>
+        </div>
+      </div>
 
       {total > 0 && (
         <TableInfo

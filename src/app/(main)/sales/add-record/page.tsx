@@ -33,7 +33,7 @@ export default async function SalesInputPage({ searchParams }: PageProps) {
   const { items: booksData } = booksResult;
 
   return (
-    <div className="container mx-auto py-10 px-4 sm:px-6">
+    <div className="py-10">
       <div className="mb-6">
         <div className="flex flex-wrap items-center gap-2 mb-2">
           <BackLink href="/sales/records">Back to Sales</BackLink>

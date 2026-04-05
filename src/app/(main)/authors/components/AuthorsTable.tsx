@@ -124,11 +124,14 @@ const enhancedColumns = useMemo(() => {
     const columns = getAuthorPresetColumns("full");
     return columns.map((col) => {
       const isSorted = sortBy === col.key;
+      const label = col.header as string;
       return {
         ...col,
         header: (
-          <div className="flex items-center gap-2">
-            <span className="font-semibold">{col.header as string}</span>
+          <div className="flex w-full min-w-0 max-w-full items-center gap-0.5">
+            <span className="min-w-0 flex-1 truncate font-semibold" title={label}>
+              {label}
+            </span>
             <button
               type="button"
               onClick={(e) => {
@@ -137,7 +140,7 @@ const enhancedColumns = useMemo(() => {
                 handleSortChange(col.key, nextDirection);
               }}
               className={cn(
-                "p-0.5 rounded hover:bg-muted transition-colors",
+                "shrink-0 p-0.5 rounded hover:bg-muted transition-colors",
                 isSorted && "text-blue-600 bg-blue-50 dark:bg-blue-900/20"
               )}
             >

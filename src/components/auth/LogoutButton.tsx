@@ -1,14 +1,12 @@
 "use client";
 
 import { signOut } from "@/lib/supabase/auth";
+import { Button } from "@/components/ui/button";
 
 export default function LogoutButton() {
   return (
-    <button
-      onClick={() => signOut()}
-      className="px-3 py-1 text-sm bg-gray-200 hover:bg-gray-300 rounded-md"
-    >
+    <Button type="button" variant="secondary" size="sm" onClick={() => signOut()}>
       Log out
-    </button>
+    </Button>
   );
 }

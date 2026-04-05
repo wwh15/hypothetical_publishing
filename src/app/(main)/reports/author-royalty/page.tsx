@@ -10,7 +10,7 @@ export default async function AuthorRoyaltyReportPage() {
   const authors = await getAllAuthors();
 
   return (
-    <div className="container mx-auto py-10 px-4 md:px-6">
+    <div className="py-10">
       <div className="mb-8 space-y-6">
         <div>
           <BackLink href="/reports">Reports</BackLink>

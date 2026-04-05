@@ -1,9 +1,11 @@
+import type { ReactNode } from "react";
 import { getBookById } from "../action";
 import Link from "next/link";
 import { BackLink } from "@/components/BackLink";
 import { notFound } from "next/navigation";
 import SalesRowsTable from "@/app/(main)/sales/components/SalesRowsTable";
 import DeleteBookButton from "./components/DeleteBookButton";
+import { BookCoverSlot } from "./components/BookCoverSlot";
 import { Button } from "@/components/ui/button";
 import { getSalesByBookId } from "@/lib/data/records";
 
@@ -17,6 +19,25 @@ interface PageProps {
     salesSortDir?: string;
     salesPageSize?: string;
   }>;
+}
+
+function DetailItem({
+  label,
+  children,
+  muted,
+}: {
+  label: string;
+  children: ReactNode;
+  muted?: boolean;
+}) {
+  return (
+    <div className={muted ? "opacity-90" : ""}>
+      <dt className="text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground">
+        {label}
+      </dt>
+      <dd className="mt-1 text-sm font-medium text-foreground">{children}</dd>
+    </div>
+  );
 }
 
 export default async function BookDetailPage({ params, searchParams }: PageProps) {
@@ -42,11 +63,11 @@ export default async function BookDetailPage({ params, searchParams }: PageProps
   });
 
   const formatDate = (date: Date) => {
-    return new Intl.DateTimeFormat('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      timeZone: 'UTC',
+    return new Intl.DateTimeFormat("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      timeZone: "UTC",
     }).format(date);
   };
 
@@ -57,202 +78,179 @@ export default async function BookDetailPage({ params, searchParams }: PageProps
       timeZone: "UTC",
     }).format(book.publicationDate);
 
-  return (
-    <div className="container mx-auto py-10">
-      <div className="mb-6">
-        <BackLink href="/books" className="mb-2">
-          Back to Books
-        </BackLink>
-        <h1 className="text-3xl font-bold">{book.title}</h1>
-        <p className="text-muted-foreground mt-2">
-          Book Details
-        </p>
-      </div>
+  const money = (n: number) =>
+    n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 space-y-6">
-        {/* Basic Information */}
-        <section>
-          <h2 className="text-xl font-semibold mb-4">Basic Information</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {book.coverArtPath && (
-              <div className="md:col-span-2">
-                <label className="text-sm font-medium text-muted-foreground block mb-2">Cover</label>
-                <img
-                  src={`/api/books/cover?path=${encodeURIComponent(book.coverArtPath)}`}
-                  alt={`Cover for ${book.title}`}
-                  className="max-h-80 w-auto object-contain rounded border border-gray-200 dark:border-gray-600"
+  return (
+    <div className="py-8 pb-16">
+      <BackLink href="/books" className="mb-6 inline-block text-sm">
+        Back to Books
+      </BackLink>
+
+      {/* Hero: cover + primary identity + stats */}
+      <header className="mb-10 border-b border-border/80 pb-10">
+        <div className="flex flex-col gap-8 lg:flex-row lg:items-stretch lg:gap-10 xl:gap-14">
+          <BookCoverSlot
+            title={book.title}
+            coverArtPath={book.coverArtPath}
+            className="mx-auto shrink-0 lg:mx-0 lg:self-start"
+          />
+
+          <div className="min-w-0 flex-1 space-y-6">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0 space-y-3">
+                <h1 className="text-balance text-3xl font-bold tracking-tight sm:text-4xl lg:text-[2.35rem] lg:leading-tight">
+                  {book.title}
+                </h1>
+                <p className="text-lg text-muted-foreground sm:text-xl">
+                  by{" "}
+                  <Link
+                    href={`/authors/${book.authorId}`}
+                    className="font-semibold text-primary underline-offset-4 hover:underline"
+                  >
+                    {book.author}
+                  </Link>
+                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span
+                    className={
+                      book.released
+                        ? "inline-flex items-center rounded-full bg-emerald-100 px-3 py-0.5 text-xs font-semibold text-emerald-900 dark:bg-emerald-950/80 dark:text-emerald-100"
+                        : "inline-flex items-center rounded-full bg-amber-100 px-3 py-0.5 text-xs font-semibold text-amber-950 dark:bg-amber-950/50 dark:text-amber-100"
+                    }
+                  >
+                    {book.released ? "Released" : "Pre-release"}
+                  </span>
+                  <span className="text-sm text-muted-foreground">
+                    Publication {formatPublicationDate()}
+                  </span>
+                  {book.seriesName && (
+                    <span className="text-sm text-muted-foreground">
+                      · {book.seriesName}
+                      {book.seriesOrder != null ? ` #${book.seriesOrder}` : ""}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex shrink-0 flex-wrap gap-2 sm:justify-end">
+                <Button asChild>
+                  <Link href={`/books/${bookId}/edit`}>Edit book</Link>
+                </Button>
+                <DeleteBookButton
+                  bookId={bookId}
+                  bookTitle={book.title}
+                  author={book.author}
+                  salesRecordCount={salesResult.total}
+                  className="cursor-pointer"
                 />
               </div>
-            )}
-            <div>
-              <label className="text-sm font-medium text-muted-foreground">Title</label>
-              <p className="text-lg">{book.title}</p>
             </div>
-            <Link
-            href={`/authors/${book.authorId}`}>
-              <label className="text-sm font-medium">Author</label>
-              <p className="text-lg font-medium text-blue-600 hover:underline focus:outline focus:underline">{book.author}</p>
-            </Link>
-            <div>
-              <label className="text-sm font-medium text-muted-foreground">ISBN-13</label>
-              <p className="text-lg">{book.isbn13}</p>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-muted-foreground">ISBN-10</label>
-              <p className="text-lg">{book.isbn10 || '-'}</p>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-muted-foreground">ASIN</label>
-              <p className="text-lg">{book.asin || "-"}</p>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-muted-foreground">
-                Kickstarter item tag (ebook)
-              </label>
-              <p className="text-lg font-mono break-all">
-                {book.kickstarterEbookItemTag ?? "—"}
-              </p>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-muted-foreground">
-                Kickstarter item tag (print)
-              </label>
-              <p className="text-lg font-mono break-all">
-                {book.kickstarterPrintItemTag ?? "—"}
-              </p>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-muted-foreground">Released</label>
-              <p className="text-lg">
-                {book.released ? "Yes" : "No (pre-release)"}
-              </p>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-muted-foreground">Publication Date</label>
-              <p className="text-lg">{formatPublicationDate()}</p>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-muted-foreground">Distributor Royalty Rate</label>
-              <p className="text-lg">{book.distRoyaltyRate}%</p>
-            </div>
-            {book.seriesName && (
-              <>
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Series</label>
-                  <p className="text-lg">{book.seriesName}</p>
-                </div>
-                {book.seriesOrder !== null && (
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Series Order</label>
-                    <p className="text-lg">#{book.seriesOrder}</p>
-                  </div>
-                )}
-              </>
-            )}
-            <div>
-              <label className="text-sm font-medium text-muted-foreground">
-                Hand sold / Kickstarter royalty rate
-              </label>
-              <p className="text-lg">{book.handSoldRoyaltyRate}%</p>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-muted-foreground">Cover Price</label>
-              <p className="text-lg">${book.coverPrice.toFixed(2)}</p>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-muted-foreground">Print Cost</label>
-              <p className="text-lg">${book.printCost.toFixed(2)}</p>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-muted-foreground">Created At</label>
-              <p className="text-lg">{formatDate(book.createdAt)}</p>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-muted-foreground">Updated At</label>
-              <p className="text-lg">{formatDate(book.updatedAt)}</p>
-            </div>
-          </div>
-        </section>
 
-        {/* Totals Section */}
-        <section>
-          <h2 className="text-xl font-semibold mb-4">Sales Totals</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-lg">
-              <label className="text-sm font-medium text-muted-foreground">Total Sales</label>
-              <p className="text-2xl font-bold">{book.totalSales.toLocaleString()}</p>
-            </div>
-            <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-lg">
-              <label className="text-sm font-medium text-muted-foreground">Total Publisher Revenue</label>
-              <p className="text-2xl font-bold">${book.totalPublisherRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-            </div>
-            <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-lg">
-              <label className="text-sm font-medium text-muted-foreground">Unpaid Author Royalty</label>
-              <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">${book.unpaidAuthorRoyalty.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-            </div>
-            <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-lg">
-              <label className="text-sm font-medium text-muted-foreground">Paid Author Royalty</label>
-              <p className="text-2xl font-bold text-green-600 dark:text-green-400">${book.paidAuthorRoyalty.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-            </div>
-            <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-lg md:col-span-2">
-              <label className="text-sm font-medium text-muted-foreground">Total Author Royalty</label>
-              <p className="text-2xl font-bold">${book.totalAuthorRoyalty.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+            {/* Sales summary — single band, full width of column */}
+            <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-border bg-border shadow-sm sm:grid-cols-3 xl:grid-cols-5">
+              <div className="bg-card p-4 sm:p-5">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Units sold
+                </p>
+                <p className="mt-1 text-2xl font-bold tabular-nums tracking-tight sm:text-3xl">
+                  {book.totalSales.toLocaleString()}
+                </p>
+              </div>
+              <div className="bg-card p-4 sm:p-5">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Publisher revenue
+                </p>
+                <p className="mt-1 text-2xl font-bold tabular-nums tracking-tight sm:text-3xl">
+                  ${money(book.totalPublisherRevenue)}
+                </p>
+              </div>
+              <div className="bg-card p-4 sm:p-5">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Author royalty (total)
+                </p>
+                <p className="mt-1 text-2xl font-bold tabular-nums tracking-tight sm:text-3xl">
+                  ${money(book.totalAuthorRoyalty)}
+                </p>
+              </div>
+              <div className="bg-card p-4 sm:p-5">
+                <p className="text-xs font-medium uppercase tracking-wide text-amber-700/90 dark:text-amber-400/90">
+                  Unpaid royalty
+                </p>
+                <p className="mt-1 text-2xl font-bold tabular-nums tracking-tight text-amber-700 dark:text-amber-400 sm:text-3xl">
+                  ${money(book.unpaidAuthorRoyalty)}
+                </p>
+              </div>
+              <div className="bg-card p-4 sm:p-5">
+                <p className="text-xs font-medium uppercase tracking-wide text-emerald-700/90 dark:text-emerald-400/90">
+                  Paid royalty
+                </p>
+                <p className="mt-1 text-2xl font-bold tabular-nums tracking-tight text-emerald-700 dark:text-emerald-400 sm:text-3xl">
+                  ${money(book.paidAuthorRoyalty)}
+                </p>
+              </div>
             </div>
           </div>
-        </section>
+        </div>
+      </header>
 
-        {/* Sales Records Section */}
-        <section>
-          <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
-            <h2 className="text-xl font-semibold">Sales Records</h2>
-            <Link
-              href={`/sales/add-record?bookId=${bookId}`}
-              className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors inline-flex items-center gap-2"
-            >
-              Add sale for this book
-            </Link>
-          </div>
-          {salesResult.total > 0 ? (
-            <SalesRowsTable
-              rows={salesResult.items}
-              preset="bookDetail"
-              navigationContext={{ from: "book", bookId: book.id }}
-              total={salesResult.total}
-              page={salesResult.page}
-              pageSize={salesResult.pageSize}
-              sortBy={salesSortBy}
-              sortDir={salesSortDir}
-              basePath={`/books/${bookId}`}
-              paramPrefix="sales"
-            />
-          ) : (
-            <p className="text-muted-foreground text-sm">
-              No sales records yet. Add one using the button above or from Sales → Add Sales Records.
-            </p>
-          )}
-        </section>
+      {/* Secondary fields — dense grid, full width */}
+      <section className="mb-12">
+        <h2 className="mb-5 text-lg font-semibold tracking-tight">
+          Identifiers, rates &amp; costs
+        </h2>
+        <dl className="grid grid-cols-1 gap-x-10 gap-y-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <DetailItem label="ISBN-13">{book.isbn13}</DetailItem>
+          <DetailItem label="ISBN-10">{book.isbn10 || "—"}</DetailItem>
+          <DetailItem label="ASIN">{book.asin || "—"}</DetailItem>
+          <DetailItem label="Distributor royalty rate">{book.distRoyaltyRate}%</DetailItem>
+          <DetailItem label="Hand sold / Kickstarter royalty rate">
+            {book.handSoldRoyaltyRate}%
+          </DetailItem>
+          <DetailItem label="Cover price">${book.coverPrice.toFixed(2)}</DetailItem>
+          <DetailItem label="Print cost">${book.printCost.toFixed(2)}</DetailItem>
+          <DetailItem label="Kickstarter tag (ebook)">
+            <span className="font-mono text-xs break-all">{book.kickstarterEbookItemTag ?? "—"}</span>
+          </DetailItem>
+          <DetailItem label="Kickstarter tag (print)">
+            <span className="font-mono text-xs break-all">{book.kickstarterPrintItemTag ?? "—"}</span>
+          </DetailItem>
+          <DetailItem label="Created" muted>
+            {formatDate(book.createdAt)}
+          </DetailItem>
+          <DetailItem label="Last updated" muted>
+            {formatDate(book.updatedAt)}
+          </DetailItem>
+        </dl>
+      </section>
 
-        {/* Action Buttons */}
-        <section className="pt-4 border-t border-gray-200 dark:border-gray-700">
-          <div className="flex gap-4">
-            <Button asChild className="transition-colors duration-150">
-              <Link
-                href={`/books/${bookId}/edit`}
-                className="no-underline hover:no-underline"
-              >
-                Edit Book
-              </Link>
-            </Button>
-            <DeleteBookButton
-              bookId={bookId}
-              bookTitle={book.title}
-              author={book.author}
-              salesRecordCount={salesResult.total}
-              className="transition-colors duration-150 cursor-pointer"
-            />
-          </div>
-        </section>
-      </div>
+      {/* Sales history */}
+      <section className="border-t border-border/80 pt-10">
+        <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <h2 className="text-lg font-semibold tracking-tight">Sales for this book</h2>
+          <Button asChild className="w-full shrink-0 sm:w-auto bg-emerald-600 hover:bg-emerald-700">
+            <Link href={`/sales/add-record?bookId=${bookId}`}>Add sale</Link>
+          </Button>
+        </div>
+        {salesResult.total > 0 ? (
+          <SalesRowsTable
+            rows={salesResult.items}
+            preset="bookDetail"
+            navigationContext={{ from: "book", bookId: book.id }}
+            total={salesResult.total}
+            page={salesResult.page}
+            pageSize={salesResult.pageSize}
+            sortBy={salesSortBy}
+            sortDir={salesSortDir}
+            basePath={`/books/${bookId}`}
+            paramPrefix="sales"
+          />
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            No sales yet. Add a record with the button above or from Sales → Add record.
+          </p>
+        )}
+      </section>
     </div>
   );
 }

@@ -98,7 +98,6 @@ export type SalesColumnId =
   | "title"
   | "author"
   | "quantity"
-  | "kenp"
   | "format"
   | "distributor"
   | "publisherRevenue"
@@ -201,11 +200,14 @@ export const salesColumns: ColumnDef<SaleListItem>[] = [
   {
     key: "title",
     header: "Title",
+    className:
+      "max-w-[min(11rem,40vw)] min-w-0 align-top whitespace-normal",
     render: (row) => (
       <Link
         href={`/books/${row.bookId}`}
         onClick={(e) => e.stopPropagation()}
-        className="text-blue-600 hover:underline focus:outline focus:underline"
+        className="block truncate text-blue-600 hover:underline focus:outline focus:underline"
+        title={row.title}
       >
         {row.title}
       </Link>
@@ -214,17 +216,20 @@ export const salesColumns: ColumnDef<SaleListItem>[] = [
   {
     key: "author",
     header: "Author",
-    render: (row) => row.author,
+    className: "max-w-[min(9rem,32vw)] min-w-0 align-top",
+    render: (row) => (
+      <span className="block truncate" title={row.author}>
+        {row.author}
+      </span>
+    ),
   },
   {
     key: "quantity",
-    header: "Quantity",
-    render: (row) => salesCellRenderers.quantity(row.quantity),
-  },
-  {
-    key: "kenp",
-    header: "KENP",
-    render: (row) => salesCellRenderers.kenp(row.kenp),
+    header: "Qty / KENP",
+    render: (row) =>
+      row.format === "KINDLE_UNLIMITED"
+        ? salesCellRenderers.kenp(row.kenp)
+        : salesCellRenderers.quantity(row.quantity),
   },
   {
     key: "format",
@@ -238,8 +243,13 @@ export const salesColumns: ColumnDef<SaleListItem>[] = [
   },
   {
     key: "currency",
-    header: "Original Currency",
-    render: (row) => row.currency,
+    header: "CCY",
+    className: "w-11 min-w-0 max-w-[3rem] text-center tabular-nums",
+    render: (row) => (
+      <span className="block truncate" title={row.currency}>
+        {row.currency}
+      </span>
+    ),
   },
   {
     key: "publisherRevenueOriginal",
@@ -281,20 +291,18 @@ export const salesColumns: ColumnDef<SaleListItem>[] = [
   {
     key: "comment",
     header: "Comment",
+    className: "max-w-[6rem] min-w-0 align-top sm:max-w-[7rem]",
     render: (row) => {
-      const MAX_LENGTH = 30; // Define your character limit here
       const comment = row.comment;
 
       if (!comment) return <span className="text-muted-foreground">—</span>;
 
-      const displayComment =
-        comment.length > MAX_LENGTH
-          ? `${comment.slice(0, MAX_LENGTH)}...`
-          : comment;
-
       return (
-        <span className="text-muted-foreground" title={comment}>
-          {displayComment}
+        <span
+          className="block truncate text-muted-foreground"
+          title={comment}
+        >
+          {comment}
         </span>
       );
     },
@@ -347,8 +355,13 @@ export function getPendingColumns(
     },
     {
       key: "currency",
-      header: "Original Currency",
-      render: (row) => row.currency,
+      header: "CCY",
+      className: "w-11 min-w-0 max-w-[3rem] text-center tabular-nums",
+      render: (row) => (
+        <span className="block truncate" title={row.currency}>
+          {row.currency}
+        </span>
+      ),
     },
     {
       key: "publisherRevenueOriginal",
@@ -397,20 +410,18 @@ export function getPendingColumns(
     {
       key: "comment",
       header: "Comment",
+      className: "max-w-[6rem] min-w-0 align-top sm:max-w-[7rem]",
       render: (row) => {
-        const MAX_LENGTH = 30; // Define your character limit here
         const comment = row.comment;
 
         if (!comment) return <span className="text-muted-foreground">—</span>;
 
-        const displayComment =
-          comment.length > MAX_LENGTH
-            ? `${comment.slice(0, MAX_LENGTH)}...`
-            : comment;
-
         return (
-          <span className="text-muted-foreground" title={comment}>
-            {displayComment}
+          <span
+            className="block truncate text-muted-foreground"
+            title={comment}
+          >
+            {comment}
           </span>
         );
       },
@@ -467,7 +478,6 @@ export const salesTablePresets = {
       "title",
       "author",
       "quantity",
-      "kenp",
       "format",
       "distributor",
       "currency",
@@ -509,7 +519,6 @@ export const salesTablePresets = {
   bookDetail: {
     columnIds: [
       "quantity",
-      "kenp",
       "format",
       "distributor",
       "publisherRevenueUSD",

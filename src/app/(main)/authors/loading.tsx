@@ -1,6 +1,6 @@
 export default function AuthorsLoading() {
   return (
-    <div className="container mx-auto py-10 px-4 md:px-6">
+    <div className="py-10">
       <div className="mb-8 space-y-6">
         <div className="flex flex-col gap-3">
           <div className="h-9 w-32 bg-muted rounded animate-pulse" />

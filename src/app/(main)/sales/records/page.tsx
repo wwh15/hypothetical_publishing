@@ -96,35 +96,33 @@ export default async function SalesRecordsPage({
     });
 
   return (
-    <div className="container mx-auto py-10 px-4 md:px-6">
-      <div className="mb-8 space-y-6">
-        {/* Navigation Actions */}
-        <div className="flex flex-col sm:flex-row gap-3">
-          <Link href="/sales/add-record">
+    <div className="py-10">
+      <div className="mb-8 space-y-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <Link href="/sales/add-record" className="sm:shrink-0">
             <Button size="sm" className="w-full sm:w-auto">
               Add New Sale Record
             </Button>
           </Link>
+          <ExportCSVButton
+            search={search}
+            sortBy={sortBy}
+            sortDir={sortDir}
+            dateFrom={dateFrom}
+            dateTo={dateTo}
+            source={source}
+            distributor={distributor}
+            format={format}
+            saleRelease={saleRelease}
+            className="w-full sm:w-auto"
+          />
         </div>
 
-        <ExportCSVButton
-              search={search}
-              sortBy={sortBy}
-              sortDir={sortDir}
-              dateFrom={dateFrom}
-              dateTo={dateTo}
-              source={source}
-              distributor={distributor}
-              format={format}
-              saleRelease={saleRelease}
-            />
-
-        {/* Page Header */}
-        <div>
+        <div className="min-w-0 space-y-2">
           <h1 className="text-3xl font-bold tracking-tight text-foreground">
             Sales Records
           </h1>
-          <p className="text-muted-foreground mt-2">
+          <p className="text-muted-foreground">
             Detailed list of all transactions, revenue, and author royalties.
           </p>
         </div>

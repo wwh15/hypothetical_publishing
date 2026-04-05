@@ -54,7 +54,7 @@ export default async function AuthorDetailPage({ params }: PageProps) {
   
 
   return (
-    <div className="container mx-auto py-10 px-4 md:px-6">
+    <div className="py-10">
       {/* Header / Breadcrumb */}
       <div className="mb-8">
         <BackLink href="/authors" className="mb-2">
