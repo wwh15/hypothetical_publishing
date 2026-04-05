@@ -26,6 +26,10 @@ export interface ReportCell {
   qtyPrintOther: number;
   /** eBook, Other distributor */
   qtyEbookOther: number;
+  /** Print, Kickstarter */
+  qtyPrintKickstarter: number;
+  /** eBook, Kickstarter */
+  qtyEbookKickstarter: number;
   /** Sum of unit sales (print/ebook); excludes KU (KENP only) */
   quantitySold: number;
   /** Handsold units only (same subset as print handsold in this schema) */
@@ -200,6 +204,8 @@ function emptyCell(): ReportCell {
     qtyEbookAmazon: 0,
     qtyPrintOther: 0,
     qtyEbookOther: 0,
+    qtyPrintKickstarter: 0,
+    qtyEbookKickstarter: 0,
     quantitySold: 0,
     quantityHandsold: 0,
     kenp: 0,
@@ -221,6 +227,17 @@ function addSaleToCell(cell: ReportCell, s: SaleForReport) {
     cell.qtyPrintHandsold += qty;
     cell.quantityHandsold += qty;
     cell.quantitySold += qty;
+    return;
+  }
+
+  if (s.source === "KICKSTARTER") {
+    if (s.format === "PRINT") {
+      cell.qtyPrintKickstarter += qty;
+      cell.quantitySold += qty;
+    } else if (s.format === "EBOOK") {
+      cell.qtyEbookKickstarter += qty;
+      cell.quantitySold += qty;
+    }
     return;
   }
 
@@ -258,7 +275,7 @@ function addSaleToCell(cell: ReportCell, s: SaleForReport) {
 
 /**
  * Books × periods: per-cell quantity breakdown (handsold, Ingram, Amazon print/ebook,
- * Other print/ebook, totals, handsold, KENP), royalties unpaid/paid/total.
+ * Other print/ebook, Kickstarter print/ebook, totals, handsold, KENP), royalties unpaid/paid/total.
  * Periods: each quarter in range and "Total (selected range)". Last row is all-book totals.
  */
 export async function getAuthorRoyaltyReportData(

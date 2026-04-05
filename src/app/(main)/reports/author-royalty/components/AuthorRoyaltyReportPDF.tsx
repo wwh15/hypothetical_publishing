@@ -16,7 +16,8 @@ const PAGE_PAD_X = 28;
 const PAGE_WIDTH_PT = 842;
 const TABLE_WIDTH_PT = PAGE_WIDTH_PT - PAGE_PAD_X * 2;
 const COL_BOOK_W = 114;
-const COL_NUM_W = (TABLE_WIDTH_PT - COL_BOOK_W) / 12;
+const NUM_COLS = 14;
+const COL_NUM_W = (TABLE_WIDTH_PT - COL_BOOK_W) / NUM_COLS;
 
 const styles = StyleSheet.create({
   page: {
@@ -152,6 +153,8 @@ const HDR = {
   ebAmz: "eBook,\nAmazon",
   prOth: "Print,\nOther",
   ebOth: "eBook,\nOther",
+  prKs: "Print,\nKickstarter",
+  ebKs: "eBook,\nKickstarter",
   qtyTot: "Qty\nsold",
   hsTot: "Qty\nhandsold",
   kenp: "KENP\n(Amz KU)",
@@ -190,6 +193,12 @@ function PeriodTable({
           </View>
           <View style={styles.colNum}>
             <Text style={styles.txtHdrNum}>{HDR.ebOth}</Text>
+          </View>
+          <View style={styles.colNum}>
+            <Text style={styles.txtHdrNum}>{HDR.prKs}</Text>
+          </View>
+          <View style={styles.colNum}>
+            <Text style={styles.txtHdrNum}>{HDR.ebKs}</Text>
           </View>
           <View style={styles.colNum}>
             <Text style={styles.txtHdrNum}>{HDR.qtyTot}</Text>
@@ -240,6 +249,12 @@ function PeriodTable({
               </View>
               <View style={styles.colNum}>
                 <Text style={styles.txtNum}>{cell.qtyEbookOther}</Text>
+              </View>
+              <View style={styles.colNum}>
+                <Text style={styles.txtNum}>{cell.qtyPrintKickstarter}</Text>
+              </View>
+              <View style={styles.colNum}>
+                <Text style={styles.txtNum}>{cell.qtyEbookKickstarter}</Text>
               </View>
               <View style={styles.colNum}>
                 <Text style={styles.txtNum}>{cell.quantitySold}</Text>
@@ -302,7 +317,8 @@ export function AuthorRoyaltyReportPDF({ data }: AuthorRoyaltyReportPDFProps) {
           <Text style={styles.subtitle}>Generated {dateStr}</Text>
           <Text style={styles.legend}>
             Quantity columns follow sale source, distributor, and format (USD
-            royalties). KENP is Amazon Kindle Unlimited pages read. “Total
+            royalties), including Kickstarter print and ebook. KENP is Amazon
+            Kindle Unlimited pages read. “Total
             (selected range)” sums the chosen quarters only. Books are ordered
             by series, position in series, then title (non-series titles last).
             The last row is all books combined.
