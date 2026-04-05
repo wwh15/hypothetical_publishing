@@ -3,6 +3,13 @@ import SalesRecordsTable from "@/app/(main)/sales/components/SalesRecordsTable";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ExportCSVButton } from "../components/ExportCSVButton";
+import type { SaleSource } from "@prisma/client";
+
+const VALID_SOURCES: readonly SaleSource[] = [
+  "DISTRIBUTOR",
+  "HAND_SOLD",
+  "KICKSTARTER",
+];
 
 /**
  * Ensure the page is always dynamic to reflect real-time 
@@ -48,9 +55,11 @@ export default async function SalesRecordsPage({
   const dateFrom = params?.dateFrom ?? "";
   const dateTo = params?.dateTo ?? "";
 
-  // Source filter: only accept valid values
+  // Source filter: only accept valid enum values
   const rawSource = params?.source;
-  const source = (rawSource === "DISTRIBUTOR" || rawSource === "HAND_SOLD") ? rawSource : undefined;
+  const source = VALID_SOURCES.includes(rawSource as SaleSource)
+    ? (rawSource as SaleSource)
+    : undefined;
 
   const rawDistributor = params?.distributor;
   const distributor = rawDistributor && VALID_DISTRIBUTORS.includes(rawDistributor as (typeof VALID_DISTRIBUTORS)[number])

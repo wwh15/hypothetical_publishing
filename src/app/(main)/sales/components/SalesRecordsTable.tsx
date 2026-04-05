@@ -43,7 +43,7 @@ export interface SalesRecordsTableProps {
   dateTo?: string;
   /** Show all records (no pagination) */
   showAll?: boolean;
-  /** Source filter (DISTRIBUTOR or HAND_SOLD) */
+  /** Source filter (DISTRIBUTOR, HAND_SOLD, or KICKSTARTER) */
   source?: string;
   /** Distributor filter (INGRAM_SPARK, AMAZON, OTHER) */
   distributor?: string;
@@ -302,6 +302,7 @@ export default function SalesRecordsTable({
         <option value="">All Sources</option>
         <option value="DISTRIBUTOR">Distributor</option>
         <option value="HAND_SOLD">Hand Sold</option>
+        <option value="KICKSTARTER">Kickstarter</option>
       </select>
 
       <select

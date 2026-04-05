@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
 import { useState } from "react";
 import { exportSalesToCsvAction } from "../action";
+import type { SaleSource } from "@prisma/client";
 
 export interface ExportCSVButtonProps {
   search?: string;
@@ -12,7 +13,7 @@ export interface ExportCSVButtonProps {
   sortDir?: "asc" | "desc";
   dateFrom?: string;
   dateTo?: string;
-  source?: "DISTRIBUTOR" | "HAND_SOLD";
+  source?: SaleSource;
   distributor?: "INGRAM_SPARK" | "AMAZON" | "OTHER";
   format?: "PRINT" | "EBOOK" | "KINDLE_UNLIMITED";
 }
