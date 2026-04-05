@@ -62,6 +62,7 @@ model Book {
   coverPrice                Decimal   @map("cover_price") // Retail cover price
   printCost                 Decimal   @map("print_cost") // Cost to print one copy
   publicationDate           DateTime  @db.Timestamptz @map("publication_date") // First day of publication month (e.g. 2024-01-01)
+  released                  Boolean   @default(true) @map("released") // false = pre-release (projected sales); true = released
   seriesId                  Int?      @map("series_id") // Optional: book can belong to at most one series
   seriesOrder               Int?      @map("series_order") // Position in series (1, 2, 3, ...) when part of a series
   coverArtPath              String?   @map("cover_art_path") // Supabase Storage path in Cover-Art bucket
