@@ -436,6 +436,15 @@ export function getPendingColumns(
 
 // ─── HELPERS & PRESETS ────────────────────────────────────────────────────
 
+/** Muted row styling for sales whose book is not yet released (pre-release). */
+export function saleListRowClassNameForBookReleased(
+  row: Pick<SaleListItem, "bookReleased">
+): string | undefined {
+  return row.bookReleased
+    ? undefined
+    : "bg-slate-200/85 text-slate-700 dark:bg-slate-800/55 dark:text-slate-300 hover:bg-slate-300/90 dark:hover:bg-slate-700/60";
+}
+
 const columnMap = new Map<SalesColumnId, ColumnDef<SaleListItem>>();
 salesColumns.forEach((col) => {
   columnMap.set(col.key as SalesColumnId, col);

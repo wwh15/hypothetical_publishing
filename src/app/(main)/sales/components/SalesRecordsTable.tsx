@@ -7,6 +7,7 @@ import {
   salesTablePresets,
   getPresetColumns,
   getColumnsByVisibleIds,
+  saleListRowClassNameForBookReleased,
   SalesColumnId,
 } from "@/lib/table-configs/sales-columns";
 import { createSalesRecordPath } from "@/lib/table-configs/navigation";
@@ -364,6 +365,12 @@ export default function SalesRecordsTable({
         />
       )}
 
+      {total > 0 && (
+        <p className="text-xs text-muted-foreground">
+          Muted rows are sales for books not yet marked released (pre-release).
+        </p>
+      )}
+
       <BaseDataTable<SaleListItem>
         columns={columns}
         data={rows}
@@ -373,6 +380,7 @@ export default function SalesRecordsTable({
             : "No sales records"
         }
         onRowClick={handleRowClick}
+        getRowClassName={saleListRowClassNameForBookReleased}
       />
 
       {totalPages > 1 && !showAll && (

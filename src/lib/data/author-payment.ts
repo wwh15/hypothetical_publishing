@@ -20,6 +20,7 @@ const authorPaymentSelect = {
     select: {
       id: true,
       title: true,
+      released: true,
       sales: {
         select: {
           id: true,
@@ -116,6 +117,7 @@ function transformToAuthorGroup(rawAuthor: PrismaAuthorWithSales): AuthorGroup {
         paid: status,
         comment: sale.comment ?? null,
         source: sale.source,
+        bookReleased: book.released,
       });
 
       // 3. Accumulate the unpaid total (only if pending)

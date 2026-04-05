@@ -20,6 +20,8 @@ interface BaseDataTableProps<T> {
     data: T[];
     emptyMessage?: string;
     onRowClick?: (row: T) => void;
+    /** Extra row classes (e.g. muted styling for pre-release books on sales list). */
+    getRowClassName?: (row: T) => string | undefined;
     className?: string;
 }
 
@@ -28,6 +30,7 @@ export function BaseDataTable<T>({
     data,
     emptyMessage = 'No records found.',
     onRowClick,
+    getRowClassName,
     className,
 }: BaseDataTableProps<T>) {
     return (
@@ -57,7 +60,10 @@ export function BaseDataTable<T>({
                             <TableRow 
                                 key={index} 
                                 onClick={() => onRowClick?.(row)}
-                                className={cn(onRowClick && "cursor-pointer hover:bg-muted/50")}
+                                className={cn(
+                                    onRowClick && "cursor-pointer hover:bg-muted/50",
+                                    getRowClassName?.(row)
+                                )}
                             >
                                 {columns.map((column) => (
                                     <TableCell key={column.key} className={column.className}>

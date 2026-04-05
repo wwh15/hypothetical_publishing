@@ -8,7 +8,10 @@ import { useRouter } from "next/navigation";
 import { PaginationControls } from "@/components/PaginationControls";
 import { TableInfo } from "@/components/TableInfo";
 import { BaseDataTable } from "@/components/BaseDataTable";
-import { getPresetColumns } from "@/lib/table-configs/sales-columns";
+import {
+  getPresetColumns,
+  saleListRowClassNameForBookReleased,
+} from "@/lib/table-configs/sales-columns";
 import {
   Dialog,
   DialogContent,
@@ -254,6 +257,7 @@ export default function AuthorPaymentsTable({
                     data={group.sales}
                     emptyMessage={`${group.author} has no recorded sales.`}
                     onRowClick={handleRowClick}
+                    getRowClassName={saleListRowClassNameForBookReleased}
                   />
                 </div>
               )}

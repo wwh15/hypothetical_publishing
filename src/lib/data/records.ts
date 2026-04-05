@@ -21,6 +21,8 @@ export interface SaleListItem {
   paid: "paid" | "pending";
   comment: string | null;
   source: SaleSource;
+  /** False when the sale’s book is not yet released (pre-release / projected). */
+  bookReleased: boolean;
 }
 
 /** Staging row before DB insert; `id` disambiguates duplicate lines in the UI. */
@@ -415,7 +417,7 @@ export function toSaleListItem(sale: {
   paid: boolean;
   comment: string | null;
   source: SaleSource;
-  book: { title: string; author: { name: string } };
+  book: { title: string; released: boolean; author: { name: string } };
 }): SaleListItem {
   return {
     id: sale.id,
@@ -434,6 +436,7 @@ export function toSaleListItem(sale: {
     paid: sale.paid ? "paid" : "pending",
     comment: sale.comment ?? null,
     source: sale.source,
+    bookReleased: sale.book.released,
   };
 }
 
