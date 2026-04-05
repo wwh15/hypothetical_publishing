@@ -122,6 +122,12 @@ export default async function BookDetailPage({ params, searchParams }: PageProps
               </p>
             </div>
             <div>
+              <label className="text-sm font-medium text-muted-foreground">Released</label>
+              <p className="text-lg">
+                {book.released ? "Yes" : "No (pre-release)"}
+              </p>
+            </div>
+            <div>
               <label className="text-sm font-medium text-muted-foreground">Publication Date</label>
               <p className="text-lg">{formatPublicationDate()}</p>
             </div>

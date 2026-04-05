@@ -99,6 +99,8 @@ export interface CreateBookInput {
   /** No whitespace; max 128 chars; omit or null for none. */
   kickstarterEbookItemTag?: string | null;
   kickstarterPrintItemTag?: string | null;
+  /** When false, book is pre-release (e.g. projected sales). Defaults true if omitted. */
+  released?: boolean;
 }
 
 export interface UpdateBookInput extends Partial<CreateBookInput> {
@@ -141,6 +143,8 @@ export interface BookDetail {
   coverArtPath: string | null;
   kickstarterEbookItemTag: string | null;
   kickstarterPrintItemTag: string | null;
+  /** false = pre-release / projected sales context */
+  released: boolean;
   sales?: import("./records").SaleListItem[]; // Sales records for this book
 }
 
@@ -562,6 +566,7 @@ export async function getBookById(id: number): Promise<BookDetail | null> {
     coverArtPath: book.coverArtPath ?? null,
     kickstarterEbookItemTag: book.kickstarterEbookItemTag ?? null,
     kickstarterPrintItemTag: book.kickstarterPrintItemTag ?? null,
+    released: book.released,
     // Sales list is loaded separately via getSalesByBookId (paginated)
     sales: undefined,
   };
@@ -647,6 +652,7 @@ export async function createBook(
           seriesOrder: seriesOrderVal,
           kickstarterEbookItemTag: ksEbook.data,
           kickstarterPrintItemTag: ksPrint.data,
+          released: input.released ?? true,
           // Fixed: Use 'author' (singular) and connect to one ID
           authorId: author.id,
         },
@@ -742,6 +748,9 @@ export async function updateBook(
       }
       if (input.publicationDate !== undefined)
         updateData.publicationDate = input.publicationDate;
+      if (input.released !== undefined) {
+        updateData.released = input.released;
+      }
       if (input.seriesId !== undefined) {
         updateData.series =
           input.seriesId == null

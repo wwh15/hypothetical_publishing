@@ -28,6 +28,23 @@ import {
   validateKickstarterItemTagOptional,
 } from "@/lib/validation";
 
+type BookFormState = {
+  title: string;
+  author: string;
+  email: string;
+  isbn13: string;
+  isbn10: string;
+  asin: string;
+  publicationDate: string;
+  distRoyaltyRate: string;
+  handSoldRoyaltyRate: string;
+  coverPrice: string;
+  printCost: string;
+  kickstarterEbookItemTag: string;
+  kickstarterPrintItemTag: string;
+  released: boolean;
+};
+
 interface BookFormProps {
   bookId?: number;
   initialData?: BookDetail;
@@ -71,7 +88,7 @@ export default function BookForm({
   const [coverRefreshKey, setCoverRefreshKey] = useState(0);
   const [pendingCoverFile, setPendingCoverFile] = useState<File | null>(null);
   const [pendingCoverPreview, setPendingCoverPreview] = useState<string | null>(null);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<BookFormState>({
     title: "",
     author: "",
     email: "",
@@ -85,6 +102,7 @@ export default function BookForm({
     printCost: "",
     kickstarterEbookItemTag: "",
     kickstarterPrintItemTag: "",
+    released: true,
   });
 
   // Track if form has been initialized to prevent resetting user changes
@@ -126,6 +144,7 @@ export default function BookForm({
         printCost: initialData.printCost?.toString() ?? "",
         kickstarterEbookItemTag: initialData.kickstarterEbookItemTag ?? "",
         kickstarterPrintItemTag: initialData.kickstarterPrintItemTag ?? "",
+        released: initialData.released,
       });
       
       // Set series information only on initial load
@@ -408,6 +427,7 @@ export default function BookForm({
         seriesOrder: undefined, // Backend auto-assigns when adding to series
         kickstarterEbookItemTag: ksEbookResult.data,
         kickstarterPrintItemTag: ksPrintResult.data,
+        released: formData.released,
       };
 
       let result;
@@ -784,6 +804,40 @@ export default function BookForm({
           <p className="text-xs text-muted-foreground">
             Optional. No spaces; max 128 characters.
           </p>
+        </div>
+
+        {/* Released (pre-release vs live) */}
+        <div className="md:col-span-2 flex gap-3 rounded-md border border-input bg-background px-4 py-3 dark:bg-gray-700">
+          <input
+            id="released"
+            type="checkbox"
+            checked={formData.released}
+            onChange={(e) => {
+              setFormData((prev) => ({
+                ...prev,
+                released: e.target.checked,
+              }));
+              if (error) setError(null);
+              if (isImported) setIsImported(false);
+            }}
+            className={cn(
+              "mt-0.5 h-4 w-4 shrink-0 rounded border border-input text-blue-600",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+              "disabled:cursor-not-allowed disabled:opacity-50",
+            )}
+          />
+          <div className="min-w-0 space-y-1">
+            <label
+              htmlFor="released"
+              className="text-sm font-medium leading-none cursor-pointer"
+            >
+              Released
+            </label>
+            <p className="text-xs text-muted-foreground">
+              Uncheck for a pre-release title (sales count as projected until you
+              mark the book released).
+            </p>
+          </div>
         </div>
 
         {/* Publication Date (Month/Year) */}
