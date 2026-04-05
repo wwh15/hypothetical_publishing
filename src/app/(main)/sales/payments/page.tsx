@@ -21,13 +21,10 @@ export default async function AuthorPaymentsPage({
   const pageSize = 20;
 
   // 3. Fetch data using the search query
-  const { authors, totalGroups } = await asyncGetAuthorPaymentData(
+  const { authors, totalGroups, totals } = await asyncGetAuthorPaymentData(
     page,
     pageSize,
-    search // Pass the search string to your Prisma query
-
-
-
+    search
   );
 
   const totalPages = Math.ceil(totalGroups / pageSize);
@@ -51,10 +48,10 @@ export default async function AuthorPaymentsPage({
           </p>
         </div>
       </div>
-      
-      {/* 4. Pass the search prop to the Client Table */}
+
       <AuthorPaymentsTable
         groups={authors}
+        totals={totals}
         totalGroups={totalGroups}
         currentPage={page}
         totalPages={totalPages}
