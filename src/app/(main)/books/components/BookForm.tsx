@@ -22,7 +22,11 @@ import { AuthorSelectBox } from "../../authors/components/AuthorSelectBox";
 import { getAllAuthors } from "../../authors/actions";
 import { Author } from "@prisma/client";
 import MonthYearSelector from "@/components/MonthYearSelector";
-import { validateISBN10, validateASINOptional } from "@/lib/validation";
+import {
+  validateISBN10,
+  validateASINOptional,
+  validateKickstarterItemTagOptional,
+} from "@/lib/validation";
 
 interface BookFormProps {
   bookId?: number;
@@ -79,6 +83,8 @@ export default function BookForm({
     handSoldRoyaltyRate: "20", // Default 20%
     coverPrice: "",
     printCost: "",
+    kickstarterEbookItemTag: "",
+    kickstarterPrintItemTag: "",
   });
 
   // Track if form has been initialized to prevent resetting user changes
@@ -118,6 +124,8 @@ export default function BookForm({
         handSoldRoyaltyRate: initialData.handSoldRoyaltyRate.toString(),
         coverPrice: initialData.coverPrice?.toString() ?? "",
         printCost: initialData.printCost?.toString() ?? "",
+        kickstarterEbookItemTag: initialData.kickstarterEbookItemTag ?? "",
+        kickstarterPrintItemTag: initialData.kickstarterPrintItemTag ?? "",
       });
       
       // Set series information only on initial load
@@ -363,6 +371,25 @@ export default function BookForm({
       return;
     }
 
+    const ksEbookResult = validateKickstarterItemTagOptional(
+      formData.kickstarterEbookItemTag,
+      "Kickstarter ebook item tag"
+    );
+    const ksPrintResult = validateKickstarterItemTagOptional(
+      formData.kickstarterPrintItemTag,
+      "Kickstarter print item tag"
+    );
+    if (!ksEbookResult.success) {
+      setError(ksEbookResult.error);
+      setIsSubmitting(false);
+      return;
+    }
+    if (!ksPrintResult.success) {
+      setError(ksPrintResult.error);
+      setIsSubmitting(false);
+      return;
+    }
+
     try {
       const bookData = {
         title: formData.title.trim(),
@@ -379,6 +406,8 @@ export default function BookForm({
         printCost: printCostNum,
         seriesId: seriesId ?? null,
         seriesOrder: undefined, // Backend auto-assigns when adding to series
+        kickstarterEbookItemTag: ksEbookResult.data,
+        kickstarterPrintItemTag: ksPrintResult.data,
       };
 
       let result;
@@ -458,8 +487,8 @@ export default function BookForm({
             seriesOrder: null,
             coverArtPath: null,
             asin,
-            kickstarterEbookItemTag: null,
-            kickstarterPrintItemTag: null,
+            kickstarterEbookItemTag: ksEbookResult.data,
+            kickstarterPrintItemTag: ksPrintResult.data,
           };
 
           onBookCreated?.(book);
@@ -692,6 +721,68 @@ export default function BookForm({
           />
           <p className="text-xs text-muted-foreground">
             Optional. Amazon Standard Identification Number for the ebook edition (10 characters; dashes ignored).
+          </p>
+        </div>
+
+        {/* Kickstarter item tags */}
+        <div className="space-y-2">
+          <label
+            htmlFor="kickstarterEbookItemTag"
+            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+          >
+            Kickstarter item tag (ebook)
+          </label>
+          <input
+            id="kickstarterEbookItemTag"
+            type="text"
+            value={formData.kickstarterEbookItemTag}
+            onChange={(e) =>
+              handleInputChange("kickstarterEbookItemTag", e.target.value)
+            }
+            className={cn(
+              "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono ring-offset-background",
+              "file:border-0 file:bg-transparent file:text-sm file:font-medium",
+              "placeholder:text-muted-foreground",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+              "disabled:cursor-not-allowed disabled:opacity-50",
+              "dark:bg-gray-700",
+            )}
+            placeholder="e.g. reward-slug-or-id"
+            maxLength={128}
+            autoComplete="off"
+          />
+          <p className="text-xs text-muted-foreground">
+            Optional. No spaces; max 128 characters.
+          </p>
+        </div>
+        <div className="space-y-2">
+          <label
+            htmlFor="kickstarterPrintItemTag"
+            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+          >
+            Kickstarter item tag (print)
+          </label>
+          <input
+            id="kickstarterPrintItemTag"
+            type="text"
+            value={formData.kickstarterPrintItemTag}
+            onChange={(e) =>
+              handleInputChange("kickstarterPrintItemTag", e.target.value)
+            }
+            className={cn(
+              "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono ring-offset-background",
+              "file:border-0 file:bg-transparent file:text-sm file:font-medium",
+              "placeholder:text-muted-foreground",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+              "disabled:cursor-not-allowed disabled:opacity-50",
+              "dark:bg-gray-700",
+            )}
+            placeholder="e.g. reward-slug-or-id"
+            maxLength={128}
+            autoComplete="off"
+          />
+          <p className="text-xs text-muted-foreground">
+            Optional. No spaces; max 128 characters.
           </p>
         </div>
 

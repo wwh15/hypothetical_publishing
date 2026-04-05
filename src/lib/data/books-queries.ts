@@ -77,6 +77,15 @@ function buildSearchWhereClause(
     params.push(`%${query}%`);
     paramIndex++;
 
+    // Kickstarter item tags (case-insensitive substring)
+    whereConditions.push(`b.kickstarter_ebook_item_tag ILIKE $${paramIndex}`);
+    params.push(`%${query}%`);
+    paramIndex++;
+
+    whereConditions.push(`b.kickstarter_print_item_tag ILIKE $${paramIndex}`);
+    params.push(`%${query}%`);
+    paramIndex++;
+
     // ISBN conditions - parameterized
     if (normalizedIsbn) {
       whereConditions.push(`b.isbn13 LIKE $${paramIndex}`);

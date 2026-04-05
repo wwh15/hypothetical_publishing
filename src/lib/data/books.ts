@@ -345,6 +345,18 @@ export async function getBooksData({
           },
         },
       },
+      {
+        kickstarterEbookItemTag: {
+          contains: query,
+          mode: "insensitive",
+        },
+      },
+      {
+        kickstarterPrintItemTag: {
+          contains: query,
+          mode: "insensitive",
+        },
+      },
     ];
 
     // Only add ISBN conditions if we have a normalized ISBN (not empty after removing dashes/spaces)
