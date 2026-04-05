@@ -23,27 +23,14 @@ import {
   SUPPORTED_CURRENCIES,
 } from "@/lib/currency-conversion";
 import { getAllowedSaleFormats } from "@/lib/validation/sale";
-import type { Distributor, SaleFormat } from "@prisma/client";
+import type { Distributor, SaleFormat, SaleSource } from "@prisma/client";
+import {
+  authorRoyaltyRatePercentForSaleSource,
+  autoPublisherRevenueUsd,
+} from "@/lib/data/books";
 
-/** Get the royalty rate (as percentage) for a book based on sale source */
-function getRateForSource(
-  book: BookListItem,
-  source: "DISTRIBUTOR" | "HAND_SOLD"
-): number {
-  return source === "HAND_SOLD"
-    ? book.handSoldRoyaltyRate
-    : book.distRoyaltyRate;
-}
-
-/** Auto-calculate revenue for hand-sold: (coverPrice - printCost) * quantity */
-function calcHandSoldRevenue(
-  book: BookListItem,
-  quantity: number
-): number | null {
-  if (quantity > 0) {
-    return (book.coverPrice - book.printCost) * quantity;
-  }
-  return null;
+function getRateForSource(book: BookListItem, source: SaleSource): number {
+  return authorRoyaltyRatePercentForSaleSource(book, source);
 }
 
 interface SalesRecordEditFormProps {
@@ -213,9 +200,9 @@ export default function SalesRecordEditForm({
     setLoading(true);
     try {
       const distributorForSave: Distributor | null =
-        formData.source === "HAND_SOLD"
-          ? null
-          : (formData.distributor ?? "OTHER");
+        formData.source === "DISTRIBUTOR"
+          ? (formData.distributor ?? "OTHER")
+          : null;
       const result = await updateSale(sale.id, {
         bookId: formData.bookId,
         date: dateCheck.data,
@@ -283,9 +270,9 @@ export default function SalesRecordEditForm({
   };
 
   const distForAllowed: Distributor | null =
-    formData.source === "HAND_SOLD"
-      ? null
-      : (formData.distributor ?? "OTHER");
+    formData.source === "DISTRIBUTOR"
+      ? (formData.distributor ?? "OTHER")
+      : null;
   const allowedFormats = getAllowedSaleFormats(formData.source, distForAllowed);
 
   const selectorValue =
@@ -313,13 +300,22 @@ export default function SalesRecordEditForm({
               let revOriginal = formData.publisherRevenueOriginal;
               let revUSD = formData.publisherRevenueUSD;
 
-              if (formData.source === "HAND_SOLD") {
+              if (
+                formData.source === "HAND_SOLD" ||
+                formData.source === "KICKSTARTER"
+              ) {
                 const qty =
                   formData.quantity ??
                   (parseInt(displayQuantity, 10) > 0
                     ? parseInt(displayQuantity, 10)
                     : 1);
-                const autoRev = calcHandSoldRevenue(book, qty) ?? 0;
+                const autoRev =
+                  autoPublisherRevenueUsd(
+                    book,
+                    qty,
+                    formData.source,
+                    formData.format
+                  ) ?? 0;
                 revOriginal = autoRev;
                 revUSD = autoRev;
                 setDisplayRevenueOriginal(revOriginal.toFixed(2));
@@ -382,7 +378,7 @@ export default function SalesRecordEditForm({
           <select
             value={formData.source}
             onChange={async (e) => {
-              const src = e.target.value as "HAND_SOLD" | "DISTRIBUTOR";
+              const src = e.target.value as SaleSource;
               const book = books.find((b) => b.id === formData.bookId);
               if (src === "HAND_SOLD") {
                 const qty =
@@ -391,7 +387,10 @@ export default function SalesRecordEditForm({
                     ? parseInt(displayQuantity, 10)
                     : 1);
                 const rev =
-                  book != null ? calcHandSoldRevenue(book, qty) ?? 0 : 0;
+                  book != null
+                    ? autoPublisherRevenueUsd(book, qty, "HAND_SOLD", "PRINT") ??
+                      0
+                    : 0;
                 const rate = book != null ? getRateForSource(book, "HAND_SOLD") : 0;
                 const roy = rev * (rate / 100);
                 setDisplayQuantity(String(qty));
@@ -404,6 +403,40 @@ export default function SalesRecordEditForm({
                   source: src,
                   distributor: null,
                   format: "PRINT",
+                  currency: "USD",
+                  quantity: qty,
+                  kenp: null,
+                  publisherRevenueOriginal: rev,
+                  publisherRevenueUSD: rev,
+                  authorRoyalty: roy,
+                }));
+                return;
+              }
+              if (src === "KICKSTARTER") {
+                const nextAllowed = getAllowedSaleFormats("KICKSTARTER", null);
+                let fmt = formData.format;
+                if (!nextAllowed.includes(fmt)) fmt = nextAllowed[0];
+                const qty =
+                  formData.quantity && formData.quantity > 0
+                    ? formData.quantity
+                    : 1;
+                const rev =
+                  book != null
+                    ? autoPublisherRevenueUsd(book, qty, "KICKSTARTER", fmt) ?? 0
+                    : 0;
+                const rate =
+                  book != null ? getRateForSource(book, "KICKSTARTER") : 0;
+                const roy = rev * (rate / 100);
+                setDisplayKenp("");
+                setDisplayQuantity(String(qty));
+                setDisplayRevenueOriginal(rev.toFixed(2));
+                setDisplayRevenueUSD(rev.toFixed(2));
+                setDisplayRoyalty(roy.toFixed(2));
+                setFormData((prev) => ({
+                  ...prev,
+                  source: src,
+                  distributor: null,
+                  format: fmt,
                   currency: "USD",
                   quantity: qty,
                   kenp: null,
@@ -436,13 +469,14 @@ export default function SalesRecordEditForm({
           >
             <option value="DISTRIBUTOR">Distributor</option>
             <option value="HAND_SOLD">Hand sold</option>
+            <option value="KICKSTARTER">Kickstarter</option>
           </select>
         </div>
 
         {/* Distributor (distributor sales only) */}
         <div>
           <label className="block text-sm font-medium mb-2">Distributor</label>
-          {formData.source === "HAND_SOLD" ? (
+          {formData.source !== "DISTRIBUTOR" ? (
             <p className="text-sm text-muted-foreground py-2">—</p>
           ) : (
             <select
@@ -519,9 +553,19 @@ export default function SalesRecordEditForm({
                   : 1;
               setDisplayQuantity(String(qty));
               setDisplayKenp("");
-              if (formData.source === "HAND_SOLD" && book) {
-                const autoRev = calcHandSoldRevenue(book, qty) ?? 0;
-                const rate = getRateForSource(book, "HAND_SOLD");
+              if (
+                (formData.source === "HAND_SOLD" ||
+                  formData.source === "KICKSTARTER") &&
+                book
+              ) {
+                const autoRev =
+                  autoPublisherRevenueUsd(
+                    book,
+                    qty,
+                    formData.source,
+                    fmt
+                  ) ?? 0;
+                const rate = getRateForSource(book, formData.source);
                 const roy = autoRev * (rate / 100);
                 setDisplayRevenueOriginal(autoRev.toFixed(2));
                 setDisplayRevenueUSD(autoRev.toFixed(2));
@@ -531,6 +575,7 @@ export default function SalesRecordEditForm({
                   format: fmt,
                   quantity: qty,
                   kenp: null,
+                  currency: "USD",
                   publisherRevenueOriginal: autoRev,
                   publisherRevenueUSD: autoRev,
                   authorRoyalty: roy,
@@ -540,7 +585,7 @@ export default function SalesRecordEditForm({
                   formData.publisherRevenueOriginal,
                   formData.currency
                 );
-                const rate = getRateForSource(book, "DISTRIBUTOR");
+                const rate = getRateForSource(book, formData.source);
                 const roy = usd * (rate / 100);
                 setDisplayRevenueUSD(usd.toFixed(2));
                 setDisplayRoyalty(roy.toFixed(2));
@@ -573,7 +618,7 @@ export default function SalesRecordEditForm({
               </option>
             ))}
           </select>
-          {allowedFormats.length === 0 && (
+          {allowedFormats.length === 0 && formData.source === "DISTRIBUTOR" && (
             <p className="text-xs text-amber-600 mt-1">
               Choose a distributor to see allowed formats.
             </p>
@@ -609,17 +654,27 @@ export default function SalesRecordEditForm({
                     const next = { ...prev, quantity: qty };
                     const book = books.find((b) => b.id === prev.bookId);
 
-                    if (prev.source === "HAND_SOLD" && book) {
-                      const autoRev = calcHandSoldRevenue(book, qty) ?? 0;
+                    if (
+                      (prev.source === "HAND_SOLD" ||
+                        prev.source === "KICKSTARTER") &&
+                      book
+                    ) {
+                      const autoRev =
+                        autoPublisherRevenueUsd(
+                          book,
+                          qty,
+                          prev.source,
+                          prev.format
+                        ) ?? 0;
                       next.publisherRevenueOriginal = autoRev;
                       next.publisherRevenueUSD = autoRev;
                       setDisplayRevenueOriginal(autoRev.toFixed(2));
                       setDisplayRevenueUSD(autoRev.toFixed(2));
-                      const rate = getRateForSource(book, "HAND_SOLD");
+                      const rate = getRateForSource(book, prev.source);
                       next.authorRoyalty = autoRev * (rate / 100);
                       setDisplayRoyalty(next.authorRoyalty.toFixed(2));
                     } else if (book) {
-                      const rate = getRateForSource(book, "DISTRIBUTOR");
+                      const rate = getRateForSource(book, prev.source);
                       const newRoyalty =
                         prev.publisherRevenueUSD * (rate / 100);
                       next.authorRoyalty = newRoyalty;
@@ -675,7 +730,7 @@ export default function SalesRecordEditForm({
           </div>
         )}
 
-        {/* Currency (distributor only) */}
+        {/* Currency (distributor only — hand sold / Kickstarter are USD) */}
         {formData.source === "DISTRIBUTOR" && (
           <div>
             <label className="block text-sm font-medium mb-2">
@@ -722,15 +777,23 @@ export default function SalesRecordEditForm({
             inputMode="decimal"
             placeholder="0.00"
             value={displayRevenueOriginal}
-            readOnly={formData.source === "HAND_SOLD"}
+            readOnly={
+              formData.source === "HAND_SOLD" ||
+              formData.source === "KICKSTARTER"
+            }
             className={cn(
               "w-full px-3 py-2 border rounded-md transition-colors dark:bg-gray-800",
               errors.publisherRevenue ? "border-red-500" : "border-gray-300 dark:border-gray-600",
-              formData.source === "HAND_SOLD" &&
+              (formData.source === "HAND_SOLD" ||
+                formData.source === "KICKSTARTER") &&
                 "bg-gray-100 dark:bg-gray-700 cursor-not-allowed"
             )}
             onChange={(e) => {
-              if (formData.source === "HAND_SOLD") return;
+              if (
+                formData.source === "HAND_SOLD" ||
+                formData.source === "KICKSTARTER"
+              )
+                return;
 
               const val = e.target.value;
               setDisplayRevenueOriginal(val);
@@ -774,6 +837,7 @@ export default function SalesRecordEditForm({
             onBlur={() => {
               if (
                 formData.source === "HAND_SOLD" ||
+                formData.source === "KICKSTARTER" ||
                 displayRevenueOriginal === ""
               )
                 return;
@@ -807,8 +871,9 @@ export default function SalesRecordEditForm({
             className="w-full px-3 py-2 border rounded-md bg-gray-50 dark:bg-gray-800 text-gray-500 cursor-not-allowed"
           />
           <p className="text-xs text-muted-foreground mt-1">
-            {formData.source === "HAND_SOLD"
-              ? "Calculated automatically from book costs."
+            {formData.source === "HAND_SOLD" ||
+            formData.source === "KICKSTARTER"
+              ? "Calculated from cover price and print cost × quantity (Kickstarter ebook: print cost treated as 0). USD only."
               : `Converted from ${formData.currency} to USD using current exchange rates.`}
           </p>
         </div>

@@ -1,9 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type { Distributor, SaleFormat } from "@prisma/client";
+import type { Distributor, SaleFormat, SaleSource } from "@prisma/client";
 import { PendingSaleItem } from "@/lib/data/records";
-import { BookListItem } from "@/lib/data/books";
+import {
+  BookListItem,
+  authorRoyaltyRatePercentForSaleSource,
+  autoPublisherRevenueUsd,
+} from "@/lib/data/books";
 import {
   validateDatePeriod,
   normalizeCurrency,
@@ -31,7 +35,7 @@ interface FormData {
   authorRoyalty: string;
   comment: string;
   currency: string;
-  source: "DISTRIBUTOR" | "HAND_SOLD";
+  source: "DISTRIBUTOR" | "HAND_SOLD" | "KICKSTARTER";
   distributor: Distributor;
   format: SaleFormat;
 }
@@ -43,23 +47,15 @@ function distributorForValidation(
   return source === "DISTRIBUTOR" ? d : null;
 }
 
-function calcHandSoldPublisherRevenueUSD(
-  book: BookListItem,
-  quantity: number
-): string {
-  if (quantity > 0) {
-    const rev = (book.coverPrice - (book.printCost ?? 0)) * quantity;
-    return rev.toFixed(2);
-  }
-  return "0.00";
-}
-
 /** Coerce format/distributor/source rules after a field change */
 function coerceSaleForm(next: FormData, changedField: string): FormData {
   let n = { ...next };
 
   if (n.source === "HAND_SOLD") {
     n = { ...n, format: "PRINT", kenp: "" };
+  }
+  if (n.source === "KICKSTARTER") {
+    n = { ...n, kenp: "" };
   }
 
   // KU is only valid for Amazon; picking KU switches distributor to Amazon (not when user picks Other/etc.)
@@ -101,10 +97,16 @@ function applyDerivedValues(
   const book = bookList.find((b) => b.id === parseInt(next.bookId, 10));
   if (!book) return next;
 
-  if (next.source === "HAND_SOLD") {
+  if (next.source === "HAND_SOLD" || next.source === "KICKSTARTER") {
     next.currency = "USD";
     const qty = normalizeQuantity(next.quantity);
-    const revUsdStr = calcHandSoldPublisherRevenueUSD(book, qty);
+    const revNum = autoPublisherRevenueUsd(
+      book,
+      qty,
+      next.source as SaleSource,
+      next.format
+    );
+    const revUsdStr = (revNum ?? 0).toFixed(2);
     next.publisherRevenueOriginal = revUsdStr;
     next.publisherRevenueUSD = revUsdStr;
   } else if (forceCurrencyUpdate) {
@@ -129,10 +131,10 @@ function applyDerivedValues(
   }
 
   const revUsdNum = normalizeCurrency(next.publisherRevenueUSD);
-  const ratePct =
-    next.source === "HAND_SOLD"
-      ? book.handSoldRoyaltyRate
-      : book.distRoyaltyRate;
+  const ratePct = authorRoyaltyRatePercentForSaleSource(
+    book,
+    next.source as SaleSource
+  );
   next.authorRoyalty = (
     (revUsdNum * (ratePct ?? 0)) /
     100
@@ -236,13 +238,15 @@ export function useSalesForm(
   
     // 5. Derived revenue / royalty (sync using cached USD rates)
     const isMoneyField = field === "publisherRevenueOriginal" || field === "currency";
-    const isHandSoldQty = field === "quantity" && next.source === "HAND_SOLD";
-    
+    const isAutoRevenueQty =
+      field === "quantity" &&
+      (next.source === "HAND_SOLD" || next.source === "KICKSTARTER");
+
     // These fields require an update to Royalty or Revenue
     const triggerFields = ["quantity", "publisherRevenueOriginal", "currency", "bookId", "source", "format"];
-  
+
     if (triggerFields.includes(field)) {
-      const needsCurrency = isMoneyField || isHandSoldQty;
+      const needsCurrency = isMoneyField || isAutoRevenueQty;
       const updatedData = applyDerivedValues(
         next,
         usdRates,

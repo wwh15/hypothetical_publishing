@@ -12,11 +12,27 @@ import {
   saleDistributorBadge,
   saleFormatBadge,
 } from "@/lib/table-configs/sales-columns";
+import type { SaleSource } from "@prisma/client";
 
 interface SalesRecordViewProps {
   sale: SaleDetailPayload;
   onEdit: () => void;
 }
+
+const SOURCE_BADGE_CLASS: Record<SaleSource, string> = {
+  DISTRIBUTOR:
+    "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200",
+  HAND_SOLD:
+    "bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-200",
+  KICKSTARTER:
+    "bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-100",
+};
+
+const SOURCE_LABEL: Record<SaleSource, string> = {
+  DISTRIBUTOR: "Distributor",
+  HAND_SOLD: "Hand Sold",
+  KICKSTARTER: "Kickstarter",
+};
 
 export default function SalesRecordView({ sale, onEdit }: SalesRecordViewProps) {
   const router = useRouter();
@@ -152,12 +168,10 @@ export default function SalesRecordView({ sale, onEdit }: SalesRecordViewProps) 
             <span
               className={cn(
                 "inline-flex items-center rounded-full px-3 py-1 text-sm font-medium",
-                sale.source === "HAND_SOLD"
-                  ? "bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-200"
-                  : "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200"
+                SOURCE_BADGE_CLASS[sale.source]
               )}
             >
-              {sale.source === "HAND_SOLD" ? "Hand Sold" : "Distributor"}
+              {SOURCE_LABEL[sale.source]}
             </span>
           </p>
         </div>

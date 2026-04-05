@@ -1,5 +1,5 @@
 // lib/data/records.ts
-import { Prisma } from "@prisma/client";
+import { Prisma, type SaleSource } from "@prisma/client";
 import { prisma } from "../prisma";
 import { Decimal } from "@prisma/client/runtime/library";
 import { validateSaleRecord } from "../validation/sale";
@@ -20,7 +20,7 @@ export interface SaleListItem {
   authorRoyalty: number;
   paid: "paid" | "pending";
   comment: string | null;
-  source: "DISTRIBUTOR" | "HAND_SOLD";
+  source: SaleSource;
 }
 
 /** Staging row before DB insert; `id` disambiguates duplicate lines in the UI. */
@@ -40,7 +40,7 @@ export interface PendingSaleItem {
   authorRoyalty: number;
   paid: boolean;
   comment?: string | null;
-  source: "DISTRIBUTOR" | "HAND_SOLD";
+  source: SaleSource;
 }
 
 // This represents the data AFTER it has been converted to numbers
@@ -57,7 +57,7 @@ export type SaleDetailPayload = {
   authorRoyalty: number;
   paid: boolean;
   comment: string | null;
-  source: "DISTRIBUTOR" | "HAND_SOLD";
+  source: SaleSource;
   book: {
     id: number;
     title: string;
@@ -79,7 +79,7 @@ export interface UpdateSaleItem {
   authorRoyalty?: number;
   paid?: boolean;
   comment?: string | null;
-  source?: "DISTRIBUTOR" | "HAND_SOLD";
+  source?: SaleSource;
   distributor?: "INGRAM_SPARK" | "AMAZON" | "OTHER" | null;
   format?: "PRINT" | "EBOOK" | "KINDLE_UNLIMITED";
 }
@@ -176,7 +176,7 @@ export interface GetSalesDataParams {
   sortDir?: "asc" | "desc";
   dateFrom?: string; // YYYY-MM (parsed in parseDate)
   dateTo?: string; // YYYY-MM (parsed in parseDate)
-  source?: "DISTRIBUTOR" | "HAND_SOLD";
+  source?: SaleSource;
   distributor?: "INGRAM_SPARK" | "AMAZON" | "OTHER";
   format?: "PRINT" | "EBOOK" | "KINDLE_UNLIMITED";
   pagination?: boolean;
@@ -298,7 +298,7 @@ export async function asyncAddSalesBulk(records: PendingSaleItem[]) {
       quantity: record.quantity,
       kenp: record.kenp,
       format: record.format,
-      // Logic: Distributor is null if it's Handsold
+      // Distributor only when source is DISTRIBUTOR
       distributor: record.source === "DISTRIBUTOR" ? record.distributor : null,
       publisherRevenueUSD: record.publisherRevenueUSD,
       publisherRevenueOriginal: record.publisherRevenueOriginal,
@@ -414,7 +414,7 @@ export function toSaleListItem(sale: {
   authorRoyalty: Decimal;
   paid: boolean;
   comment: string | null;
-  source: "DISTRIBUTOR" | "HAND_SOLD";
+  source: SaleSource;
   book: { title: string; author: { name: string } };
 }): SaleListItem {
   return {

@@ -1,4 +1,4 @@
-import { Prisma } from "@prisma/client";
+import { Prisma, type SaleFormat, type SaleSource } from "@prisma/client";
 import { prisma } from "../prisma";
 import {
   uploadCoverArt as uploadCoverArtToStorage,
@@ -29,7 +29,8 @@ export interface BookListItem {
   /** YYYY-MM string for sorting */
   publicationSortKey: string;
   distRoyaltyRate: number; // Distributor royalty as percentage (e.g., 50 for 50%)
-  handSoldRoyaltyRate: number; // Hand-sold royalty as percentage (e.g., 20 for 20%)
+  /** Author royalty % for hand sold and Kickstarter sales (same field in DB as historically “hand sold only”). */
+  handSoldRoyaltyRate: number;
   coverPrice: number; // Retail cover price
   printCost: number; // Cost to print one copy
   totalSales: number;
@@ -68,6 +69,41 @@ export function authorRoyaltyTotalsFromSales(
   return { totalAuthorRoyalty, paidAuthorRoyalty, unpaidAuthorRoyalty };
 }
 
+/**
+ * Author royalty percentage (of publisher revenue in USD) for a sale source.
+ * Hand sold and Kickstarter use {@link BookListItem.handSoldRoyaltyRate}; distributor sales use dist rate.
+ */
+export function authorRoyaltyRatePercentForSaleSource(
+  book: Pick<BookListItem, "distRoyaltyRate" | "handSoldRoyaltyRate">,
+  source: SaleSource
+): number {
+  if (source === "HAND_SOLD" || source === "KICKSTARTER") {
+    return book.handSoldRoyaltyRate;
+  }
+  return book.distRoyaltyRate;
+}
+
+/**
+ * USD publisher revenue computed from book pricing for hand-sold and Kickstarter.
+ * Hand sold: (cover − print cost) × qty. Kickstarter print: same; Kickstarter ebook: cover × qty (print cost treated as 0).
+ */
+export function autoPublisherRevenueUsd(
+  book: Pick<BookListItem, "coverPrice" | "printCost">,
+  quantity: number,
+  source: SaleSource,
+  format: SaleFormat
+): number | null {
+  if (!Number.isFinite(quantity) || quantity < 1) return null;
+  if (source === "HAND_SOLD") {
+    return (book.coverPrice - book.printCost) * quantity;
+  }
+  if (source === "KICKSTARTER") {
+    const printCostPerUnit = format === "EBOOK" ? 0 : book.printCost;
+    return (book.coverPrice - printCostPerUnit) * quantity;
+  }
+  return null;
+}
+
 // Series type for UI
 export interface SeriesListItem {
   id: number;
@@ -89,7 +125,8 @@ export interface CreateBookInput {
   /** First day of publication month (e.g. new Date(2024, 0, 1) for Jan 2024) */
   publicationDate: Date;
   distRoyaltyRate?: number; // Distributor royalty percentage (e.g., 50), default handled by server
-  handSoldRoyaltyRate?: number; // Hand-sold royalty percentage (e.g., 20), default handled by server
+  /** Hand sold / Kickstarter author royalty percentage (e.g., 20), default handled by server */
+  handSoldRoyaltyRate?: number;
   coverPrice: number; // Retail cover price
   printCost: number; // Cost to print one copy
   seriesId?: number | null; // Existing series ID, or null for no series
@@ -127,6 +164,7 @@ export interface BookDetail {
   /** First day of publication month */
   publicationDate: Date;
   distRoyaltyRate: number;
+  /** Author % for hand sold and Kickstarter sales (same DB field as historically “hand sold only”). */
   handSoldRoyaltyRate: number;
   coverPrice: number;
   printCost: number;

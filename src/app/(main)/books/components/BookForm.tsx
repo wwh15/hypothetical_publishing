@@ -332,7 +332,7 @@ export default function BookForm({
       return;
     }
     if (handSoldRate !== undefined && (handSoldRate < 0 || handSoldRate > 100)) {
-      setError("Hand-sold royalty rate must be between 0 and 100");
+      setError("Hand sold / Kickstarter royalty rate must be between 0 and 100");
       setIsSubmitting(false);
       return;
     }
@@ -891,13 +891,13 @@ export default function BookForm({
           </p>
         </div>
 
-        {/* Hand-Sold Royalty Rate */}
+        {/* Hand sold / Kickstarter royalty rate */}
         <div className="space-y-2">
           <label
             htmlFor="handSoldRoyaltyRate"
             className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
           >
-            Hand-Sold Royalty Rate (%)
+            Hand sold / Kickstarter royalty rate (%)
           </label>
           <input
             id="handSoldRoyaltyRate"
@@ -920,7 +920,9 @@ export default function BookForm({
             step="0.1"
           />
           <p className="text-xs text-muted-foreground">
-            Default: 20%. Percentage of (cover price - print cost) that goes to author for hand-sold copies.
+            Default: 20%. Used as the author&apos;s share of publisher revenue for hand sold copies
+            (as a % of (cover price − print cost) × quantity) and for Kickstarter sales (as a % of
+            publisher revenue in USD).
           </p>
         </div>
 

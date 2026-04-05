@@ -10,6 +10,7 @@ import { Decimal } from "@prisma/client/runtime/library";
 
 const prisma = new PrismaClient();
 
+// royalty_percent_handsold: author % for hand sold and Kickstarter sales (DB column name unchanged)
 const BOOKS_CSV = `title,author,series_name,series_index,isbn13,isbn10,asin,publish_date,print_cost,cover_price,royalty_percent_distribution,royalty_percent_handsold,cover_image
 "The Long Way to a Small, Angry Planet",Becky Chambers,Wayfarers,1,9780062444134,0062444131,B00ZP64F28,2014/07,6,14.99,50,20,9780062444134.jpg
 A Closed and Common Orbit,Becky Chambers,Wayfarers,2,9780062569400,0062569406,B01CNLOZ3G,2016/10,5,12.99,50,20,

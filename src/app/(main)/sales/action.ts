@@ -17,7 +17,7 @@ import asyncGetSalesData, {
   asyncAddSalesBulk,
 } from "@/lib/data/records";
 import { normalizeQuantity } from "@/lib/validation";
-import { Prisma } from "@prisma/client";
+import { Prisma, type SaleSource } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -213,6 +213,7 @@ const FORMAT_LABELS: Record<string, string> = {
 const SOURCE_LABELS: Record<string, string> = {
   HAND_SOLD: "Handsold",
   DISTRIBUTOR: "Distributor",
+  KICKSTARTER: "Kickstarter",
 };
 
 const DISTRIBUTOR_LABELS: Record<string, string> = {
@@ -239,7 +240,7 @@ export async function exportSalesToCsvAction(params: {
   sortDir?: "asc" | "desc";
   dateFrom?: string;
   dateTo?: string;
-  source?: "DISTRIBUTOR" | "HAND_SOLD";
+  source?: SaleSource;
   distributor?: "INGRAM_SPARK" | "AMAZON" | "OTHER";
   format?: "PRINT" | "EBOOK" | "KINDLE_UNLIMITED";
 }) {
@@ -281,11 +282,11 @@ export async function exportSalesToCsvAction(params: {
       const displaySource = SOURCE_LABELS[sale.source] || sale.source;
       const displayFormat = FORMAT_LABELS[sale.format] || sale.format;
       const displayDistributor =
-        sale.source === "HAND_SOLD"
+        sale.source === "HAND_SOLD" || sale.source === "KICKSTARTER"
           ? "N/A"
           : sale.distributor
-          ? DISTRIBUTOR_LABELS[sale.distributor]
-          : "Other";
+            ? DISTRIBUTOR_LABELS[sale.distributor]
+            : "Other";
 
       // 2. Logic for Format-Specific Columns
       const quantity =

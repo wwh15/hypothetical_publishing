@@ -150,7 +150,9 @@ export default async function BookDetailPage({ params, searchParams }: PageProps
               </>
             )}
             <div>
-              <label className="text-sm font-medium text-muted-foreground">Hand-Sold Royalty Rate</label>
+              <label className="text-sm font-medium text-muted-foreground">
+                Hand sold / Kickstarter royalty rate
+              </label>
               <p className="text-lg">{book.handSoldRoyaltyRate}%</p>
             </div>
             <div>

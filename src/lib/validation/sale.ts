@@ -12,6 +12,7 @@ const FORMAT_BY_SOURCE_DISTRIBUTOR: Record<
   readonly SaleFormat[]
 > = {
   HAND_SOLD: ["PRINT"],
+  KICKSTARTER: ["PRINT", "EBOOK"],
   DISTRIBUTOR_INGRAM_SPARK: ["PRINT"],
   DISTRIBUTOR_AMAZON: ["PRINT", "EBOOK", "KINDLE_UNLIMITED"],
   DISTRIBUTOR_OTHER: ["PRINT", "EBOOK"],
@@ -19,6 +20,7 @@ const FORMAT_BY_SOURCE_DISTRIBUTOR: Record<
 
 function allowedFormats(source: SaleSource, distributor: Distributor | null): readonly SaleFormat[] {
   if (source === "HAND_SOLD") return FORMAT_BY_SOURCE_DISTRIBUTOR.HAND_SOLD;
+  if (source === "KICKSTARTER") return FORMAT_BY_SOURCE_DISTRIBUTOR.KICKSTARTER;
   if (distributor === "INGRAM_SPARK") return FORMAT_BY_SOURCE_DISTRIBUTOR.DISTRIBUTOR_INGRAM_SPARK;
   if (distributor === "AMAZON") return FORMAT_BY_SOURCE_DISTRIBUTOR.DISTRIBUTOR_AMAZON;
   if (distributor === "OTHER") return FORMAT_BY_SOURCE_DISTRIBUTOR.DISTRIBUTOR_OTHER;
@@ -53,12 +55,15 @@ export interface SaleValidationInput {
 export function validateSaleRecord(input: SaleValidationInput): ValidationResult<SaleValidationInput> {
   const { source, distributor, format, quantity, kenp, currency, comment } = input;
 
-  // Distributor: required when source = DISTRIBUTOR, null when HAND_SOLD
+  // Distributor: required when source = DISTRIBUTOR; null for hand sold and Kickstarter
   if (source === "DISTRIBUTOR" && distributor == null) {
     return { success: false, error: "Distributor is required when sale source is distributor." };
   }
-  if (source === "HAND_SOLD" && distributor != null) {
-    return { success: false, error: "Distributor must be unspecified when sale source is handsold." };
+  if ((source === "HAND_SOLD" || source === "KICKSTARTER") && distributor != null) {
+    return {
+      success: false,
+      error: "Distributor must be unspecified when sale source is hand sold or Kickstarter.",
+    };
   }
 
   // Format vs source/distributor
@@ -98,13 +103,16 @@ export function validateSaleRecord(input: SaleValidationInput): ValidationResult
     return { success: false, error: "KENP must be unspecified when format is not kindle unlimited." };
   }
 
-  // Currency: three-letter uppercase; locked to USD for handsold
+  // Currency: three-letter uppercase; locked to USD for hand sold and Kickstarter (auto revenue)
   const curr = String(currency).trim().toUpperCase();
   if (curr.length !== 3) {
     return { success: false, error: "Currency must be a three-letter code (e.g. USD)." };
   }
-  if (source === "HAND_SOLD" && curr !== "USD") {
-    return { success: false, error: "Currency must be USD for handsold records." };
+  if ((source === "HAND_SOLD" || source === "KICKSTARTER") && curr !== "USD") {
+    return {
+      success: false,
+      error: "Currency must be USD for hand sold and Kickstarter records.",
+    };
   }
 
   // Revenue and royalty non-negative
@@ -130,8 +138,11 @@ export function validateSaleCurrency(
   if (code.length !== 3) {
     return { success: false, error: "Currency must be a three-letter code (e.g. USD)." };
   }
-  if (source === "HAND_SOLD" && code !== "USD") {
-    return { success: false, error: "Currency is locked to USD for handsold records." };
+  if ((source === "HAND_SOLD" || source === "KICKSTARTER") && code !== "USD") {
+    return {
+      success: false,
+      error: "Currency is locked to USD for hand sold and Kickstarter records.",
+    };
   }
   return { success: true, data: code };
 }
