@@ -158,12 +158,6 @@ const enhancedColumns = useMemo(() => {
     });
   }, [sortBy, sortDir, handleSortChange]);
 
-  const handleRowClick =
-    onRowClick ||
-    ((author: AuthorListItem) => {
-      router.push(`/authors/${author.id}`);
-    });
-
   const handleToggleShowAll = () => {
     const params = buildQueryParams({
       showAll: !showAll,
@@ -221,7 +215,11 @@ const enhancedColumns = useMemo(() => {
         columns={enhancedColumns}
         data={rows}
         emptyMessage={"No authors records"}
-        onRowClick={handleRowClick}
+        getRowHref={
+          onRowClick ? undefined : (author) => `/authors/${author.id}`
+        }
+        getRowLinkLabel={(author) => `Author: ${author.name}`}
+        onRowClick={onRowClick}
       />
 
       {totalPages > 1 && !showAll && (

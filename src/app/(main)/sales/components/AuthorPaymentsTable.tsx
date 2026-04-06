@@ -16,6 +16,7 @@ import {
   getPresetColumns,
   saleListRowClassNameForBookReleased,
 } from "@/lib/table-configs/sales-columns";
+import { createSalesRecordPath } from "@/lib/table-configs/navigation";
 import {
   Dialog,
   DialogContent,
@@ -154,10 +155,6 @@ export default function AuthorPaymentsTable({
     setOpenIds((prev) =>
       prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
     );
-  };
-
-  const handleRowClick = (sale: SaleListItem) => {
-    router.push(`/sales/records/${sale.id}?from=payments`);
   };
 
   const handlePageChange = (page: number) => {
@@ -364,7 +361,16 @@ export default function AuthorPaymentsTable({
                     columns={columns}
                     data={group.sales}
                     emptyMessage={`${group.author} has no recorded sales.`}
-                    onRowClick={handleRowClick}
+                    getRowHref={(sale) =>
+                      createSalesRecordPath(sale.id, "/sales/records", {
+                        from: "payments",
+                      })
+                    }
+                    getRowLinkLabel={(sale) =>
+                      sale.title
+                        ? `Sale: ${sale.title}`
+                        : `Sale record ${sale.id}`
+                    }
                     getRowClassName={saleListRowClassNameForBookReleased}
                   />
                 </div>

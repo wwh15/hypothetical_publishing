@@ -45,10 +45,6 @@ export default function BooksTable({
     [total, pageSize],
   );
 
-  const handleRowClick = (book: BookListItem) => {
-    router.push(`/books/${book.id}`);
-  };
-
   const columns: ColumnDef<BookListItem>[] = useMemo(() => {
     const core: ColumnDef<BookListItem>[] = [
       {
@@ -303,7 +299,10 @@ export default function BooksTable({
               ? "No books match your search"
               : "No books found"
         }
-        onRowClick={handleRowClick}
+        getRowHref={(book) => `/books/${book.id}`}
+        getRowLinkLabel={(book) =>
+          book.title ? `Book: ${book.title}` : `Book ${book.id}`
+        }
         sortColumns={embedded ? [] : sortColumns}
         onMultiSortChange={embedded ? undefined : handleMultiSortChange}
         showPagination={false}

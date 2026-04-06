@@ -125,6 +125,7 @@ export default function SalesRowsTable({
       // Check if we are sorting by the current column
       const isSorted = sortBy === col.key;
       const label = col.header as string;
+      const sortLabel = col.headerTitle ?? label;
 
       // Update the header of the current column
       return {
@@ -132,7 +133,7 @@ export default function SalesRowsTable({
         header: (
           <div className="w-full min-w-0 max-w-full">
             <div className="flex min-w-0 items-center gap-0.5 font-semibold">
-              <span className="min-w-0 flex-1 truncate" title={label}>
+              <span className="min-w-0 flex-1 truncate" title={sortLabel}>
                 {label}
               </span>
               <button
@@ -150,7 +151,7 @@ export default function SalesRowsTable({
                   "shrink-0 p-0.5 rounded hover:bg-muted transition-colors",
                   isSorted && "text-blue-600 bg-blue-50 dark:bg-blue-900/20"
                 )}
-                aria-label={`Sort by ${label}`}
+                aria-label={`Sort by ${sortLabel}`}
               >
                 {!isSorted ? (
                   <ArrowUpDown className="w-4 h-4 text-muted-foreground" />
@@ -167,17 +168,19 @@ export default function SalesRowsTable({
     });
   }, [visibleColumns, preset, sortBy, sortDir, handleSortChange]);
 
-  const handleRowClick = (row: SaleListItem) => {
-    if (navigationContext) {
-      const params: Record<string, string> = {};
-      Object.entries(navigationContext).forEach(([key, value]) => {
-        if (value !== undefined) params[key] = String(value);
-      });
-      router.push(createSalesRecordPath(row.id, "/sales/records", params));
-    } else {
-      router.push(createSalesRecordPath(row.id));
-    }
-  };
+  const resolveSaleRecordHref = useCallback(
+    (row: SaleListItem) => {
+      if (navigationContext) {
+        const params: Record<string, string> = {};
+        Object.entries(navigationContext).forEach(([key, value]) => {
+          if (value !== undefined) params[key] = String(value);
+        });
+        return createSalesRecordPath(row.id, "/sales/records", params);
+      }
+      return createSalesRecordPath(row.id);
+    },
+    [navigationContext]
+  );
 
   if (hasPagination) {
     return (
@@ -189,7 +192,10 @@ export default function SalesRowsTable({
           columns={columns}
           data={rows}
           emptyMessage="No sales found"
-          onRowClick={handleRowClick}
+          getRowHref={resolveSaleRecordHref}
+          getRowLinkLabel={(row) =>
+            row.title ? `Sale: ${row.title}` : `Sale record ${row.id}`
+          }
           getRowClassName={saleListRowClassNameForBookReleased}
         />
         {totalPages > 1 && (
@@ -210,7 +216,10 @@ export default function SalesRowsTable({
       columns={columns}
       data={rows}
       emptyMessage="No sales found"
-      onRowClick={handleRowClick}
+      getRowHref={resolveSaleRecordHref}
+      getRowLinkLabel={(row) =>
+        row.title ? `Sale: ${row.title}` : `Sale record ${row.id}`
+      }
       getRowClassName={saleListRowClassNameForBookReleased}
     />
   );

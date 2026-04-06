@@ -170,8 +170,8 @@ function parseDate(
 }
 
 
-/** Filter list sales by whether the book is released (real) or not (projected). */
-export type SaleReleaseFilter = "projected" | "real";
+/** Filter list sales by whether the book is released (realized) or not (projected). */
+export type SaleReleaseFilter = "projected" | "realized";
 
 export interface GetSalesDataParams {
   search?: string;
@@ -184,7 +184,7 @@ export interface GetSalesDataParams {
   source?: SaleSource;
   distributor?: "INGRAM_SPARK" | "AMAZON" | "OTHER";
   format?: "PRINT" | "EBOOK" | "KINDLE_UNLIMITED";
-  /** projected = book.released false; real = book.released true */
+  /** projected = book.released false; realized = book.released true */
   saleRelease?: SaleReleaseFilter;
   pagination?: boolean;
 }
@@ -218,7 +218,7 @@ export async function getSalesData({
 
   if (saleRelease === "projected") {
     where.book = { released: false };
-  } else if (saleRelease === "real") {
+  } else if (saleRelease === "realized") {
     where.book = { released: true };
   }
 

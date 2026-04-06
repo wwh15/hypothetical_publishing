@@ -274,7 +274,7 @@ export async function exportSalesToCsvAction(params: {
       "Pub. Revenue (Original)",
       "Pub. Revenue (USD)",
       "Author Royalty (USD)",
-      "Royalty Status",
+      "Status",
       "Comment",
     ];
 
