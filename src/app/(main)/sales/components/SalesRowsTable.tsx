@@ -168,17 +168,19 @@ export default function SalesRowsTable({
     });
   }, [visibleColumns, preset, sortBy, sortDir, handleSortChange]);
 
-  const handleRowClick = (row: SaleListItem) => {
-    if (navigationContext) {
-      const params: Record<string, string> = {};
-      Object.entries(navigationContext).forEach(([key, value]) => {
-        if (value !== undefined) params[key] = String(value);
-      });
-      router.push(createSalesRecordPath(row.id, "/sales/records", params));
-    } else {
-      router.push(createSalesRecordPath(row.id));
-    }
-  };
+  const resolveSaleRecordHref = useCallback(
+    (row: SaleListItem) => {
+      if (navigationContext) {
+        const params: Record<string, string> = {};
+        Object.entries(navigationContext).forEach(([key, value]) => {
+          if (value !== undefined) params[key] = String(value);
+        });
+        return createSalesRecordPath(row.id, "/sales/records", params);
+      }
+      return createSalesRecordPath(row.id);
+    },
+    [navigationContext]
+  );
 
   if (hasPagination) {
     return (
@@ -190,7 +192,10 @@ export default function SalesRowsTable({
           columns={columns}
           data={rows}
           emptyMessage="No sales found"
-          onRowClick={handleRowClick}
+          getRowHref={resolveSaleRecordHref}
+          getRowLinkLabel={(row) =>
+            row.title ? `Sale: ${row.title}` : `Sale record ${row.id}`
+          }
           getRowClassName={saleListRowClassNameForBookReleased}
         />
         {totalPages > 1 && (
@@ -211,7 +216,10 @@ export default function SalesRowsTable({
       columns={columns}
       data={rows}
       emptyMessage="No sales found"
-      onRowClick={handleRowClick}
+      getRowHref={resolveSaleRecordHref}
+      getRowLinkLabel={(row) =>
+        row.title ? `Sale: ${row.title}` : `Sale record ${row.id}`
+      }
       getRowClassName={saleListRowClassNameForBookReleased}
     />
   );

@@ -1,8 +1,9 @@
 /**
  * Simple navigation helpers
- * 
- * Pages control navigation via getRowHref or onRowClick props.
- * These helpers are just convenience functions for common patterns.
+ *
+ * Tables use `getRowHref` on `BaseDataTable` for real `<a href>` row links
+ * (native new tab / middle-click / context menu); `onRowClick` is a fallback
+ * when a custom handler is needed instead of URLs.
  */
 
 /**

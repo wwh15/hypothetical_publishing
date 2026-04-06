@@ -271,19 +271,19 @@ export default function SalesRecordsTable({
     });
   }, [visibleColumns, preset, sortBy, sortDir, handleSortChange]);
 
-  const handleRowClick =
-    onRowClick ||
-    ((row: SaleListItem) => {
+  const resolveSaleRecordHref = useCallback(
+    (row: SaleListItem) => {
       if (navigationContext) {
         const params: Record<string, string> = {};
         Object.entries(navigationContext).forEach(([key, value]) => {
           if (value !== undefined) params[key] = String(value);
         });
-        router.push(createSalesRecordPath(row.id, "/sales/records", params));
-      } else {
-        router.push(createSalesRecordPath(row.id));
+        return createSalesRecordPath(row.id, "/sales/records", params);
       }
-    });
+      return createSalesRecordPath(row.id);
+    },
+    [navigationContext]
+  );
 
   const filterSelectClass = cn(
     "h-10 w-full min-w-0 border border-gray-300 dark:border-gray-700 rounded-lg",
@@ -431,7 +431,11 @@ export default function SalesRecordsTable({
             ? "No records match your filters"
             : "No sales records"
         }
-        onRowClick={handleRowClick}
+        getRowHref={onRowClick ? undefined : resolveSaleRecordHref}
+        getRowLinkLabel={(row) =>
+          row.title ? `Sale: ${row.title}` : `Sale record ${row.id}`
+        }
+        onRowClick={onRowClick}
         getRowClassName={saleListRowClassNameForBookReleased}
       />
 
