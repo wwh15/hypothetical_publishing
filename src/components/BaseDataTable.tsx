@@ -11,6 +11,8 @@ import { cn } from '@/lib/utils';
 export interface ColumnDef<T> {
     key: string;
     header: string | React.ReactNode;
+    /** Native tooltip when `header` is short (e.g. abbreviated column titles). */
+    headerTitle?: string;
     render: (row: T) => React.ReactNode;
     /** Applied to body cells (`td`) only — width/layout constraints belong here so headers can fit sort controls. */
     className?: string;
@@ -44,6 +46,7 @@ export function BaseDataTable<T>({
                         {columns.map((column) => (
                             <th 
                                 key={column.key} 
+                                title={column.headerTitle}
                                 className={cn(
                                     "min-w-0 overflow-hidden px-2 py-2 text-left text-sm font-medium align-top",
                                     column.headerClassName

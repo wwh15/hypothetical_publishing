@@ -74,9 +74,11 @@ export default async function SalesRecordsPage({
 
   const rawRelease = params?.release;
   const saleRelease: SaleReleaseFilter | undefined =
-    rawRelease === "projected" || rawRelease === "real"
-      ? rawRelease
-      : undefined;
+    rawRelease === "projected"
+      ? "projected"
+      : rawRelease === "realized" || rawRelease === "real"
+        ? "realized"
+        : undefined;
 
   // 2. Fetch the data using the optimized Database logic
   // This call handles filtering, sorting, and pagination in a single SQL query.

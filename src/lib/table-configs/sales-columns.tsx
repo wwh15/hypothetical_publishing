@@ -100,7 +100,8 @@ export type SalesColumnId =
   | "quantity"
   | "format"
   | "distributor"
-  | "publisherRevenue"
+  | "publisherRevenueOriginal"
+  | "publisherRevenueUSD"
   | "authorRoyalty"
   | "date"
   | "paid"
@@ -127,6 +128,31 @@ export const salesCellRenderers = {
       </span>
     </div>
   ),
+
+  /** ISO currency code + original-currency amount (replaces separate CCY + Pub. orig columns). */
+  publisherOriginalWithCcy: (
+    value: number,
+    currencyCode: string,
+    colorClass?: string
+  ) => {
+    const sym = CURRENCY_SYMBOLS[currencyCode] ?? "$";
+    const amount =
+      currencyCode === "JPY" ? value.toFixed(0) : value.toFixed(2);
+    return (
+      <div className="flex min-w-0 items-baseline gap-x-1.5 gap-y-0.5 tabular-nums">
+        <span
+          className="shrink-0 text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground"
+          title={`Original currency: ${currencyCode}`}
+        >
+          {currencyCode}
+        </span>
+        <span className={cn("min-w-0 font-medium", colorClass)}>
+          <bdi>{sym}</bdi>
+          <span>{amount}</span>
+        </span>
+      </div>
+    );
+  },
 
   paidStatus: (status: "paid" | "pending") => {
     const paidStyles = {
@@ -242,34 +268,31 @@ export const salesColumns: ColumnDef<SaleListItem>[] = [
     render: (row) => salesCellRenderers.distributor(row.distributor),
   },
   {
-    key: "currency",
-    header: "CCY",
-    className: "w-11 min-w-0 max-w-[3rem] text-center tabular-nums",
-    render: (row) => (
-      <span className="block truncate" title={row.currency}>
-        {row.currency}
-      </span>
-    ),
-  },
-  {
     key: "publisherRevenueOriginal",
-    header: "Pub. Revenue (Original)",
+    header: "Pub. orig",
+    headerTitle:
+      "Publisher revenue in original currency (ISO code + amount)",
+    headerClassName: "whitespace-nowrap",
+    className: "min-w-0 max-w-[min(9rem,28vw)] whitespace-nowrap",
     render: (row) =>
-      salesCellRenderers.currency(
+      salesCellRenderers.publisherOriginalWithCcy(
         row.publisherRevenueOriginal,
-        row.currency,
-        true
+        row.currency
       ),
   },
   {
     key: "publisherRevenueUSD",
-    header: "Pub. Revenue (USD)",
+    header: "Pub. USD",
+    headerTitle: "Publisher revenue (USD)",
+    headerClassName: "whitespace-nowrap",
+    className: "min-w-0 whitespace-nowrap tabular-nums",
     render: (row) =>
       salesCellRenderers.currency(row.publisherRevenueUSD, row.currency),
   },
   {
     key: "authorRoyalty",
-    header: "Author Royalty",
+    header: "Auth. Royalty",
+    headerTitle: "Author royalty",
     render: (row) =>
       salesCellRenderers.currency(row.authorRoyalty, row.currency),
   },
@@ -285,7 +308,8 @@ export const salesColumns: ColumnDef<SaleListItem>[] = [
   },
   {
     key: "paid",
-    header: "Royalty Status",
+    header: "Status",
+    headerTitle: "Royalty status",
     render: (row) => salesCellRenderers.paidStatus(row.paid),
   },
   {
@@ -354,34 +378,31 @@ export function getPendingColumns(
           : salesCellRenderers.quantity(row.quantity),
     },
     {
-      key: "currency",
-      header: "CCY",
-      className: "w-11 min-w-0 max-w-[3rem] text-center tabular-nums",
-      render: (row) => (
-        <span className="block truncate" title={row.currency}>
-          {row.currency}
-        </span>
-      ),
-    },
-    {
       key: "publisherRevenueOriginal",
-      header: "Pub. Revenue (Original)",
+      header: "Pub. orig",
+      headerTitle:
+        "Publisher revenue in original currency (ISO code + amount)",
+      headerClassName: "whitespace-nowrap",
+      className: "min-w-0 max-w-[min(9rem,28vw)] whitespace-nowrap",
       render: (row) =>
-        salesCellRenderers.currency(
+        salesCellRenderers.publisherOriginalWithCcy(
           row.publisherRevenueOriginal,
-          row.currency,
-          true
+          row.currency
         ),
     },
     {
       key: "publisherRevenueUSD",
-      header: "Pub. Revenue (USD)",
+      header: "Pub. USD",
+      headerTitle: "Publisher revenue (USD)",
+      headerClassName: "whitespace-nowrap",
+      className: "min-w-0 whitespace-nowrap tabular-nums",
       render: (row) =>
         salesCellRenderers.currency(row.publisherRevenueUSD, "USD"),
     },
     {
       key: "authorRoyalty",
-      header: "Author Royalty (USD)",
+      header: "Auth. Royalty (USD)",
+      headerTitle: "Author royalty (USD)",
       render: (row) =>
         salesCellRenderers.currency(row.authorRoyalty, "USD"),
     },
@@ -392,7 +413,8 @@ export function getPendingColumns(
     },
     {
       key: "paid",
-      header: "Royalty Status (Toggleable)",
+      header: "Status",
+      headerTitle: "Royalty status (click row chip to toggle)",
       render: (row) => (
         <button
           type="button"
@@ -480,7 +502,6 @@ export const salesTablePresets = {
       "quantity",
       "format",
       "distributor",
-      "currency",
       "publisherRevenueOriginal",
       "publisherRevenueUSD",
       "authorRoyalty",
@@ -500,7 +521,6 @@ export const salesTablePresets = {
       "title",
       "author",
       "quantity",
-      "currency",
       "publisherRevenueOriginal",
       "publisherRevenueUSD",
       "authorRoyalty",

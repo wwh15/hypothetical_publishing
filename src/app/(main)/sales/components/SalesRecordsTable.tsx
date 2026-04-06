@@ -50,7 +50,7 @@ export interface SalesRecordsTableProps {
   distributor?: string;
   /** Format filter (PRINT, EBOOK, KINDLE_UNLIMITED) */
   format?: string;
-  /** projected = unreleased book; real = released book (URL: release=…) */
+  /** projected = unreleased book; realized = released book (URL: release=…) */
   saleRelease?: SaleReleaseFilter;
 
   /** Preset for column selection; default "full" */
@@ -233,13 +233,14 @@ export default function SalesRecordsTable({
     return baseCols.map((col) => {
       const isSorted = sortBy === col.key;
       const label = col.header as string;
+      const sortLabel = col.headerTitle ?? label;
 
       return {
         ...col,
         header: (
           <div className="w-full min-w-0 max-w-full">
             <div className="flex min-w-0 items-center gap-0.5 font-semibold">
-              <span className="min-w-0 flex-1 truncate" title={label}>
+              <span className="min-w-0 flex-1 truncate" title={sortLabel}>
                 {label}
               </span>
               <button
@@ -253,7 +254,7 @@ export default function SalesRecordsTable({
                   "shrink-0 p-0.5 rounded hover:bg-muted transition-colors",
                   isSorted && "text-blue-600 bg-blue-50 dark:bg-blue-900/20"
                 )}
-                aria-label={`Sort by ${label}`}
+                aria-label={`Sort by ${sortLabel}`}
               >
                 {!isSorted ? (
                   <ArrowUpDown className="w-4 h-4 text-muted-foreground" />
@@ -339,7 +340,7 @@ export default function SalesRecordsTable({
               const v = e.target.value;
               const params = buildQueryParams({
                 saleRelease:
-                  v === "projected" || v === "real"
+                  v === "projected" || v === "realized"
                     ? (v as SaleReleaseFilter)
                     : "",
                 page: 1,
@@ -348,8 +349,8 @@ export default function SalesRecordsTable({
             }}
             className={cn(filterSelectClass, "lg:col-span-2")}
           >
-            <option value="">All (projected + real)</option>
-            <option value="real">Real (released book)</option>
+            <option value="">All (projected + realized)</option>
+            <option value="realized">Realized (released book)</option>
             <option value="projected">Projected (unreleased book)</option>
           </select>
 
