@@ -2,7 +2,6 @@ import { Author, Prisma } from "@prisma/client";
 import { prisma } from "../prisma";
 import { Decimal } from "decimal.js";
 import { normalizeEmail, normalizeString, validateEmail, validateRequiredString } from "../validation";
-import { normalize } from "node:path";
 
 export interface AuthorListItem {
   id: number;
@@ -49,6 +48,8 @@ export interface GetAuthorsDataResult {
 export interface CreateAuthorRequest {
   name: string;
   email: string;
+  payPalEmail?: string;
+  venmoUsername?: string;
 }
 
 interface CreateAuthorResponse {
@@ -61,6 +62,8 @@ export interface UpdateAuthorRequest {
   authorId: number;
   name?: string;
   email?: string;
+  payPalEmail?: string;
+  venmoUsername?: string;
 }
 
 export type NewAuthorInput = Omit<Prisma.AuthorUncheckedCreateInput, 'canonicalName'>;
@@ -327,6 +330,8 @@ export async function asyncAddAuthor(
   // 1. NORMALIZE: Clean strings before any logic or database hits
   const cleanEmail = normalizeEmail(rawData.email);
   const cleanName = normalizeString(rawData.name); // Basic cleanup for display
+  const cleanPayPalEmail = normalizeEmail(rawData.payPalEmail);
+  const cleanVenmoUsername = normalizeString(rawData.venmoUsername);
   const fingerprint = getCanonicalAuthorKey(rawData.name); // The unique search key
 
   // 2. VALIDATE: Check the standardized strings
@@ -346,6 +351,17 @@ export async function asyncAddAuthor(
       error: validatedName.error,
       data: null,
     };
+  }
+
+  if (cleanPayPalEmail) {
+    const validatedPayPalEmail = validateEmail(cleanPayPalEmail);
+    if (!validatedPayPalEmail.success) {
+      return {
+        success: false,
+        error: `PayPal email: ${validatedPayPalEmail.error}`,
+        data: null,
+      };
+    }
   }
 
   // 3. EXISTENCE CHECK: Use the canonical fingerprint
@@ -368,9 +384,10 @@ export async function asyncAddAuthor(
     // 4. CREATE: Store normalized values and the fingerprint
     const newAuthor = await prisma.author.create({
       data: {
-        ...rawData,
         name: cleanName,
         email: cleanEmail,
+        payPalEmail: cleanPayPalEmail || null,
+        venmoUsername: cleanVenmoUsername || null,
         canonicalName: fingerprint,
       },
     });
@@ -389,7 +406,7 @@ export async function asyncAddAuthor(
 export async function asyncUpdateAuthor(
   request: UpdateAuthorRequest
 ): Promise<UpdateAuthorResponse> {
-  const { authorId, name, email } = request;
+  const { authorId, name, email, payPalEmail, venmoUsername } = request;
   const updateData: Prisma.AuthorUpdateInput = {};
 
   // 1. Handle Email Update (Just normalize and save)
@@ -433,6 +450,28 @@ export async function asyncUpdateAuthor(
 
     updateData.name = cleanName;
     updateData.canonicalName = newFingerprint;
+  }
+
+  if (payPalEmail !== undefined) {
+    const cleanPayPalEmail = normalizeEmail(payPalEmail);
+    if (cleanPayPalEmail) {
+      const validatedPayPalEmail = validateEmail(cleanPayPalEmail);
+      if (!validatedPayPalEmail.success) {
+        return {
+          success: false,
+          error: `PayPal email: ${validatedPayPalEmail.error}`,
+          data: null,
+        };
+      }
+      updateData.payPalEmail = cleanPayPalEmail;
+    } else {
+      updateData.payPalEmail = null;
+    }
+  }
+
+  if (venmoUsername !== undefined) {
+    const cleanVenmoUsername = normalizeString(venmoUsername);
+    updateData.venmoUsername = cleanVenmoUsername || null;
   }
 
   // 3. Prevent empty updates
