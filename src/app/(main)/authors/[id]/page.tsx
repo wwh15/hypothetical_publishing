@@ -60,8 +60,7 @@ export default async function AuthorDetailPage({ params }: PageProps) {
             <p className="text-muted-foreground mt-2 text-sm sm:text-base">
               View and manage author profile information.
             </p>
-          </div>
-          <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
+            <div className="flex shrink-0 flex-wrap items-center gap-2 mt-6">
             <Button asChild>
               <Link href={`/authors/${authorId}/edit`}>Edit Author</Link>
             </Button>
@@ -71,6 +70,8 @@ export default async function AuthorDetailPage({ params }: PageProps) {
               bookCount={authorBooks.length}
             />
           </div>
+          </div>
+          
         </div>
       </header>
 
@@ -96,15 +97,31 @@ export default async function AuthorDetailPage({ params }: PageProps) {
               </div>
               <div>
                 <label className="text-sm font-medium text-muted-foreground block mb-1">
-                  PayPal Email
+                  Paypal.me Username
                 </label>
-                <p className="text-lg">{author.payPalEmail || "—"}</p>
+                {author.payPalUsername ? (
+                  <p className="text-lg">{author.payPalUsername}</p>
+                ) : (
+                  <Button asChild size="sm" variant="outline" className="self-start mt-2">
+                    <Link href={`/authors/${authorId}/edit#payPalUsername`}>
+                     + Add PayPal
+                    </Link>
+                  </Button>
+                )}
               </div>
               <div>
                 <label className="text-sm font-medium text-muted-foreground block mb-1">
                   Venmo Username
                 </label>
-                <p className="text-lg">{author.venmoUsername || "—"}</p>
+                {author.venmoUsername ? (
+                  <p className="text-lg">{author.venmoUsername}</p>
+                ) : (
+                  <Button asChild size="sm" variant="outline" className="self-start mt-2">
+                    <Link href={`/authors/${authorId}/edit#venmoUsername`}>
+                      + Add Venmo
+                    </Link>
+                  </Button>
+                )}
               </div>
             </div>
           </section>

@@ -48,7 +48,7 @@ export interface GetAuthorsDataResult {
 export interface CreateAuthorRequest {
   name: string;
   email: string;
-  payPalEmail?: string;
+  payPalUsername?: string;
   venmoUsername?: string;
 }
 
@@ -62,7 +62,7 @@ export interface UpdateAuthorRequest {
   authorId: number;
   name?: string;
   email?: string;
-  payPalEmail?: string;
+  payPalUsername?: string;
   venmoUsername?: string;
 }
 
@@ -330,7 +330,7 @@ export async function asyncAddAuthor(
   // 1. NORMALIZE: Clean strings before any logic or database hits
   const cleanEmail = normalizeEmail(rawData.email);
   const cleanName = normalizeString(rawData.name); // Basic cleanup for display
-  const cleanPayPalEmail = normalizeEmail(rawData.payPalEmail);
+  const cleanpayPalUsername = normalizeString(rawData.payPalUsername);
   const cleanVenmoUsername = normalizeString(rawData.venmoUsername);
   const fingerprint = getCanonicalAuthorKey(rawData.name); // The unique search key
 
@@ -351,17 +351,6 @@ export async function asyncAddAuthor(
       error: validatedName.error,
       data: null,
     };
-  }
-
-  if (cleanPayPalEmail) {
-    const validatedPayPalEmail = validateEmail(cleanPayPalEmail);
-    if (!validatedPayPalEmail.success) {
-      return {
-        success: false,
-        error: `PayPal email: ${validatedPayPalEmail.error}`,
-        data: null,
-      };
-    }
   }
 
   // 3. EXISTENCE CHECK: Use the canonical fingerprint
@@ -386,7 +375,7 @@ export async function asyncAddAuthor(
       data: {
         name: cleanName,
         email: cleanEmail,
-        payPalEmail: cleanPayPalEmail || null,
+        payPalUsername: cleanpayPalUsername || null,
         venmoUsername: cleanVenmoUsername || null,
         canonicalName: fingerprint,
       },
@@ -406,7 +395,7 @@ export async function asyncAddAuthor(
 export async function asyncUpdateAuthor(
   request: UpdateAuthorRequest
 ): Promise<UpdateAuthorResponse> {
-  const { authorId, name, email, payPalEmail, venmoUsername } = request;
+  const { authorId, name, email, payPalUsername, venmoUsername } = request;
   const updateData: Prisma.AuthorUpdateInput = {};
 
   // 1. Handle Email Update (Just normalize and save)
@@ -452,20 +441,20 @@ export async function asyncUpdateAuthor(
     updateData.canonicalName = newFingerprint;
   }
 
-  if (payPalEmail !== undefined) {
-    const cleanPayPalEmail = normalizeEmail(payPalEmail);
-    if (cleanPayPalEmail) {
-      const validatedPayPalEmail = validateEmail(cleanPayPalEmail);
-      if (!validatedPayPalEmail.success) {
+  if (payPalUsername !== undefined) {
+    const cleanpayPalUsername = normalizeEmail(payPalUsername);
+    if (cleanpayPalUsername) {
+      const validatedpayPalUsername = validateEmail(cleanpayPalUsername);
+      if (!validatedpayPalUsername.success) {
         return {
           success: false,
-          error: `PayPal email: ${validatedPayPalEmail.error}`,
+          error: `PayPal email: ${validatedpayPalUsername.error}`,
           data: null,
         };
       }
-      updateData.payPalEmail = cleanPayPalEmail;
+      updateData.payPalUsername = cleanpayPalUsername;
     } else {
-      updateData.payPalEmail = null;
+      updateData.payPalUsername = null;
     }
   }
 
