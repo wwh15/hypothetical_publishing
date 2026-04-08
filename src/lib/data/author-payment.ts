@@ -13,6 +13,8 @@ export interface AuthorGroup {
   /** Unpaid royalties on unreleased books (not payable until the book is released). */
   unpaidProjectedTotal: number;
   sales: SaleListItem[];
+  payPalEmail: string;
+  venmoUsername: string;
 }
 
 /** Unpaid royalty sums across all authors matching the current search (not page-limited). */
@@ -25,6 +27,8 @@ export interface AuthorPaymentGrandTotals {
 const authorPaymentSelect = {
   id: true,
   name: true,
+  payPalEmail: true,
+  venmoUsername: true,
   books: {
     select: {
       id: true,
@@ -193,6 +197,8 @@ function transformToAuthorGroup(rawAuthor: PrismaAuthorWithSales): AuthorGroup {
     unpaidPayableTotal,
     unpaidProjectedTotal,
     sales: allSales,
+    payPalEmail: rawAuthor.payPalEmail ?? "",
+    venmoUsername: rawAuthor.venmoUsername ?? "",
   };
 }
 

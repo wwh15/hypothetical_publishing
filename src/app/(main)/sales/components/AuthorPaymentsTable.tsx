@@ -7,7 +7,6 @@ import {
   type AuthorPaymentGrandTotals,
 } from "@/lib/data/author-payment";
 import { cn } from "@/lib/utils";
-import { SaleListItem } from "@/lib/data/records";
 import { useRouter } from "next/navigation";
 import { PaginationControls } from "@/components/PaginationControls";
 import { TableInfo } from "@/components/TableInfo";
@@ -212,6 +211,37 @@ export default function AuthorPaymentsTable({
     router.push(`/sales/payments?${params.toString()}`);
   };
 
+  const copyToClipboard = async (value: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+    } catch {
+      // Clipboard can fail in some browser/privacy contexts.
+      window.prompt("Copy this value:", value);
+    }
+  };
+
+  const handlePaypalClick = async (group: AuthorGroup) => {
+    const payPalEmail = group.payPalEmail?.trim();
+    const payableAmount = group.unpaidPayableTotal.toFixed(2);
+    if (payPalEmail) {
+      const paypalUrl = `https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business=${payPalEmail}&amount=${payableAmount}&item_name=Author%20Royalty`;
+      window.open(paypalUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
+    router.push(`/authors/${group.authorId}/edit`);
+  };
+
+  const handleVenmoClick = async (group: AuthorGroup) => {
+    const venmoUsername = group.venmoUsername?.trim().replace(/^@/, '');;
+    const payableAmount = group.unpaidPayableTotal.toFixed(2);
+    if (venmoUsername) {
+      const venmoUrl = `https://account.venmo.com/pay?audience=private&amount=${payableAmount}&note=Author%20Royalty&recipients=${venmoUsername}&txn=pay`;
+      window.open(venmoUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
+    router.push(`/authors/${group.authorId}/edit`);
+  };
+
   const startRecord = totalGroups === 0 ? 0 : (currentPage - 1) * pageSize + 1;
   const endRecord =
     totalGroups === 0 ? 0 : Math.min(currentPage * pageSize, totalGroups);
@@ -323,11 +353,37 @@ export default function AuthorPaymentsTable({
                     <h3 className="font-bold text-lg text-foreground leading-tight">
                       {group.author}
                     </h3>
-                    <UnpaidRoyaltyChips
-                      payable={group.unpaidPayableTotal}
-                      projected={group.unpaidProjectedTotal}
-                      variant="inline"
-                    />
+                    <div className="flex flex-wrap items-stretch gap-2">
+                      <UnpaidRoyaltyChips
+                        payable={group.unpaidPayableTotal}
+                        projected={group.unpaidProjectedTotal}
+                        variant="inline"
+                      />
+                      <Button
+                        type="button"
+                        variant={"outline"}
+                        size="sm"
+                        className="h-auto self-stretch"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void handlePaypalClick(group);
+                        }}
+                      >
+                        {group.payPalEmail ? "Pay on Paypal" : "Add Paypal Email"}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={"outline"}
+                        size="sm"
+                        className="h-auto self-stretch"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void handleVenmoClick(group);
+                        }}
+                      >
+                        {group.venmoUsername ? "Pay on Venmo" : "Add Venmo Username"}
+                      </Button>
+                    </div>
                   </div>
                 </div>
 
