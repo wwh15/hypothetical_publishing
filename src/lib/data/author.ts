@@ -443,19 +443,7 @@ export async function asyncUpdateAuthor(
 
   if (payPalUsername !== undefined) {
     const cleanpayPalUsername = normalizeEmail(payPalUsername);
-    if (cleanpayPalUsername) {
-      const validatedpayPalUsername = validateEmail(cleanpayPalUsername);
-      if (!validatedpayPalUsername.success) {
-        return {
-          success: false,
-          error: `PayPal email: ${validatedpayPalUsername.error}`,
-          data: null,
-        };
-      }
-      updateData.payPalUsername = cleanpayPalUsername;
-    } else {
-      updateData.payPalUsername = null;
-    }
+    updateData.payPalUsername = cleanpayPalUsername || null;
   }
 
   if (venmoUsername !== undefined) {

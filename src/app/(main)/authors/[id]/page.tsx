@@ -103,7 +103,7 @@ export default async function AuthorDetailPage({ params }: PageProps) {
                   <p className="text-lg">{author.payPalUsername}</p>
                 ) : (
                   <Button asChild size="sm" variant="outline" className="self-start mt-2">
-                    <Link href={`/authors/${authorId}/edit#payPalUsername`}>
+                    <Link href={`/authors/${authorId}/edit`}>
                      + Add PayPal
                     </Link>
                   </Button>
@@ -117,7 +117,7 @@ export default async function AuthorDetailPage({ params }: PageProps) {
                   <p className="text-lg">{author.venmoUsername}</p>
                 ) : (
                   <Button asChild size="sm" variant="outline" className="self-start mt-2">
-                    <Link href={`/authors/${authorId}/edit#venmoUsername`}>
+                    <Link href={`/authors/${authorId}/edit`}>
                       + Add Venmo
                     </Link>
                   </Button>
