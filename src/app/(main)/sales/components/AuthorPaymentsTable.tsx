@@ -211,20 +211,11 @@ export default function AuthorPaymentsTable({
     router.push(`/sales/payments?${params.toString()}`);
   };
 
-  const copyToClipboard = async (value: string) => {
-    try {
-      await navigator.clipboard.writeText(value);
-    } catch {
-      // Clipboard can fail in some browser/privacy contexts.
-      window.prompt("Copy this value:", value);
-    }
-  };
-
   const handlePaypalClick = async (group: AuthorGroup) => {
-    const payPalEmail = group.payPalEmail?.trim();
+    const payPalUsername = group.payPalUsername?.trim();
     const payableAmount = group.unpaidPayableTotal.toFixed(2);
-    if (payPalEmail) {
-      const paypalUrl = `https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business=${payPalEmail}&amount=${payableAmount}&item_name=Author%20Royalty`;
+    if (payPalUsername) {
+      const paypalUrl = `https://paypal.me/${payPalUsername}/${payableAmount}`;
       window.open(paypalUrl, "_blank", "noopener,noreferrer");
       return;
     }
@@ -235,7 +226,7 @@ export default function AuthorPaymentsTable({
     const venmoUsername = group.venmoUsername?.trim().replace(/^@/, '');;
     const payableAmount = group.unpaidPayableTotal.toFixed(2);
     if (venmoUsername) {
-      const venmoUrl = `https://account.venmo.com/pay?audience=private&amount=${payableAmount}&note=Author%20Royalty&recipients=${venmoUsername}&txn=pay`;
+      const venmoUrl = `https://venmo.com/${venmoUsername}?amount=${payableAmount}&note=Author%20Royalty`;
       window.open(venmoUrl, "_blank", "noopener,noreferrer");
       return;
     }
@@ -369,7 +360,7 @@ export default function AuthorPaymentsTable({
                           void handlePaypalClick(group);
                         }}
                       >
-                        {group.payPalEmail ? "Pay on Paypal" : "Add Paypal Email"}
+                        {group.payPalUsername ? "Pay on Paypal" : "Add Paypal Email"}
                       </Button>
                       <Button
                         type="button"
