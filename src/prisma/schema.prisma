@@ -25,7 +25,7 @@ model Author {
   id        Int      @id @default(autoincrement())
   name      String   
   email     String
-  payPalEmail String?
+  payPalUsername String?
   venmoUsername String?
   canonicalName String   @unique   
   createdAt DateTime @default(now()) @db.Timestamptz @map("created_at")
