@@ -360,7 +360,7 @@ export default function AuthorPaymentsTable({
                           void handlePaypalClick(group);
                         }}
                       >
-                        {group.payPalUsername ? "Pay on Paypal" : "Add Paypal Email"}
+                        {group.payPalUsername ? "Pay on Paypal" : "+ Add Paypal"}
                       </Button>
                       <Button
                         type="button"
@@ -372,7 +372,7 @@ export default function AuthorPaymentsTable({
                           void handleVenmoClick(group);
                         }}
                       >
-                        {group.venmoUsername ? "Pay on Venmo" : "Add Venmo Username"}
+                        {group.venmoUsername ? "Pay on Venmo" : "+ Add Venmo"}
                       </Button>
                     </div>
                   </div>
