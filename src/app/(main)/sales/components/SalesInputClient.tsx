@@ -1,13 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { PendingSaleItem } from "@/lib/data/records";
 import { BookListItem } from "@/lib/data/books";
 import PendingRecordsTable from "./PendingRecordsTable";
 import InputRecordForm from "./InputRecordForm";
 import BulkPasteSalesPanel from "./BulkPasteSalesPanel";
 import AmazonXlsxImportPanel from "./AmazonXlsxImportPanel";
-import { addSale, addSalesBulk } from "../action";
+import { addSalesBulk } from "../action";
+import BackerkitXlsxImport from "./BackerkitXlsxImport";
+import { Button } from "@/components/ui/button";
 
 interface SalesInputClientProps {
   booksData: BookListItem[];
@@ -22,6 +24,14 @@ export default function SalesInputClient({
   initialBookId,
   usdRatesInitial,
 }: SalesInputClientProps) {
+  const pendingRecordsSectionRef = useRef<HTMLElement>(null);
+  const scrollToPendingRecords = useCallback(() => {
+    pendingRecordsSectionRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  }, []);
+
   const [pendingRecords, setPendingRecords] = useState<PendingSaleItem[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -29,6 +39,11 @@ export default function SalesInputClient({
 
   const handleAddRecord = (record: PendingSaleItem) => {
     setPendingRecords((prev) => [...prev, record]);
+    setSubmitError(null);
+  };
+
+  const handleAddRecords = (records: PendingSaleItem[]) => {
+    setPendingRecords((prev) => [...prev, ...records]);
     setSubmitError(null);
   };
 
@@ -82,17 +97,29 @@ export default function SalesInputClient({
         onAddRecord={handleAddRecord}
         booksData={booksData}
       />
+      <BackerkitXlsxImport
+        onAddRecords={handleAddRecords}
+        booksData={booksData}
+        onViewPendingRecords={scrollToPendingRecords}
+      />
       <InputRecordForm
         onAddRecord={handleAddRecord}
         booksData={booksData}
         initialBookId={initialBookId}
         usdRatesInitial={usdRatesInitial}
       />
-      <PendingRecordsTable
-        pendingRecords={pendingRecords}
-        onRemove={handleRemove}
-        onTogglePaid={handleTogglePaid}
-      />
+      <section
+        ref={pendingRecordsSectionRef}
+        id="pending-sales-records"
+        aria-label="Pending sales records"
+        className="scroll-mt-6"
+      >
+        <PendingRecordsTable
+          pendingRecords={pendingRecords}
+          onRemove={handleRemove}
+          onTogglePaid={handleTogglePaid}
+        />
+      </section>
       {submitError && (
         <div className="rounded-md bg-destructive/10 text-destructive px-4 py-2 text-sm">
           {submitError}
