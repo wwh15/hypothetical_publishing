@@ -100,10 +100,10 @@ export default async function SalesRecordsPage({
   return (
     <div className="py-10">
       <div className="mb-8 space-y-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <Link href="/sales/add-record" className="sm:shrink-0">
             <Button size="sm" className="w-full sm:w-auto">
-              Add New Sale Record
+              + Add New Sale Record
             </Button>
           </Link>
           <ExportCSVButton

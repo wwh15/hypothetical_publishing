@@ -129,26 +129,27 @@ export default function SalesInputClient({
         <div className="flex justify-end gap-4 items-center">
 
           {/* Clear all button */}
-          <button
+          <Button
             type="button"
-            className="px-6 py-2 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50"
+            className="w-full sm:w-auto"
+            variant={"outline"}
             onClick={handleClearAll}
             disabled={isSubmitting}
           >
             Clear All
-          </button>
+          </Button>
 
           {/* Save button */}
-          <button
+          <Button
             type="button"
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+            className="w-full sm:w-auto"
             onClick={() => setShowSaveConfirm(true)}
             disabled={isSubmitting}
           >
             {isSubmitting
               ? "Saving..."
               : `Submit ${pendingRecords.length} Record${pendingRecords.length !== 1 ? "s" : ""}`}
-          </button>
+          </Button>
 
           {/* Save confirmation */}
           {showSaveConfirm && (
@@ -160,20 +161,20 @@ export default function SalesInputClient({
                   record{pendingRecords.length !== 1 ? "s" : ""}?
                 </p>
                 <div className="flex gap-4">
-                  <button
+                  <Button
                     onClick={handleSubmit}
                     disabled={isSubmitting}
                     className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
                   >
                     {isSubmitting ? "Saving..." : "Save"}
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     onClick={() => setShowSaveConfirm(false)}
                     disabled={isSubmitting}
                     className="px-4 py-2 bg-gray-300 dark:bg-gray-600 rounded-md hover:bg-gray-400 dark:hover:bg-gray-500"
                   >
                     Cancel
-                  </button>
+                  </Button>
                 </div>
               </div>
             </div>

@@ -48,7 +48,7 @@ export default async function SalesInputPage({ searchParams }: PageProps) {
         </div>
         <h1 className="text-3xl font-bold mb-2">Add Sales Records</h1>
         <p className="text-muted-foreground">
-          Input sales records and review before submitting to the database.
+          Input sales records and review in <strong>Pending Records</strong> table before submitting to the database.
         </p>
       </div>
       <SalesInputClient

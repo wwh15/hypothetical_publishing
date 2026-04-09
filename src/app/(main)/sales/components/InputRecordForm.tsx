@@ -290,7 +290,7 @@ export default function InputRecordForm({
 
       <div className="mt-6 flex justify-end">
         <Button type="submit">
-          <Plus className="mr-2 h-4 w-4" /> Add record
+          + Add Record
         </Button>
       </div>
       <p className="mt-3 text-xs text-muted-foreground">

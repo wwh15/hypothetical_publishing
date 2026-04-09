@@ -52,7 +52,7 @@ export default async function AuthorDetailPage({ params }: PageProps) {
       {/* Header / Breadcrumb */}
       <header className="mb-8">
         <BackLink href="/authors" className="mb-4 inline-block">
-          Back to Authors
+          View Authors
         </BackLink>
         <div className="flex flex-col gap-4 border-b border-border/80 pb-6  sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0 flex-1">
