@@ -5,7 +5,7 @@ import { PendingSaleItem } from "@/lib/data/records";
 import { BookListItem } from "@/lib/data/books";
 import PendingRecordsTable from "./PendingRecordsTable";
 import InputRecordForm from "./InputRecordForm";
-import BulkPasteSalesPanel from "./BulkPasteSalesPanel";
+import IngramSparkImport from "./IngramSparkImport";
 import AmazonXlsxImportPanel from "./AmazonXlsxImportPanel";
 import { addSalesBulk } from "../action";
 import BackerkitXlsxImport from "./BackerkitXlsxImport";
@@ -89,13 +89,15 @@ export default function SalesInputClient({
 
   return (
     <>
-      <BulkPasteSalesPanel
+      <IngramSparkImport
         onAddRecord={handleAddRecord}
         booksData={booksData}
+        onViewPendingRecords={scrollToPendingRecords}
       />
       <AmazonXlsxImportPanel
         onAddRecord={handleAddRecord}
         booksData={booksData}
+        onViewPendingRecords={scrollToPendingRecords}
       />
       <BackerkitXlsxImport
         onAddRecords={handleAddRecords}
