@@ -7,6 +7,7 @@ import {
   type AuthorPaymentGrandTotals,
 } from "@/lib/data/author-payment";
 import { cn } from "@/lib/utils";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { PaginationControls } from "@/components/PaginationControls";
 import { TableInfo } from "@/components/TableInfo";
@@ -341,8 +342,14 @@ export default function AuthorPaymentsTable({
                     )}
                   />
                   <div className="min-w-0 space-y-2">
-                    <h3 className="font-bold text-lg text-foreground leading-tight">
-                      {group.author}
+                    <h3 className="font-bold text-lg leading-tight">
+                      <Link
+                        href={`/authors/${group.authorId}`}
+                        className="text-foreground underline-offset-4 hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {group.author}
+                      </Link>
                     </h3>
                     <div className="flex flex-wrap items-stretch gap-2">
                       <UnpaidRoyaltyChips
@@ -378,7 +385,11 @@ export default function AuthorPaymentsTable({
                   </div>
                 </div>
 
-                <button
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="default"
+                  className="self-start sm:self-center sm:shrink-0 shadow-sm"
                   onClick={(e) => {
                     e.stopPropagation();
                     openConfirm(group.authorId, group.author);
@@ -387,18 +398,11 @@ export default function AuthorPaymentsTable({
                     loadingAuthorId === group.authorId ||
                     group.unpaidPayableTotal <= 0
                   }
-                  className={cn(
-                    "px-4 py-2 rounded-md text-sm font-medium transition-all shadow-sm sm:shrink-0 self-start sm:self-center",
-                    group.unpaidPayableTotal <= 0 ||
-                      loadingAuthorId === group.authorId
-                      ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                      : "bg-blue-600 text-white hover:bg-blue-700 active:scale-95"
-                  )}
                 >
                   {loadingAuthorId === group.authorId
                     ? "Processing..."
-                    : "Mark all as paid"}
-                </button>
+                    : "Mark All as Paid"}
+                </Button>
               </div>
 
               {/* 4. Sales Data: Only rendered if isOpen is true */}

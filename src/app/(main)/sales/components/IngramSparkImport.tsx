@@ -9,6 +9,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { ParsedSaleRow } from "../hooks/useBulkSubmit";
 import { useBulkPasteSubmit } from "../hooks/useBulkSubmit";
@@ -30,9 +31,10 @@ import {
 
 // Examples: 01-2026,9781234567890,120,4125.50 | 01-2026,9780987654321,80,2600
 
-interface BulkPasteSalesPanelProps {
+interface IngramSparkImportProps {
   onAddRecord: (record: PendingSaleItem) => void;
   booksData: BookListItem[];
+  onViewPendingRecords?: () => void;
 }
 
 // Create a map that maps isbn10/isbn13 to BookListItem objects
@@ -50,10 +52,11 @@ function buildIsbnLookup(booksData: BookListItem[]): Map<string, BookListItem> {
   return map;
 }
 
-export default function BulkPasteSalesPanel({
+export default function IngramSparkImport({
   onAddRecord,
   booksData,
-}: BulkPasteSalesPanelProps) {
+  onViewPendingRecords,
+}: IngramSparkImportProps) {
   // Local useState
   const [submissionErrors, setSubmissionErrors] = useState<
     Array<{ line: number; errors: Record<string, string> }>
@@ -61,6 +64,7 @@ export default function BulkPasteSalesPanel({
   const [selectedDate, setSelectedDate] = useState({ year: "", month: "" });
   const [dateError, setDateError] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
+  const [importedRowCount, setImportedRowCount] = useState(0);
 
   // Memoization; all recomputes arrays if data changes
   const allBooks = useMemo(() => [...booksData], [booksData]);
@@ -77,6 +81,7 @@ export default function BulkPasteSalesPanel({
     // Clear previous state immediately to avoid UI flickering
     setFileName(null);
     setSubmissionErrors([]);
+    setImportedRowCount(0);
 
     const file = e.target.files?.[0];
     if (!file) return;
@@ -226,6 +231,7 @@ export default function BulkPasteSalesPanel({
         // PURE SUCCESS
         submitFromRows(validRows, selectedDate, file.name);
         setSubmissionErrors([]);
+        setImportedRowCount(validRows.length);
         setFileName(file.name);
       }
     };
@@ -237,7 +243,7 @@ export default function BulkPasteSalesPanel({
   return (
     <Card className="mb-6">
       <CardHeader>
-        <CardTitle>Bulk Import Sales Records</CardTitle>
+        <CardTitle>Ingram Spark Import</CardTitle>
         <CardDescription className="border-b pb-2">
           Import a CSV to add sales records to the{" "}
           <strong>Pending Records</strong> table at the bottom of the page.
@@ -369,8 +375,8 @@ export default function BulkPasteSalesPanel({
               </div>
             </div>
           ) : (
-            <div className="mt-4 p-4 rounded-md border-2 border-green-500 bg-green-50 space-y-2 animate-in fade-in zoom-in duration-300">
-              <div className="flex items-center gap-2 text-green-600 font-bold text-m">
+            <div className="mt-4 space-y-3 rounded-md border-2 border-green-500 bg-green-50 p-4 animate-in fade-in zoom-in duration-300">
+              <div className="flex items-center gap-2 font-bold text-green-600 text-m">
                 <CheckCircle2 className="h-4 w-4" />
                 File &quot;{fileName}&quot; imported and validated successfully!
               </div>
@@ -378,6 +384,16 @@ export default function BulkPasteSalesPanel({
                 Review the imported data in the <strong>Pending Records</strong>{" "}
                 table below.
               </p>
+              {importedRowCount > 0 && onViewPendingRecords && (
+                <Button
+                  type="button"
+                  size="sm"
+                  className="w-full sm:w-auto"
+                  onClick={() => onViewPendingRecords()}
+                >
+                  View Pending Records
+                </Button>
+              )}
             </div>
           ))}
       </CardContent>

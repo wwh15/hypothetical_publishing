@@ -127,7 +127,13 @@ export async function addSalesBulk(records: PendingSaleItem[]) {
     return { success: true };
   } catch (error) {
     console.error("Bulk Save Error:", error);
-    return { success: false, error: "Failed to save records to database." };
+    const message =
+      error instanceof Error ? error.message : "Failed to save records to database.";
+    return {
+      success: false,
+      error:
+        message.length > 400 ? `${message.slice(0, 400)}…` : message,
+    };
   }
 }
 

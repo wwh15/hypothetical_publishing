@@ -35,7 +35,7 @@ export default async function AuthorPaymentsPage({
         <div className="flex flex-col gap-3">
           <BackLink href="/sales/records">Back to Sales</BackLink>
           <Link href="/sales/add-record" className="w-fit">
-            <Button size="sm">Add New Sale Record</Button>
+            <Button size="sm">+ Add New Sale Record</Button>
           </Link>
         </div>
 
