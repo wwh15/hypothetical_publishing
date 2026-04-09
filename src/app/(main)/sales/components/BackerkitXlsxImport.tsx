@@ -16,6 +16,7 @@ import {
   CheckCircle2,
   FileSpreadsheet,
   Info,
+  InfoIcon,
 } from "lucide-react";
 import {
   authorRoyaltyRatePercentForSaleSource,
@@ -66,7 +67,10 @@ const OPTIONAL_HEADER_RE = /^(item|qty|price)\d+$/;
  * Strict: exact BackerKit column names. Required: Pledge Status, Order Placed.
  * Other non-empty headers must be itemN, qtyN, or priceN only.
  */
-function validateBackerkitHeaders(headerRow: unknown[], errors: string[]): void {
+function validateBackerkitHeaders(
+  headerRow: unknown[],
+  errors: string[]
+): void {
   const seen = new Set<string>();
   let hasPledgeStatus = false;
   let hasOrderPlaced = false;
@@ -191,151 +195,151 @@ export default function BackerkitXlsxImport({
 
         if (tempErrors.length === 0)
           rows.forEach((row, index) => {
-          const rowNum = index + 2;
+            const rowNum = index + 2;
 
-          if (dataRowIsEmpty(row)) return;
+            if (dataRowIsEmpty(row)) return;
 
-          // 1. Pledge Status — required on every non-empty row
-          const pledgeVal = row["Pledge Status"];
-          const pledgeStr = String(pledgeVal ?? "").trim();
-          if (pledgeStr === "") {
-            tempErrors.push(
-              `Row ${rowNum}, "Pledge Status": value is required`
-            );
-            return;
-          }
-
-          const status = pledgeStr.toLowerCase();
-          if (status !== "collected" && status !== "imported") {
-            tempIgnoredRows.push(rowNum);
-            return;
-          }
-
-          // 2. Order Placed — required for successful pledges
-          const rawOrderPlaced = row["Order Placed"];
-          if (
-            rawOrderPlaced === null ||
-            rawOrderPlaced === undefined ||
-            String(rawOrderPlaced).trim() === ""
-          ) {
-            tempErrors.push(
-              `Row ${rowNum}, "Order Placed": value is required`
-            );
-            return;
-          }
-          const saleMonth =
-            rawOrderPlaced instanceof Date
-              ? validateDatePeriod(
-                  String(rawOrderPlaced.getUTCFullYear()),
-                  String(rawOrderPlaced.getUTCMonth() + 1)
-                )
-              : typeof rawOrderPlaced === "number"
-              ? (() => {
-                  const d = new Date(
-                    Math.round((rawOrderPlaced - 25569) * 86400 * 1000)
-                  );
-                  return validateDatePeriod(
-                    String(d.getUTCFullYear()),
-                    String(d.getUTCMonth() + 1)
-                  );
-                })()
-              : typeof rawOrderPlaced === "string"
-              ? (() => {
-                  const d = parseMmDdYyToSaleMonth(rawOrderPlaced);
-                  return d
-                    ? { success: true as const, data: d }
-                    : { success: false as const, error: "Invalid date" };
-                })()
-              : (() => {
-                  const d = parseMmDdYyToSaleMonth(
-                    String(rawOrderPlaced ?? "")
-                  );
-                  return d
-                    ? { success: true as const, data: d }
-                    : { success: false as const, error: "Invalid date" };
-                })();
-
-          if (!saleMonth.success) {
-            tempErrors.push(
-              `Row ${rowNum}, "Order Placed" Field: Invalid date`
-            );
-            return;
-          }
-
-          const monthKey = `${saleMonth.data.getUTCFullYear()}-${String(
-            saleMonth.data.getUTCMonth() + 1
-          ).padStart(2, "0")}`;
-
-          // 3. Scan itemN / qtyN pairs (BackerKit uses item1, qty1, …)
-          Object.keys(row).forEach((key) => {
-            if (!key.startsWith("item")) return;
-            const n = key.slice("item".length);
-            if (!/^\d+$/.test(n)) return;
-
-            const tagRaw = row[key];
-            if (tagRaw === null || tagRaw === undefined) return;
-            const tagStr = String(tagRaw).trim();
-            if (!tagStr) return;
-
-            const qtyRaw = row[`qty${n}`];
-            const qtyCheck = validateNonNegativeNumber(
-              typeof qtyRaw === "number" ? qtyRaw : String(qtyRaw ?? ""),
-              `"qty${n}"`
-            );
-
-            if (!qtyCheck.success) {
+            // 1. Pledge Status — required on every non-empty row
+            const pledgeVal = row["Pledge Status"];
+            const pledgeStr = String(pledgeVal ?? "").trim();
+            if (pledgeStr === "") {
               tempErrors.push(
-                `Row ${rowNum}, "qty${n}" Field: ${qtyCheck.error}`
+                `Row ${rowNum}, "Pledge Status": value is required`
               );
               return;
             }
-            const qty = qtyCheck.data;
-            // DB requires quantity > 0 for print/ebook; 0 in the sheet is valid — skip the line.
-            if (qty === 0) return;
 
-            // 1. Try to find the book in either lookup
-            const eBookMatch = eBookTagLookup.get(tagStr);
-            const printMatch = printTagLookup.get(tagStr);
-
-            // 2. Identify the specific book and the format it represents
-            const matchedBook = eBookMatch || printMatch;
-            const matchedFormat: PendingSaleItem["format"] = eBookMatch
-              ? "EBOOK"
-              : "PRINT";
-
-            if (matchedBook) {
-              // 3. Tuple Key must include the format to ensure aggregation separation
-              const tupleKey = `${monthKey}|${matchedBook.id}|${matchedFormat}`;
-
-              if (!salesMap.has(tupleKey)) {
-                salesMap.set(tupleKey, {
-                  id: crypto.randomUUID(),
-                  bookId: matchedBook.id,
-                  title: matchedBook.title,
-                  author: matchedBook.author,
-                  date: saleMonth.data,
-                  quantity: 0,
-                  kenp: null,
-                  format: matchedFormat,
-                  distributor: null,
-                  publisherRevenueUSD: 0,
-                  publisherRevenueOriginal: 0,
-                  currency: "USD",
-                  authorRoyalty: 0,
-                  paid: false,
-                  source: "KICKSTARTER",
-                  comment: commentBase,
-                });
-              }
-
-              const existing = salesMap.get(tupleKey)!;
-              existing.quantity = (existing.quantity ?? 0) + qty;
-            } else {
-              // If it matches neither, it's an unknown/swag item
-              tempUnknownTags.add(tagStr);
+            const status = pledgeStr.toLowerCase();
+            if (status !== "collected" && status !== "imported") {
+              tempIgnoredRows.push(rowNum);
+              return;
             }
+
+            // 2. Order Placed — required for successful pledges
+            const rawOrderPlaced = row["Order Placed"];
+            if (
+              rawOrderPlaced === null ||
+              rawOrderPlaced === undefined ||
+              String(rawOrderPlaced).trim() === ""
+            ) {
+              tempErrors.push(
+                `Row ${rowNum}, "Order Placed": value is required`
+              );
+              return;
+            }
+            const saleMonth =
+              rawOrderPlaced instanceof Date
+                ? validateDatePeriod(
+                    String(rawOrderPlaced.getUTCFullYear()),
+                    String(rawOrderPlaced.getUTCMonth() + 1)
+                  )
+                : typeof rawOrderPlaced === "number"
+                ? (() => {
+                    const d = new Date(
+                      Math.round((rawOrderPlaced - 25569) * 86400 * 1000)
+                    );
+                    return validateDatePeriod(
+                      String(d.getUTCFullYear()),
+                      String(d.getUTCMonth() + 1)
+                    );
+                  })()
+                : typeof rawOrderPlaced === "string"
+                ? (() => {
+                    const d = parseMmDdYyToSaleMonth(rawOrderPlaced);
+                    return d
+                      ? { success: true as const, data: d }
+                      : { success: false as const, error: "Invalid date" };
+                  })()
+                : (() => {
+                    const d = parseMmDdYyToSaleMonth(
+                      String(rawOrderPlaced ?? "")
+                    );
+                    return d
+                      ? { success: true as const, data: d }
+                      : { success: false as const, error: "Invalid date" };
+                  })();
+
+            if (!saleMonth.success) {
+              tempErrors.push(
+                `Row ${rowNum}, "Order Placed" Field: Invalid date`
+              );
+              return;
+            }
+
+            const monthKey = `${saleMonth.data.getUTCFullYear()}-${String(
+              saleMonth.data.getUTCMonth() + 1
+            ).padStart(2, "0")}`;
+
+            // 3. Scan itemN / qtyN pairs (BackerKit uses item1, qty1, …)
+            Object.keys(row).forEach((key) => {
+              if (!key.startsWith("item")) return;
+              const n = key.slice("item".length);
+              if (!/^\d+$/.test(n)) return;
+
+              const tagRaw = row[key];
+              if (tagRaw === null || tagRaw === undefined) return;
+              const tagStr = String(tagRaw).trim();
+              if (!tagStr) return;
+
+              const qtyRaw = row[`qty${n}`];
+              const qtyCheck = validateNonNegativeNumber(
+                typeof qtyRaw === "number" ? qtyRaw : String(qtyRaw ?? ""),
+                `"qty${n}"`
+              );
+
+              if (!qtyCheck.success) {
+                tempErrors.push(
+                  `Row ${rowNum}, "qty${n}" Field: ${qtyCheck.error}`
+                );
+                return;
+              }
+              const qty = qtyCheck.data;
+              // DB requires quantity > 0 for print/ebook; 0 in the sheet is valid — skip the line.
+              if (qty === 0) return;
+
+              // 1. Try to find the book in either lookup
+              const eBookMatch = eBookTagLookup.get(tagStr);
+              const printMatch = printTagLookup.get(tagStr);
+
+              // 2. Identify the specific book and the format it represents
+              const matchedBook = eBookMatch || printMatch;
+              const matchedFormat: PendingSaleItem["format"] = eBookMatch
+                ? "EBOOK"
+                : "PRINT";
+
+              if (matchedBook) {
+                // 3. Tuple Key must include the format to ensure aggregation separation
+                const tupleKey = `${monthKey}|${matchedBook.id}|${matchedFormat}`;
+
+                if (!salesMap.has(tupleKey)) {
+                  salesMap.set(tupleKey, {
+                    id: crypto.randomUUID(),
+                    bookId: matchedBook.id,
+                    title: matchedBook.title,
+                    author: matchedBook.author,
+                    date: saleMonth.data,
+                    quantity: 0,
+                    kenp: null,
+                    format: matchedFormat,
+                    distributor: null,
+                    publisherRevenueUSD: 0,
+                    publisherRevenueOriginal: 0,
+                    currency: "USD",
+                    authorRoyalty: 0,
+                    paid: false,
+                    source: "KICKSTARTER",
+                    comment: commentBase,
+                  });
+                }
+
+                const existing = salesMap.get(tupleKey)!;
+                existing.quantity = (existing.quantity ?? 0) + qty;
+              } else {
+                // If it matches neither, it's an unknown/swag item
+                tempUnknownTags.add(tagStr);
+              }
+            });
           });
-        });
 
         // 4. Publisher revenue (and author royalty) — only after a clean scan
         if (tempErrors.length === 0 && salesMap.size > 0) {
@@ -394,7 +398,9 @@ export default function BackerkitXlsxImport({
       <CardHeader>
         <CardTitle>Backerkit Import</CardTitle>
         <CardDescription className="border-b pb-2">
-          Upload a Backerkit XLSX to generate aggregate sales records and add rows to the <strong>Pending Records</strong> table located at the bottom of the page.
+          Upload a Backerkit XLSX to generate aggregate sales records and add
+          rows to the <strong>Pending Records</strong> table located at the
+          bottom of the page.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -404,7 +410,8 @@ export default function BackerkitXlsxImport({
             htmlFor="bk-import"
             className="flex cursor-pointer items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
           >
-            <FileSpreadsheet className="h-4 w-4" />Import Backerkit XLSX
+            <FileSpreadsheet className="h-4 w-4" />
+            Import Backerkit XLSX
             <input
               id="bk-import"
               type="file"
@@ -479,29 +486,39 @@ export default function BackerkitXlsxImport({
             )}
 
             {/* Success (matches Ingram Spark / Amazon import panels) */}
-            {errors.length === 0 && (
-              <div className="space-y-3 rounded-md border-2 border-green-500 bg-green-50 p-4 animate-in fade-in zoom-in duration-300 dark:bg-green-950/30">
-                <div className="flex items-center gap-2 text-sm font-semibold text-green-700 dark:text-green-400">
-                  <CheckCircle2 className="h-4 w-4 shrink-0" />
-                  File &quot;{fileName}&quot; imported successfully
+            {errors.length === 0 &&
+              (addedCount > 0 ? (
+                <div className="space-y-3 rounded-md border-2 border-green-500 bg-green-50 p-4 animate-in fade-in zoom-in duration-300 dark:bg-green-950/30">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-green-700 dark:text-green-400">
+                    <CheckCircle2 className="h-4 w-4 shrink-0" />
+                    File &quot;{fileName}&quot; imported successfully
+                  </div>
+                  <p className="text-sm text-green-800 dark:text-green-300/90">
+                    Review the imported data in the{" "}
+                    <strong>Pending Records</strong> table below.
+                  </p>
+                  {addedCount > 0 && onViewPendingRecords && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="w-full sm:w-auto"
+                      onClick={() => onViewPendingRecords()}
+                    >
+                      View Pending Records
+                    </Button>
+                  )}
                 </div>
-                <p className="text-sm text-green-800 dark:text-green-300/90">
-                  Review the imported data in the{" "}
-                  <strong>Pending Records</strong> table below.
-                </p>
-                {addedCount > 0 && onViewPendingRecords && (
-                  <Button
-                    type="button"
-                    size="sm"
-                    className="w-full sm:w-auto"
-                    onClick={() => onViewPendingRecords()}
-                  >
-                    View Pending Records
-                  </Button>
-                )}
-              </div>
-            )}
-
+              ) : (
+                <div className="space-y-3 rounded-md border-2 p-4 animate-in fade-in zoom-in duration-300 bg-secondary">
+                  <div className="flex items-center gap-2 text-sm font-semibold">
+                  <InfoIcon />
+                  No Sales Added. 
+                  </div>
+                  <p className="text-sm">
+                    <strong>Possible Reasons:</strong> (1) None of the Kickstarter item tags are recognized, (2) Some columns are missing data.
+                  </p>
+                </div>
+              ))}
           </div>
         )}
       </CardContent>
