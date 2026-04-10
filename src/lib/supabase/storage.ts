@@ -45,7 +45,7 @@ function coverArtExtFromMime(mime: string): string | null {
  * Detect cover art extension by checking magic bytes (file contents).
  * This is more reliable than trusting `file.type`, which the browser can spoof.
  */
-function coverArtExtFromMagicBytes(head: Uint8Array): string | null {
+export function coverArtExtFromMagicBytes(head: Uint8Array): string | null {
   // JPEG: FF D8 FF
   if (head.length >= 3 && head[0] === 0xff && head[1] === 0xd8 && head[2] === 0xff) {
     return "jpg";
@@ -263,4 +263,87 @@ export async function deleteCoverArt(
   path: string
 ): Promise<{ error: string | null }> {
   return deleteFile(COVER_ART_BUCKET, path);
+}
+
+// --- Branding Logo (private bucket) ---
+
+const BRANDING_BUCKET = "branding";
+
+const BRANDING_ALLOWED_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+] as const;
+
+const BRANDING_MAX_BYTES = 2 * 1024 * 1024; // 2MB
+
+/**
+ * Upload a branding logo. Validates magic bytes (not just MIME).
+ * Deterministic path: "logo.<ext>" - upserts to replace any existing logo.
+ * No SVG allowed (XSS risk). No GIF for branding.
+ */
+export async function uploadBrandingLogo(
+  file: File
+): Promise<{ path: string } | { error: string }> {
+  if (file.size > BRANDING_MAX_BYTES) {
+    return { error: "File too large. Maximum size is 2MB." };
+  }
+
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const head = bytes.subarray(0, 12);
+
+  // Reuse existing magic byte detection (covers JPEG, PNG, GIF, WebP)
+  const ext = coverArtExtFromMagicBytes(head);
+  if (!ext || ext === "gif") {
+    return { error: "Invalid image type. Use JPEG, PNG, or WebP. (No GIF or SVG.)" };
+  }
+
+  const path = `logo.${ext}`;
+  const supabase = await createClient();
+
+  // Delete any existing logo files first (they may have a different extension)
+  await supabase.storage.from(BRANDING_BUCKET).remove(["logo.jpg", "logo.png", "logo.webp"]);
+
+  const { data, error } = await supabase.storage
+    .from(BRANDING_BUCKET)
+    .upload(path, file, {
+      cacheControl: "3600",
+      upsert: true,
+    });
+
+  if (error) {
+    return { error: error.message };
+  }
+
+  return { path: data.path };
+}
+
+/** Signed URL for branding logo. */
+export async function getBrandingLogoSignedUrl(
+  path: string,
+  expiresIn: number = 360000
+): Promise<{ url: string | null; error: string | null }> {
+  const { data, error } = await supabaseAdmin.storage
+    .from(BRANDING_BUCKET)
+    .createSignedUrl(path, expiresIn);
+
+  if (error) {
+    return { url: null, error: error.message };
+  }
+
+  return { url: data.signedUrl, error: null };
+}
+
+/** Delete branding logo from storage. */
+export async function deleteBrandingLogo(): Promise<{ error: string | null }> {
+  const supabase = await createClient();
+  const { error } = await supabase.storage
+    .from(BRANDING_BUCKET)
+    .remove(["logo.jpg", "logo.png", "logo.webp"]);
+
+  if (error) {
+    return { error: error.message };
+  }
+
+  return { error: null };
 }
