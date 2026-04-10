@@ -22,7 +22,7 @@ export default async function Navbar() {
           className="font-bold text-lg py-3 -ml-2 pl-2 pr-2 rounded-md focus:outline-none shrink-0"
         >
           {logoUrl ? (
-            <img src={logoUrl} alt={branding.companyName} className="h-8 max-w-[200px] object-contain" />
+            <img src={logoUrl} alt={branding.companyName} className="h-8 w-auto max-w-[200px] object-contain" />
           ) : (
             branding.companyName
           )}

@@ -159,7 +159,7 @@ export default function BrandingForm({ branding, logoUrl }: BrandingFormProps) {
             <img
               src={currentLogoUrl}
               alt="Current logo"
-              className="h-12 max-w-[200px] object-contain"
+              className="h-12 w-auto max-w-[200px] object-contain"
             />
             <div className="flex gap-2">
               <Button

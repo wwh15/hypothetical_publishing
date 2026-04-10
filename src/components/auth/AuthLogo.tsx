@@ -15,7 +15,7 @@ export default function AuthLogo({
         <img
           src={logoUrl}
           alt={companyName}
-          className="h-12 max-w-[250px] object-contain mx-auto mb-2"
+          className="h-12 w-auto max-w-[250px] object-contain mx-auto mb-2"
         />
       ) : (
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">
