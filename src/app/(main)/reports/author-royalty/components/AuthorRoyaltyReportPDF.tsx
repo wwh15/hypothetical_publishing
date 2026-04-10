@@ -298,7 +298,7 @@ export function AuthorRoyaltyReportPDF({ data, companyName, logoUrl }: AuthorRoy
       >
         <View style={styles.header} wrap={false}>
           {logoUrl ? (
-            <Image src={logoUrl} style={{ height: 36, maxWidth: 200, marginBottom: 4 }} />
+            <Image src={logoUrl} style={{ height: 40, width: 40, objectFit: "contain", marginBottom: 4 }} />
           ) : null}
           <Text style={styles.title}>{companyName ?? "Hypothetical Publishing"}</Text>
           <Text style={styles.subtitle}>
