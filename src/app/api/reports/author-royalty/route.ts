@@ -4,6 +4,7 @@ import type { DocumentProps } from "@react-pdf/renderer";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { getAuthorRoyaltyReportData } from "@/lib/data/author-royalty-report";
 import { AuthorRoyaltyReportPDF } from "@/app/(main)/reports/author-royalty/components/AuthorRoyaltyReportPDF";
+import { getBranding } from "@/lib/data/branding";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -53,7 +54,8 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const doc = React.createElement(AuthorRoyaltyReportPDF, { data: report });
+  const branding = await getBranding();
+  const doc = React.createElement(AuthorRoyaltyReportPDF, { data: report, companyName: branding.companyName });
   const buffer = await renderToBuffer(
     doc as React.ReactElement<DocumentProps>
   );

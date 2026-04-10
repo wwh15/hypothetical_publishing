@@ -275,9 +275,10 @@ function PeriodTable({
 
 interface AuthorRoyaltyReportPDFProps {
   data: AuthorRoyaltyReportResult;
+  companyName?: string;
 }
 
-export function AuthorRoyaltyReportPDF({ data }: AuthorRoyaltyReportPDFProps) {
+export function AuthorRoyaltyReportPDF({ data, companyName }: AuthorRoyaltyReportPDFProps) {
   const { author, generatedAt, periods, bookRows, cells } = data;
   const dateStr = generatedAt.toLocaleDateString("en-US", {
     year: "numeric",
@@ -294,7 +295,7 @@ export function AuthorRoyaltyReportPDF({ data }: AuthorRoyaltyReportPDFProps) {
         wrap
       >
         <View style={styles.header} wrap={false}>
-          <Text style={styles.title}>Hypothetical Publishing</Text>
+          <Text style={styles.title}>{companyName ?? "Hypothetical Publishing"}</Text>
           <Text style={styles.subtitle}>
             Author royalty report — {author.name}
           </Text>
