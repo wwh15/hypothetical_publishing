@@ -299,12 +299,12 @@ export async function uploadBrandingLogo(
   }
 
   const path = `logo.${ext}`;
-  const supabase = await createClient();
 
+  // Use admin client to bypass RLS (branding is a system-level operation)
   // Delete any existing logo files first (they may have a different extension)
-  await supabase.storage.from(BRANDING_BUCKET).remove(["logo.jpg", "logo.png", "logo.webp"]);
+  await supabaseAdmin.storage.from(BRANDING_BUCKET).remove(["logo.jpg", "logo.png", "logo.webp"]);
 
-  const { data, error } = await supabase.storage
+  const { data, error } = await supabaseAdmin.storage
     .from(BRANDING_BUCKET)
     .upload(path, file, {
       cacheControl: "3600",
@@ -336,8 +336,7 @@ export async function getBrandingLogoSignedUrl(
 
 /** Delete branding logo from storage. */
 export async function deleteBrandingLogo(): Promise<{ error: string | null }> {
-  const supabase = await createClient();
-  const { error } = await supabase.storage
+  const { error } = await supabaseAdmin.storage
     .from(BRANDING_BUCKET)
     .remove(["logo.jpg", "logo.png", "logo.webp"]);
 
