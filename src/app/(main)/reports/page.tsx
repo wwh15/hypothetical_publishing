@@ -23,6 +23,17 @@ export default function ReportsPage() {
             — Sales and royalty breakdown by author and time period
           </span>
         </li>
+        <li>
+          <Link
+            href="/reports/amazon-sales"
+            className="text-blue-600 dark:text-blue-400 hover:underline font-medium"
+          >
+            Amazon sales report
+          </Link>
+          <span className="text-muted-foreground text-sm ml-2">
+            — Lifetime Amazon sales data per book (XLSX)
+          </span>
+        </li>
       </ul>
     </div>
   );
