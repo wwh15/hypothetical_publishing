@@ -132,3 +132,15 @@ model Sale {
   @@index([bookId, date])
   @@map("sales")
 }
+
+model WhiteLabelConfig {
+  id           Int      @id @default(1)
+  companyName  String   @default("Hypothetical Publishing") @map("company_name")
+  tagline      String   @default("Book publishing & royalty management")
+  logoPath     String?  @map("logo_path")
+  primaryColor String   @default("#2563eb") @map("primary_color")
+  createdAt    DateTime @default(now()) @db.Timestamptz @map("created_at")
+  updatedAt    DateTime @updatedAt @db.Timestamptz @map("updated_at")
+
+  @@map("white_label_config")
+}

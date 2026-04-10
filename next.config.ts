@@ -1,16 +1,22 @@
 import type { NextConfig } from "next";
-module.exports = {
+
+const nextConfig: NextConfig = {
   async redirects() {
     return [
       {
-        source: "/", destination: '/books', permanent: true}];
+        source: "/",
+        destination: "/books",
+        permanent: true,
       },
-        
-};
-const nextConfig: NextConfig = {
-  /* config options here */
+    ];
+  },
   reactCompiler: true,
   serverExternalPackages: ["@react-pdf/renderer"],
+  experimental: {
+    serverActions: {
+      bodySizeLimit: "3mb",
+    },
+  },
 };
 
 export default nextConfig;

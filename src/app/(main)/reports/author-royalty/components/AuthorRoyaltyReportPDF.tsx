@@ -4,6 +4,7 @@ import {
   Page,
   View,
   Text,
+  Image,
   StyleSheet,
 } from "@react-pdf/renderer";
 import type {
@@ -296,9 +297,11 @@ function PeriodTable({
 
 interface AuthorRoyaltyReportPDFProps {
   data: AuthorRoyaltyReportResult;
+  companyName?: string;
+  logoUrl?: string | null;
 }
 
-export function AuthorRoyaltyReportPDF({ data }: AuthorRoyaltyReportPDFProps) {
+export function AuthorRoyaltyReportPDF({ data, companyName, logoUrl }: AuthorRoyaltyReportPDFProps) {
   const { author, generatedAt, periods, bookRows, cells } = data;
   const dateStr = generatedAt.toLocaleDateString("en-US", {
     year: "numeric",
@@ -316,7 +319,10 @@ export function AuthorRoyaltyReportPDF({ data }: AuthorRoyaltyReportPDFProps) {
         wrap
       >
         <View style={styles.header} wrap={false}>
-          <Text style={styles.title}>Hypothetical Publishing</Text>
+          {logoUrl ? (
+            <Image src={logoUrl} style={{ height: 40, width: 40, objectFit: "contain", marginBottom: 4 }} />
+          ) : null}
+          <Text style={styles.title}>{companyName ?? "Hypothetical Publishing"}</Text>
           <Text style={styles.subtitle}>
             Author royalty report — {author.name}
           </Text>

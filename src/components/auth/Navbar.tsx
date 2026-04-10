@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { getUser } from "@/lib/supabase/auth";
 import LogoutButton from "./LogoutButton";
+import { getBranding } from "@/lib/data/branding";
+import { getBrandingLogoSignedUrl } from "@/lib/supabase/storage";
 import { cn } from "@/lib/utils";
 
 const navLinkClass = cn(
@@ -10,6 +12,13 @@ const navLinkClass = cn(
 
 export default async function Navbar() {
   const user = await getUser();
+  const branding = await getBranding();
+
+  let logoUrl: string | null = null;
+  if (branding.logoPath) {
+    const { url } = await getBrandingLogoSignedUrl(branding.logoPath);
+    logoUrl = url;
+  }
 
   return (
     <nav className="sticky top-0 z-40 border-b border-border bg-background/85 shadow-sm backdrop-blur-md supports-[backdrop-filter]:bg-background/75">
@@ -18,7 +27,11 @@ export default async function Navbar() {
           href="/"
           className="shrink-0 rounded-md py-3 -ml-2 pl-2 pr-2 text-lg font-semibold tracking-tight text-foreground transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         >
-          Hypothetical Publishing
+          {logoUrl ? (
+            <img src={logoUrl} alt={branding.companyName} className="h-8 w-auto max-w-[200px] object-contain" />
+          ) : (
+            branding.companyName
+          )}
         </Link>
 
         <div className="flex items-center gap-3 sm:gap-5">
@@ -40,6 +53,9 @@ export default async function Navbar() {
                 <Link href="/reports" className={cn(navLinkClass, "rounded-md px-2 py-1.5")}>
                   Reports
                 </Link>
+                <Link href="/settings/branding" className={cn(navLinkClass, "rounded-md px-2 py-1.5")}>
+                  Settings
+                </Link>
               </nav>
               {/* Compact nav on narrow screens */}
               <nav className="flex flex-wrap items-center gap-x-2 gap-y-1 sm:hidden">
@@ -57,6 +73,9 @@ export default async function Navbar() {
                 </Link>
                 <Link href="/reports" className={navLinkClass}>
                   Reports
+                </Link>
+                <Link href="/settings/branding" className={navLinkClass}>
+                  Settings
                 </Link>
               </nav>
               <div className="group relative flex items-center">
