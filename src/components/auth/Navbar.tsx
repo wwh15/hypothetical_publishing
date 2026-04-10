@@ -1,9 +1,18 @@
 import Link from "next/link";
 import { getUser } from "@/lib/supabase/auth";
 import LogoutButton from "./LogoutButton";
+import { getBranding } from "@/lib/data/branding";
+import { getBrandingLogoSignedUrl } from "@/lib/supabase/storage";
 
 export default async function Navbar() {
   const user = await getUser();
+  const branding = await getBranding();
+
+  let logoUrl: string | null = null;
+  if (branding.logoPath) {
+    const { url } = await getBrandingLogoSignedUrl(branding.logoPath);
+    logoUrl = url;
+  }
 
   return (
     <nav className="border-b bg-white dark:bg-gray-800">
@@ -12,7 +21,11 @@ export default async function Navbar() {
           href="/"
           className="font-bold text-lg py-3 -ml-2 pl-2 pr-2 rounded-md focus:outline focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 shrink-0"
         >
-          Hypothetical Publishing
+          {logoUrl ? (
+            <img src={logoUrl} alt={branding.companyName} className="h-8 max-w-[200px] object-contain" />
+          ) : (
+            branding.companyName
+          )}
         </Link>
 
         <div className="flex items-center gap-4">
@@ -21,33 +34,39 @@ export default async function Navbar() {
               <nav className="flex items-center gap-4">
                 <Link
                   href="/books"
-                  className="text-sm text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                  className="text-sm text-gray-700 dark:text-gray-300 hover:text-[var(--brand-primary)] transition-colors"
                 >
                   Books
                 </Link>
                 <Link
                   href="/sales/records"
-                  className="text-sm text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                  className="text-sm text-gray-700 dark:text-gray-300 hover:text-[var(--brand-primary)] transition-colors"
                 >
                   Sales
                 </Link>
                 <Link
                   href="/authors"
-                  className="text-sm text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                  className="text-sm text-gray-700 dark:text-gray-300 hover:text-[var(--brand-primary)] transition-colors"
                 >
                   Authors
                 </Link>
                 <Link
                   href="/sales/payments"
-                  className="text-sm text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                  className="text-sm text-gray-700 dark:text-gray-300 hover:text-[var(--brand-primary)] transition-colors"
                 >
                   Author Payments
                 </Link>
                 <Link
                   href="/reports"
-                  className="text-sm text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                  className="text-sm text-gray-700 dark:text-gray-300 hover:text-[var(--brand-primary)] transition-colors"
                 >
                   Reports
+                </Link>
+                <Link
+                  href="/settings/branding"
+                  className="text-sm text-gray-700 dark:text-gray-300 hover:text-[var(--brand-primary)] transition-colors"
+                >
+                  Settings
                 </Link>
               </nav>
               <div className="group relative flex items-center">
@@ -68,7 +87,7 @@ export default async function Navbar() {
           ) : (
             <Link
               href="/login"
-              className="px-3 py-1 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              className="px-3 py-1 text-sm bg-[var(--brand-primary)] text-[var(--brand-primary-text)] rounded-md hover:bg-[var(--brand-primary-hover)]"
             >
               Log in
             </Link>
