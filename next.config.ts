@@ -11,6 +11,9 @@ const nextConfig: NextConfig = {
   /* config options here */
   reactCompiler: true,
   serverExternalPackages: ["@react-pdf/renderer"],
+  serverActions: {
+    bodySizeLimit: "3mb",
+  },
 };
 
 export default nextConfig;
