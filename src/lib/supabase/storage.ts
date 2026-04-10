@@ -45,7 +45,7 @@ function coverArtExtFromMime(mime: string): string | null {
  * Detect cover art extension by checking magic bytes (file contents).
  * This is more reliable than trusting `file.type`, which the browser can spoof.
  */
-export function coverArtExtFromMagicBytes(head: Uint8Array): string | null {
+function coverArtExtFromMagicBytes(head: Uint8Array): string | null {
   // JPEG: FF D8 FF
   if (head.length >= 3 && head[0] === 0xff && head[1] === 0xd8 && head[2] === 0xff) {
     return "jpg";
