@@ -58,10 +58,11 @@ export async function updateLogo(formData: FormData): Promise<
 
   await updateLogoPath(result.path);
 
-  // Return the new signed URL so the client can update without reloading
+  // Return the new signed URL so the client can update without reloading.
+  // Don't revalidatePath here — it remounts the form and loses unsaved text edits.
+  // The layout will pick up the logo on next navigation or when user clicks Save.
   const { url } = await getBrandingLogoSignedUrl(result.path);
 
-  revalidatePath("/", "layout");
   return { success: true, logoUrl: url ?? "" };
 }
 
@@ -78,7 +79,7 @@ export async function removeLogo(): Promise<
 
   await updateLogoPath(null);
 
-  revalidatePath("/", "layout");
+  // Don't revalidatePath here — same reason as updateLogo.
   return { success: true };
 }
 
