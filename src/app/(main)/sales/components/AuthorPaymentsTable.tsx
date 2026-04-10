@@ -1,14 +1,22 @@
 "use client";
 
 import React, { useState } from "react";
-import { AuthorGroup, markAllPaid } from "@/lib/data/author-payment";
+import {
+  AuthorGroup,
+  markAllPaid,
+  type AuthorPaymentGrandTotals,
+} from "@/lib/data/author-payment";
 import { cn } from "@/lib/utils";
-import { SaleListItem } from "@/lib/data/records";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { PaginationControls } from "@/components/PaginationControls";
 import { TableInfo } from "@/components/TableInfo";
 import { BaseDataTable } from "@/components/BaseDataTable";
-import { getPresetColumns } from "@/lib/table-configs/sales-columns";
+import {
+  getPresetColumns,
+  saleListRowClassNameForBookReleased,
+} from "@/lib/table-configs/sales-columns";
+import { createSalesRecordPath } from "@/lib/table-configs/navigation";
 import {
   Dialog,
   DialogContent,
@@ -18,10 +26,102 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { ChevronDown, Search, X } from "lucide-react";
+import { ChevronDown, Hourglass, Search, Wallet, X } from "lucide-react";
+
+type UnpaidChipVariant = "page" | "inline";
+
+function UnpaidRoyaltyChips({
+  payable,
+  projected,
+  variant,
+}: {
+  payable: number;
+  projected: number;
+  variant: UnpaidChipVariant;
+}) {
+  const page = variant === "page";
+  return (
+    <div
+      className={cn("flex flex-wrap items-stretch gap-2", page && "gap-3")}
+      role="group"
+      aria-label="Unpaid royalty breakdown"
+    >
+      <div
+        className={cn(
+          "flex items-center rounded-lg border border-emerald-200/90 bg-emerald-50 dark:border-emerald-900/55 dark:bg-emerald-950/35",
+          page ? "gap-3 px-4 py-3 min-w-[9.5rem]" : "gap-2 px-2.5 py-1.5"
+        )}
+        title="Released books — included when you use Mark all as paid"
+      >
+        <Wallet
+          className={cn(
+            "shrink-0 text-emerald-700 dark:text-emerald-400",
+            page ? "h-5 w-5" : "h-4 w-4"
+          )}
+          aria-hidden
+        />
+        <div className="min-w-0 text-left">
+          <p
+            className={cn(
+              "font-medium uppercase tracking-wide text-emerald-900/70 dark:text-emerald-300/85",
+              page ? "text-xs" : "text-[10px] leading-tight"
+            )}
+          >
+            Payable
+          </p>
+          <p
+            className={cn(
+              "font-semibold tabular-nums text-emerald-950 dark:text-emerald-50",
+              page ? "text-xl" : "text-sm"
+            )}
+          >
+            ${payable.toFixed(2)}
+          </p>
+        </div>
+      </div>
+
+      {projected > 0 && (
+        <div
+          className={cn(
+            "flex items-center rounded-lg border border-dashed border-muted-foreground/40 bg-muted/25 dark:bg-muted/15",
+            page ? "gap-3 px-4 py-3 min-w-[9.5rem]" : "gap-2 px-2.5 py-1.5"
+          )}
+          title="Unreleased books — held until the book is released"
+        >
+          <Hourglass
+            className={cn(
+              "shrink-0 text-muted-foreground",
+              page ? "h-5 w-5" : "h-4 w-4"
+            )}
+            aria-hidden
+          />
+          <div className="min-w-0 text-left">
+            <p
+              className={cn(
+                "font-medium uppercase tracking-wide text-muted-foreground",
+                page ? "text-xs" : "text-[10px] leading-tight"
+              )}
+            >
+              Pre-release
+            </p>
+            <p
+              className={cn(
+                "font-semibold tabular-nums text-muted-foreground",
+                page ? "text-xl" : "text-sm"
+              )}
+            >
+              ${projected.toFixed(2)}
+            </p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 interface AuthorPaymentsTableProps {
   groups: AuthorGroup[];
+  totals: AuthorPaymentGrandTotals;
   totalGroups: number;
   currentPage: number;
   totalPages: number;
@@ -32,6 +132,7 @@ interface AuthorPaymentsTableProps {
 
 export default function AuthorPaymentsTable({
   groups,
+  totals,
   totalGroups,
   currentPage,
   totalPages,
@@ -54,10 +155,6 @@ export default function AuthorPaymentsTable({
     setOpenIds((prev) =>
       prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
     );
-  };
-
-  const handleRowClick = (sale: SaleListItem) => {
-    router.push(`/sales/records/${sale.id}?from=payments`);
   };
 
   const handlePageChange = (page: number) => {
@@ -115,6 +212,28 @@ export default function AuthorPaymentsTable({
     router.push(`/sales/payments?${params.toString()}`);
   };
 
+  const handlePaypalClick = async (group: AuthorGroup) => {
+    const payPalUsername = group.payPalUsername?.trim();
+    const payableAmount = group.unpaidPayableTotal.toFixed(2);
+    if (payPalUsername) {
+      const paypalUrl = `https://paypal.me/${payPalUsername}/${payableAmount}`;
+      window.open(paypalUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
+    router.push(`/authors/${group.authorId}/edit`);
+  };
+
+  const handleVenmoClick = async (group: AuthorGroup) => {
+    const venmoUsername = group.venmoUsername?.trim().replace(/^@/, '');;
+    const payableAmount = group.unpaidPayableTotal.toFixed(2);
+    if (venmoUsername) {
+      const venmoUrl = `https://venmo.com/${venmoUsername}?amount=${payableAmount}&note=Author%20Royalty`;
+      window.open(venmoUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
+    router.push(`/authors/${group.authorId}/edit`);
+  };
+
   const startRecord = totalGroups === 0 ? 0 : (currentPage - 1) * pageSize + 1;
   const endRecord =
     totalGroups === 0 ? 0 : Math.min(currentPage * pageSize, totalGroups);
@@ -125,6 +244,7 @@ export default function AuthorPaymentsTable({
         .map((col) => ({
           ...col,
           className: cn("text-center align-middle", col.className),
+          headerClassName: "text-center",
         })),
     []
   );
@@ -165,6 +285,18 @@ export default function AuthorPaymentsTable({
           </button>
         )}
       </form>
+
+      <div className="rounded-xl border bg-card px-4 py-3 shadow-sm">
+        <p className="text-xs text-muted-foreground mb-2">
+          Unpaid totals{search.trim() ? " (search)" : ""}
+        </p>
+        <UnpaidRoyaltyChips
+          payable={totals.unpaidPayable}
+          projected={totals.unpaidProjected}
+          variant="page"
+        />
+      </div>
+
       <TableInfo
         startRecord={startRecord}
         endRecord={endRecord}
@@ -198,52 +330,79 @@ export default function AuthorPaymentsTable({
               <div
                 onClick={() => toggleGroup(group.authorId)}
                 className={cn(
-                  "flex items-center justify-between p-4 cursor-pointer transition-colors select-none",
+                  "flex flex-col gap-4 p-4 cursor-pointer transition-colors select-none sm:flex-row sm:items-center sm:justify-between",
                   isOpen ? "bg-muted/50 border-b" : "hover:bg-muted/20"
                 )}
               >
-                <div className="flex items-center gap-3">
-                  {/* Chevron rotates based on open state */}
+                <div className="flex min-w-0 flex-1 items-start gap-3">
                   <ChevronDown
                     className={cn(
-                      "h-5 w-5 text-gray-400 transition-transform duration-200",
+                      "mt-1 h-5 w-5 shrink-0 text-gray-400 transition-transform duration-200",
                       isOpen && "rotate-180"
                     )}
                   />
-                  <div>
-                    <h3 className="font-bold text-lg text-foreground leading-none mb-1">
-                      {group.author}
+                  <div className="min-w-0 space-y-2">
+                    <h3 className="font-bold text-lg leading-tight">
+                      <Link
+                        href={`/authors/${group.authorId}`}
+                        className="text-foreground underline-offset-4 hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {group.author}
+                      </Link>
                     </h3>
-                    <p className="text-sm text-muted-foreground">
-                      Unpaid Total:{" "}
-                      <span className="text-foreground font-semibold">
-                        ${group.unpaidTotal.toFixed(2)}
-                      </span>
-                    </p>
+                    <div className="flex flex-wrap items-stretch gap-2">
+                      <UnpaidRoyaltyChips
+                        payable={group.unpaidPayableTotal}
+                        projected={group.unpaidProjectedTotal}
+                        variant="inline"
+                      />
+                      <Button
+                        type="button"
+                        variant={"outline"}
+                        size="sm"
+                        className="h-auto self-stretch"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void handlePaypalClick(group);
+                        }}
+                      >
+                        {group.payPalUsername ? "Pay on Paypal" : "+ Add Paypal"}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={"outline"}
+                        size="sm"
+                        className="h-auto self-stretch"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void handleVenmoClick(group);
+                        }}
+                      >
+                        {group.venmoUsername ? "Pay on Venmo" : "+ Add Venmo"}
+                      </Button>
+                    </div>
                   </div>
                 </div>
 
-                <button
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="default"
+                  className="self-start sm:self-center sm:shrink-0 shadow-sm"
                   onClick={(e) => {
                     e.stopPropagation();
                     openConfirm(group.authorId, group.author);
                   }}
                   disabled={
                     loadingAuthorId === group.authorId ||
-                    !group.sales.some((s) => s.paid === "pending")
+                    group.unpaidPayableTotal <= 0
                   }
-                  className={cn(
-                    "px-4 py-2 rounded-md text-sm font-medium transition-all shadow-sm shrink-0",
-                    !group.sales.some((s) => s.paid === "pending") ||
-                      loadingAuthorId === group.authorId
-                      ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                      : "bg-blue-600 text-white hover:bg-blue-700 active:scale-95"
-                  )}
                 >
                   {loadingAuthorId === group.authorId
                     ? "Processing..."
-                    : "Mark all as paid"}
-                </button>
+                    : "Mark All as Paid"}
+                </Button>
               </div>
 
               {/* 4. Sales Data: Only rendered if isOpen is true */}
@@ -253,7 +412,17 @@ export default function AuthorPaymentsTable({
                     columns={columns}
                     data={group.sales}
                     emptyMessage={`${group.author} has no recorded sales.`}
-                    onRowClick={handleRowClick}
+                    getRowHref={(sale) =>
+                      createSalesRecordPath(sale.id, "/sales/records", {
+                        from: "payments",
+                      })
+                    }
+                    getRowLinkLabel={(sale) =>
+                      sale.title
+                        ? `Sale: ${sale.title}`
+                        : `Sale record ${sale.id}`
+                    }
+                    getRowClassName={saleListRowClassNameForBookReleased}
                   />
                 </div>
               )}
@@ -290,13 +459,13 @@ export default function AuthorPaymentsTable({
           }
         >
           <DialogHeader>
-            <DialogTitle>Mark all as paid?</DialogTitle>
+            <DialogTitle>Mark payable royalties as paid?</DialogTitle>
             <DialogDescription asChild>
               <div className="space-y-2 pt-1">
                 <p>
-                  Mark all unpaid royalties for{" "}
-                  <strong>{confirmingAuthor?.name}</strong> as paid? This cannot
-                  be undone.
+                  This updates <strong>{confirmingAuthor?.name}</strong>
+                  &apos;s released-book sales only. Pre-release rows stay
+                  pending. This cannot be undone.
                 </p>
                 {error && (
                   <p className="text-destructive text-sm font-medium">{error}</p>

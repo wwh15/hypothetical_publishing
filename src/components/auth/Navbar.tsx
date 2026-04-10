@@ -15,8 +15,8 @@ export default async function Navbar() {
   }
 
   return (
-    <nav className="border-b bg-white dark:bg-gray-800">
-      <div className="max-w-7xl mx-auto flex items-center justify-between gap-4 min-h-14 px-4 sm:px-6">
+    <nav className="sticky top-0 z-40 border-b border-border bg-background/85 shadow-sm backdrop-blur-md supports-[backdrop-filter]:bg-background/75">
+      <div className="mx-auto flex min-h-14 w-full min-w-0 items-center justify-between gap-4 px-4 sm:px-6">
         <Link
           href="/"
           className="font-bold text-lg py-3 -ml-2 pl-2 pr-2 rounded-md focus:outline-none shrink-0"
@@ -28,7 +28,7 @@ export default async function Navbar() {
           )}
         </Link>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3 sm:gap-5">
           {user ? (
             <>
               <nav className="flex items-center gap-4">
@@ -70,13 +70,13 @@ export default async function Navbar() {
                 </Link>
               </nav>
               <div className="group relative flex items-center">
-                <span className="text-sm text-gray-600 dark:text-gray-400 cursor-pointer">
+                <span className="max-w-[10rem] cursor-default truncate text-sm text-muted-foreground sm:max-w-none">
                   {user.user_metadata?.username ?? user.email}
                 </span>
-                <div className="absolute right-0 top-full hidden group-hover:block bg-white dark:bg-gray-800 border rounded-md shadow-md py-1 z-10 whitespace-nowrap">
+                <div className="absolute right-0 top-full z-50 mt-1 hidden rounded-lg border border-border bg-popover py-1 text-popover-foreground shadow-lg group-hover:block">
                   <Link
                     href="/change-password"
-                    className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                    className="block px-4 py-2 text-sm transition-colors hover:bg-accent hover:text-accent-foreground"
                   >
                     Change Password
                   </Link>

@@ -1,24 +1,37 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { PendingSaleItem } from "@/lib/data/records";
 import { BookListItem } from "@/lib/data/books";
 import PendingRecordsTable from "./PendingRecordsTable";
 import InputRecordForm from "./InputRecordForm";
-import BulkPasteSalesPanel from "./BulkPasteSalesPanel";
+import IngramSparkImport from "./IngramSparkImport";
 import AmazonXlsxImportPanel from "./AmazonXlsxImportPanel";
-import { addSale } from "../action";
+import { addSalesBulk } from "../action";
+import BackerkitXlsxImport from "./BackerkitXlsxImport";
+import { Button } from "@/components/ui/button";
 
 interface SalesInputClientProps {
   booksData: BookListItem[];
   /** When set (e.g. from /sales/add-record?bookId=123), the single-record form opens with this book pre-selected. */
   initialBookId?: number;
+  /** Preloaded USD base rates for instant FX in the single-record form (from server). */
+  usdRatesInitial?: Record<string, number> | null;
 }
 
 export default function SalesInputClient({
   booksData,
   initialBookId,
+  usdRatesInitial,
 }: SalesInputClientProps) {
+  const pendingRecordsSectionRef = useRef<HTMLElement>(null);
+  const scrollToPendingRecords = useCallback(() => {
+    pendingRecordsSectionRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  }, []);
+
   const [pendingRecords, setPendingRecords] = useState<PendingSaleItem[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -29,41 +42,32 @@ export default function SalesInputClient({
     setSubmitError(null);
   };
 
+  const handleAddRecords = (records: PendingSaleItem[]) => {
+    setPendingRecords((prev) => [...prev, ...records]);
+    setSubmitError(null);
+  };
+
+  
   const handleSubmit = async () => {
     setShowSaveConfirm(false);
     if (pendingRecords.length === 0) return;
+    
     setIsSubmitting(true);
     setSubmitError(null);
-
-    let failed = 0;
-    for (const record of pendingRecords) {
-      const result = await addSale({
-        bookId: record.bookId,
-        date: record.date,
-        quantity: record.quantity,
-        kenp: record.kenp,
-        format: record.format,
-        distributor:
-          record.source === "DISTRIBUTOR" ? record.distributor : null,
-        publisherRevenueUSD: record.publisherRevenueUSD,
-        publisherRevenueOriginal: record.publisherRevenueOriginal,
-        currency: record.currency,
-        authorRoyalty: record.authorRoyalty,
-        paid: record.paid,
-        comment: record.comment ?? null,
-        source: record.source,
-      });
-      if (!result.success) failed += 1;
-    }
-
+  
+    // Capture the result from your server action
+    const result = await addSalesBulk(pendingRecords);
+  
     setIsSubmitting(false);
-
-    if (failed === 0) {
+  
+    // Check the response object instead of a 'failed' counter
+    if (result.success) {
       setPendingRecords([]);
-      // optional: set a short-lived "Saved!" message
+      // Success! The "Pending" table is now cleared.
     } else {
+      // Display the error returned by the server
       setSubmitError(
-        `Failed to save ${failed} of ${pendingRecords.length} record(s).`,
+        result.error || "Failed to save records. Please check your connection."
       );
     }
   };
@@ -85,24 +89,39 @@ export default function SalesInputClient({
 
   return (
     <>
-      <BulkPasteSalesPanel
+      <IngramSparkImport
         onAddRecord={handleAddRecord}
         booksData={booksData}
+        onViewPendingRecords={scrollToPendingRecords}
       />
       <AmazonXlsxImportPanel
         onAddRecord={handleAddRecord}
         booksData={booksData}
+        onViewPendingRecords={scrollToPendingRecords}
+      />
+      <BackerkitXlsxImport
+        onAddRecords={handleAddRecords}
+        booksData={booksData}
+        onViewPendingRecords={scrollToPendingRecords}
       />
       <InputRecordForm
         onAddRecord={handleAddRecord}
         booksData={booksData}
         initialBookId={initialBookId}
+        usdRatesInitial={usdRatesInitial}
       />
-      <PendingRecordsTable
-        pendingRecords={pendingRecords}
-        onRemove={handleRemove}
-        onTogglePaid={handleTogglePaid}
-      />
+      <section
+        ref={pendingRecordsSectionRef}
+        id="pending-sales-records"
+        aria-label="Pending sales records"
+        className="scroll-mt-6"
+      >
+        <PendingRecordsTable
+          pendingRecords={pendingRecords}
+          onRemove={handleRemove}
+          onTogglePaid={handleTogglePaid}
+        />
+      </section>
       {submitError && (
         <div className="rounded-md bg-destructive/10 text-destructive px-4 py-2 text-sm">
           {submitError}
@@ -112,26 +131,27 @@ export default function SalesInputClient({
         <div className="flex justify-end gap-4 items-center">
 
           {/* Clear all button */}
-          <button
+          <Button
             type="button"
-            className="px-6 py-2 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50"
+            className="w-full sm:w-auto"
+            variant={"outline"}
             onClick={handleClearAll}
             disabled={isSubmitting}
           >
             Clear All
-          </button>
+          </Button>
 
           {/* Save button */}
-          <button
+          <Button
             type="button"
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+            className="w-full sm:w-auto"
             onClick={() => setShowSaveConfirm(true)}
             disabled={isSubmitting}
           >
             {isSubmitting
               ? "Saving..."
               : `Submit ${pendingRecords.length} Record${pendingRecords.length !== 1 ? "s" : ""}`}
-          </button>
+          </Button>
 
           {/* Save confirmation */}
           {showSaveConfirm && (
@@ -143,20 +163,20 @@ export default function SalesInputClient({
                   record{pendingRecords.length !== 1 ? "s" : ""}?
                 </p>
                 <div className="flex gap-4">
-                  <button
+                  <Button
                     onClick={handleSubmit}
                     disabled={isSubmitting}
                     className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
                   >
                     {isSubmitting ? "Saving..." : "Save"}
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     onClick={() => setShowSaveConfirm(false)}
                     disabled={isSubmitting}
                     className="px-4 py-2 bg-gray-300 dark:bg-gray-600 rounded-md hover:bg-gray-400 dark:hover:bg-gray-500"
                   >
                     Cancel
-                  </button>
+                  </Button>
                 </div>
               </div>
             </div>

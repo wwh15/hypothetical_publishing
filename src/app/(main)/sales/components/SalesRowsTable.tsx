@@ -6,6 +6,7 @@ import { SaleListItem } from "@/lib/data/records";
 import {
   getPresetColumns,
   getColumnsByVisibleIds,
+  saleListRowClassNameForBookReleased,
   SalesColumnId,
 } from "@/lib/table-configs/sales-columns";
 import { createSalesRecordPath } from "@/lib/table-configs/navigation";
@@ -123,14 +124,18 @@ export default function SalesRowsTable({
 
       // Check if we are sorting by the current column
       const isSorted = sortBy === col.key;
+      const label = col.header as string;
+      const sortLabel = col.headerTitle ?? label;
 
       // Update the header of the current column
       return {
         ...col,
         header: (
-          <div className="flex flex-col gap-1">
-            <span className="font-semibold flex items-center gap-1">
-              {col.header as string}
+          <div className="w-full min-w-0 max-w-full">
+            <div className="flex min-w-0 items-center gap-0.5 font-semibold">
+              <span className="min-w-0 flex-1 truncate" title={sortLabel}>
+                {label}
+              </span>
               <button
                 type="button"
                 onClick={() => {
@@ -143,10 +148,10 @@ export default function SalesRowsTable({
 
                 // Styling for sort button
                 className={cn(
-                  "ml-1 p-0.5 rounded hover:bg-muted transition-colors",
+                  "shrink-0 p-0.5 rounded hover:bg-muted transition-colors",
                   isSorted && "text-blue-600 bg-blue-50 dark:bg-blue-900/20"
                 )}
-                aria-label={`Sort by ${col.header}`}
+                aria-label={`Sort by ${sortLabel}`}
               >
                 {!isSorted ? (
                   <ArrowUpDown className="w-4 h-4 text-muted-foreground" />
@@ -156,24 +161,26 @@ export default function SalesRowsTable({
                   <ArrowDown className="h-4 w-4" />
                 )}
               </button>
-            </span>
+            </div>
           </div>
         ),
       };
     });
   }, [visibleColumns, preset, sortBy, sortDir, handleSortChange]);
 
-  const handleRowClick = (row: SaleListItem) => {
-    if (navigationContext) {
-      const params: Record<string, string> = {};
-      Object.entries(navigationContext).forEach(([key, value]) => {
-        if (value !== undefined) params[key] = String(value);
-      });
-      router.push(createSalesRecordPath(row.id, "/sales/records", params));
-    } else {
-      router.push(createSalesRecordPath(row.id));
-    }
-  };
+  const resolveSaleRecordHref = useCallback(
+    (row: SaleListItem) => {
+      if (navigationContext) {
+        const params: Record<string, string> = {};
+        Object.entries(navigationContext).forEach(([key, value]) => {
+          if (value !== undefined) params[key] = String(value);
+        });
+        return createSalesRecordPath(row.id, "/sales/records", params);
+      }
+      return createSalesRecordPath(row.id);
+    },
+    [navigationContext]
+  );
 
   if (hasPagination) {
     return (
@@ -185,7 +192,11 @@ export default function SalesRowsTable({
           columns={columns}
           data={rows}
           emptyMessage="No sales found"
-          onRowClick={handleRowClick}
+          getRowHref={resolveSaleRecordHref}
+          getRowLinkLabel={(row) =>
+            row.title ? `Sale: ${row.title}` : `Sale record ${row.id}`
+          }
+          getRowClassName={saleListRowClassNameForBookReleased}
         />
         {totalPages > 1 && (
           <div className="flex justify-end">
@@ -205,7 +216,11 @@ export default function SalesRowsTable({
       columns={columns}
       data={rows}
       emptyMessage="No sales found"
-      onRowClick={handleRowClick}
+      getRowHref={resolveSaleRecordHref}
+      getRowLinkLabel={(row) =>
+        row.title ? `Sale: ${row.title}` : `Sale record ${row.id}`
+      }
+      getRowClassName={saleListRowClassNameForBookReleased}
     />
   );
 }

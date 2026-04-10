@@ -55,7 +55,6 @@ export function DeleteAuthorButton({
         onClick={() => setOpen(true)}
         className="px-4 py-2"
       >
-        <Trash2 className="size-4" />
         Delete Author
       </Button>
 

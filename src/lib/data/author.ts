@@ -2,7 +2,6 @@ import { Author, Prisma } from "@prisma/client";
 import { prisma } from "../prisma";
 import { Decimal } from "decimal.js";
 import { normalizeEmail, normalizeString, validateEmail, validateRequiredString } from "../validation";
-import { normalize } from "node:path";
 
 export interface AuthorListItem {
   id: number;
@@ -19,6 +18,7 @@ export interface AuthorBookItem {
   title: string;
   seriesId?: number;
   seriesOrder?: number;
+  seriesName?: string;
   ISBN13: number;
   publicationMonth: string;
   publicationYear: string;
@@ -27,6 +27,7 @@ export interface AuthorBookItem {
   totalAuthorRoyalty: number;
   unpaidAuthorRoyalty: number;
   paidAuthorRoyalty: number;
+  coverArtPath: string | null;
 }
 
 export interface GetAuthorDataParams {
@@ -47,6 +48,8 @@ export interface GetAuthorsDataResult {
 export interface CreateAuthorRequest {
   name: string;
   email: string;
+  payPalUsername?: string;
+  venmoUsername?: string;
 }
 
 interface CreateAuthorResponse {
@@ -59,6 +62,8 @@ export interface UpdateAuthorRequest {
   authorId: number;
   name?: string;
   email?: string;
+  payPalUsername?: string;
+  venmoUsername?: string;
 }
 
 export type NewAuthorInput = Omit<Prisma.AuthorUncheckedCreateInput, 'canonicalName'>;
@@ -227,6 +232,7 @@ export async function asyncGetAuthorBooks(
       where: { authorId: id },
       include: {
         sales: true,
+        series: true
       },
       orderBy: [
         { title: "asc" },
@@ -260,6 +266,7 @@ export async function asyncGetAuthorBooks(
         title: book.title,
         seriesId: book.seriesId ?? undefined,
         seriesOrder: book.seriesOrder ?? undefined,
+        seriesName: book.series?.name,
         ISBN13: Number(book.isbn13) || 0, // Ensure numeric for your interface
         publicationMonth: book.publicationDate.toLocaleString("default", { month: "long" }),
         publicationYear: book.publicationDate.getFullYear().toString(),
@@ -268,6 +275,7 @@ export async function asyncGetAuthorBooks(
         totalAuthorRoyalty: totalAuthorRoyalty.toNumber(),
         paidAuthorRoyalty: totalPaid.toNumber(),
         unpaidAuthorRoyalty: totalUnpaid.toNumber(),
+        coverArtPath: book.coverArtPath
       };
     });
 
@@ -322,6 +330,8 @@ export async function asyncAddAuthor(
   // 1. NORMALIZE: Clean strings before any logic or database hits
   const cleanEmail = normalizeEmail(rawData.email);
   const cleanName = normalizeString(rawData.name); // Basic cleanup for display
+  const cleanpayPalUsername = normalizeString(rawData.payPalUsername);
+  const cleanVenmoUsername = normalizeString(rawData.venmoUsername);
   const fingerprint = getCanonicalAuthorKey(rawData.name); // The unique search key
 
   // 2. VALIDATE: Check the standardized strings
@@ -363,9 +373,10 @@ export async function asyncAddAuthor(
     // 4. CREATE: Store normalized values and the fingerprint
     const newAuthor = await prisma.author.create({
       data: {
-        ...rawData,
         name: cleanName,
         email: cleanEmail,
+        payPalUsername: cleanpayPalUsername || null,
+        venmoUsername: cleanVenmoUsername || null,
         canonicalName: fingerprint,
       },
     });
@@ -384,7 +395,7 @@ export async function asyncAddAuthor(
 export async function asyncUpdateAuthor(
   request: UpdateAuthorRequest
 ): Promise<UpdateAuthorResponse> {
-  const { authorId, name, email } = request;
+  const { authorId, name, email, payPalUsername, venmoUsername } = request;
   const updateData: Prisma.AuthorUpdateInput = {};
 
   // 1. Handle Email Update (Just normalize and save)
@@ -428,6 +439,16 @@ export async function asyncUpdateAuthor(
 
     updateData.name = cleanName;
     updateData.canonicalName = newFingerprint;
+  }
+
+  if (payPalUsername !== undefined) {
+    const cleanpayPalUsername = normalizeEmail(payPalUsername);
+    updateData.payPalUsername = cleanpayPalUsername || null;
+  }
+
+  if (venmoUsername !== undefined) {
+    const cleanVenmoUsername = normalizeString(venmoUsername);
+    updateData.venmoUsername = cleanVenmoUsername || null;
   }
 
   // 3. Prevent empty updates

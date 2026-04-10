@@ -3,8 +3,9 @@
  */
 
 import { ColumnDef } from "@/components/BaseDataTable";
-import { AuthorListItem } from "@/lib/data/author";
+import { AuthorBookItem, AuthorListItem } from "@/lib/data/author";
 import { cn } from "@/lib/utils";
+import Link from "next/link";
 
 /**
  * Stable column IDs for type-safe column selection (author list table only)
@@ -20,9 +21,7 @@ export type AuthorColumnId =
 // Reusable cell renderers
 export const authorCellRenderers = {
   currency: (value: number, colorClass?: string) => (
-    <span className={cn("font-medium", colorClass)}>
-      ${value.toFixed(2)}
-    </span>
+    <span className={cn("font-medium", colorClass)}>${value.toFixed(2)}</span>
   ),
 
   email: (email: string | null) => (
@@ -49,6 +48,7 @@ export const authorColumns: ColumnDef<AuthorListItem>[] = [
     key: "name",
     header: "Author Name",
     className: "w-1/4",
+    headerClassName: "w-1/4",
     render: (row) => <span className="font-medium">{row.name}</span>,
   },
   {
@@ -78,7 +78,100 @@ export const authorColumns: ColumnDef<AuthorListItem>[] = [
   {
     key: "unpaidAuthorRoyalty", // Matches your SORT_ASC/DESC key precise casing
     header: "Unpaid Balance",
-    render: (row) => authorCellRenderers.unpaidStatus(row.unpaidAuthorRoyalty,),
+    render: (row) => authorCellRenderers.unpaidStatus(row.unpaidAuthorRoyalty),
+  },
+];
+
+export const authorBookColumns: ColumnDef<AuthorBookItem>[] = [
+  {
+    key: "cover",
+    header: "Cover",
+    render: (row) => {
+      if (row.coverArtPath) {
+        return (
+          <img
+            src={`/api/books/cover?path=${encodeURIComponent(
+              row.coverArtPath
+            )}`}
+            alt=""
+            className="h-10 w-7 object-cover rounded border border-gray-200 dark:border-gray-600"
+          />
+        );
+      }
+      return <span className="text-muted-foreground text-xs">No cover</span>;
+    },
+  },
+  {
+    key: "title",
+    header: "Title",
+    render: (row) => (
+      <Link
+        href={`/books/${row.id}`}
+        onClick={(e) => e.stopPropagation()}
+        className="text-blue-600 hover:underline focus:outline focus:underline"
+      >
+        {row.title}
+      </Link>
+    ),
+  },
+  {
+    key: "series",
+    header: "Series",
+    render: (row) => {
+      if (!row.seriesName) {
+        return <span>-</span>;
+      }
+      const label =
+        row.seriesOrder != null
+          ? `${row.seriesName} (${row.seriesOrder})`
+          : row.seriesName;
+      return <span>{label}</span>;
+    },
+  },
+  {
+    key: "isbn13",
+    header: "ISBN-13",
+    render: (row) =>
+      row.ISBN13 ? (
+        <span>{row.ISBN13}</span>
+      ) : (
+        <span className="text-muted-foreground">—</span>
+      ),
+  },
+  {
+    key: "publication",
+    header: "Publication",
+    render: (row) => (
+      <span>
+        {[row.publicationMonth, row.publicationYear].filter(Boolean).join(" ")}
+      </span>
+    ),
+  },
+  {
+    key: "totalSales",
+    header: "Total Sales",
+    render: (row) => (
+      <span className="font-medium">{row.totalSales.toLocaleString()}</span>
+    ),
+  },
+  {
+    key: "totalAuthorRoyalty",
+    header: "Total Author Royalty",
+    render: (row) => authorCellRenderers.currency(row.totalAuthorRoyalty),
+  },
+  {
+    key: "paidAuthorRoyalty",
+    header: "Paid Author Royalty",
+    render: (row) =>
+      authorCellRenderers.currency(
+        row.paidAuthorRoyalty,
+        "text-green-600 dark:text-green-400"
+      ),
+  },
+  {
+    key: "unpaidAuthorRoyalty", // Matches your SORT_ASC/DESC key precise casing
+    header: "Unpaid Author Royalty",
+    render: (row) => authorCellRenderers.unpaidStatus(row.unpaidAuthorRoyalty),
   },
 ];
 

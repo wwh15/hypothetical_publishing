@@ -2,7 +2,7 @@ import Link from "next/link";
 
 export default function ReportsPage() {
   return (
-    <div className="container mx-auto py-10 px-4 md:px-6">
+    <div className="py-10">
       <div className="mb-8">
         <h1 className="text-3xl font-bold tracking-tight text-foreground">
           Reports

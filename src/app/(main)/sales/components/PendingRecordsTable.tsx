@@ -2,7 +2,7 @@
 
 import { BaseDataTable, ColumnDef } from "@/components/BaseDataTable";
 import { PendingSaleItem } from "@/lib/data/records";
-import { getPendingColumns, salesCellRenderers } from "@/lib/table-configs/sales-columns";
+import { getPendingColumns } from "@/lib/table-configs/sales-columns";
 import { X } from "lucide-react";
 
 interface PendingRecordsTableProps {

@@ -29,28 +29,33 @@ export function MonthYearFilter({
   const isInvalidRange = startDate && endDate && startDate > endDate;
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center gap-2 p-2 bg-background border rounded-lg w-fit">
-        <span className="text-sm font-medium px-2">Range:</span>
-
-        <MonthYearSelector 
-          placeholder="From" 
-          value={startDate ?? null} 
-          // MonthYearSelector returns MonthYear (string | null)
-          // parent expects a string, so convert null -> ""
-          onChange={(v: MonthYear) => onStartDateChange(v ?? "")} 
+    <div className="flex min-w-0 max-w-full flex-col gap-1">
+      <div className="flex min-h-10 min-w-0 max-w-full flex-wrap items-center gap-x-2 gap-y-2 sm:h-10 sm:flex-nowrap">
+        <MonthYearSelector
+          placeholder="From"
+          value={startDate ?? null}
+          onChange={(v: MonthYear) => onStartDateChange(v ?? "")}
+          className="h-10 min-h-10 rounded-lg border-gray-300 bg-white py-0 dark:border-gray-700 dark:bg-gray-800"
         />
-        
-        <span className="text-muted-foreground text-sm">to</span>
 
-        <MonthYearSelector 
-          placeholder="To" 
-          value={endDate ?? null} 
-          onChange={(v: MonthYear) => onEndDateChange(v ?? "")} 
+        <span className="shrink-0 text-muted-foreground text-sm leading-none">
+          to
+        </span>
+
+        <MonthYearSelector
+          placeholder="To"
+          value={endDate ?? null}
+          onChange={(v: MonthYear) => onEndDateChange(v ?? "")}
+          className="h-10 min-h-10 rounded-lg border-gray-300 bg-white py-0 dark:border-gray-700 dark:bg-gray-800"
         />
 
         {hasActiveFilter && (
-          <Button variant="ghost" size="sm" onClick={onClear} className="text-muted-foreground hover:text-destructive">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onClear}
+            className="h-10 shrink-0 px-2 text-muted-foreground hover:text-destructive"
+          >
             Reset
           </Button>
         )}

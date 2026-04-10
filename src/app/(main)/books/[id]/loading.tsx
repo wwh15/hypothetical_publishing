@@ -1,51 +1,45 @@
 export default function BookDetailLoading() {
   return (
-    <div className="container mx-auto py-10">
-      <div className="mb-6">
-        <div className="h-5 w-28 bg-muted rounded animate-pulse mb-2" />
-        <div className="h-9 w-64 bg-muted rounded animate-pulse mb-2" />
-        <div className="h-5 w-24 bg-muted rounded animate-pulse" />
-      </div>
-      <div className="rounded-lg border border-border bg-card p-6 space-y-6">
-        {/* Basic Information */}
-        <section>
-          <div className="h-6 w-40 bg-muted rounded animate-pulse mb-4" />
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-              <div key={i}>
-                <div className="h-4 w-20 bg-muted rounded animate-pulse mb-1" />
-                <div className="h-6 w-full max-w-[200px] bg-muted rounded animate-pulse" />
+    <div className="py-8 pb-16">
+      <div className="mb-6 h-5 w-28 animate-pulse rounded bg-muted" />
+      <header className="mb-10 border-b border-border/80 pb-10">
+        <div className="flex flex-col gap-8 lg:flex-row lg:gap-10">
+          <div className="mx-auto aspect-[2/3] w-full max-w-[260px] shrink-0 animate-pulse rounded-xl bg-muted lg:mx-0" />
+          <div className="min-w-0 flex-1 space-y-6">
+            <div className="space-y-3">
+              <div className="h-10 max-w-xl animate-pulse rounded bg-muted sm:h-12" />
+              <div className="h-6 w-48 animate-pulse rounded bg-muted" />
+              <div className="flex gap-2">
+                <div className="h-6 w-24 animate-pulse rounded-full bg-muted" />
+                <div className="h-5 w-40 animate-pulse rounded bg-muted" />
               </div>
-            ))}
-          </div>
-        </section>
-        {/* Sales Totals */}
-        <section>
-          <div className="h-6 w-32 bg-muted rounded animate-pulse mb-4" />
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {[1, 2, 3, 4].map((i) => (
-              <div
-                key={i}
-                className="bg-muted/50 p-4 rounded-lg animate-pulse"
-              >
-                <div className="h-4 w-28 bg-muted rounded mb-2" />
-                <div className="h-8 w-24 bg-muted rounded" />
-              </div>
-            ))}
-            <div className="bg-muted/50 p-4 rounded-lg md:col-span-2 animate-pulse">
-              <div className="h-4 w-36 bg-muted rounded mb-2" />
-              <div className="h-8 w-28 bg-muted rounded" />
+            </div>
+            <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-border bg-border sm:grid-cols-3 xl:grid-cols-5">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <div key={i} className="bg-card p-4 sm:p-5">
+                  <div className="mb-2 h-3 w-20 animate-pulse rounded bg-muted" />
+                  <div className="h-8 w-24 animate-pulse rounded bg-muted" />
+                </div>
+              ))}
             </div>
           </div>
-        </section>
-        {/* Action buttons */}
-        <section className="pt-4 border-t border-border">
-          <div className="flex gap-4">
-            <div className="h-9 w-24 bg-muted rounded animate-pulse" />
-            <div className="h-9 w-28 bg-muted rounded animate-pulse" />
-          </div>
-        </section>
-      </div>
+        </div>
+      </header>
+      <section className="mb-12">
+        <div className="mb-5 h-6 w-56 animate-pulse rounded bg-muted" />
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+            <div key={i}>
+              <div className="mb-1 h-3 w-16 animate-pulse rounded bg-muted" />
+              <div className="h-5 max-w-[180px] animate-pulse rounded bg-muted" />
+            </div>
+          ))}
+        </div>
+      </section>
+      <section className="border-t border-border/80 pt-10">
+        <div className="mb-5 h-6 w-48 animate-pulse rounded bg-muted" />
+        <div className="h-32 animate-pulse rounded-lg bg-muted/60" />
+      </section>
     </div>
   );
 }

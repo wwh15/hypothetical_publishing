@@ -21,7 +21,7 @@ export default async function EditAuthorPage({ params }: PageProps) {
   }
 
   return (
-    <div className="container mx-auto py-10">
+    <div className="py-10">
       <div className="mb-6">
         <BackLink href={`/authors/${authorId}`} className="mb-2">
           Back to Author Details
