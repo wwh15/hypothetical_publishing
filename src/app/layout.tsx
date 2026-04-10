@@ -4,6 +4,9 @@ import "./globals.css";
 import { getBranding } from "@/lib/data/branding";
 import { deriveBrandColors } from "@/lib/branding-colors";
 
+// Force all pages to be dynamically rendered (branding requires DB access)
+export const dynamic = "force-dynamic";
+
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
