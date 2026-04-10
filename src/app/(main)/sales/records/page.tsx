@@ -1,7 +1,15 @@
-import { getSalesData } from "@/lib/data/records";
+import { getSalesData, type SaleReleaseFilter } from "@/lib/data/records";
 import SalesRecordsTable from "@/app/(main)/sales/components/SalesRecordsTable";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { ExportCSVButton } from "../components/ExportCSVButton";
+import type { SaleSource } from "@prisma/client";
+
+const VALID_SOURCES: readonly SaleSource[] = [
+  "DISTRIBUTOR",
+  "HAND_SOLD",
+  "KICKSTARTER",
+];
 
 /**
  * Ensure the page is always dynamic to reflect real-time 
@@ -24,6 +32,7 @@ interface SalesRecordsPageProps {
     source?: string;
     distributor?: string;
     format?: string;
+    release?: string;
   }>;
 }
 
@@ -47,9 +56,11 @@ export default async function SalesRecordsPage({
   const dateFrom = params?.dateFrom ?? "";
   const dateTo = params?.dateTo ?? "";
 
-  // Source filter: only accept valid values
+  // Source filter: only accept valid enum values
   const rawSource = params?.source;
-  const source = (rawSource === "DISTRIBUTOR" || rawSource === "HAND_SOLD") ? rawSource : undefined;
+  const source = VALID_SOURCES.includes(rawSource as SaleSource)
+    ? (rawSource as SaleSource)
+    : undefined;
 
   const rawDistributor = params?.distributor;
   const distributor = rawDistributor && VALID_DISTRIBUTORS.includes(rawDistributor as (typeof VALID_DISTRIBUTORS)[number])
@@ -60,6 +71,14 @@ export default async function SalesRecordsPage({
   const format = rawFormat && VALID_FORMATS.includes(rawFormat as (typeof VALID_FORMATS)[number])
     ? (rawFormat as (typeof VALID_FORMATS)[number])
     : undefined;
+
+  const rawRelease = params?.release;
+  const saleRelease: SaleReleaseFilter | undefined =
+    rawRelease === "projected"
+      ? "projected"
+      : rawRelease === "realized" || rawRelease === "real"
+        ? "realized"
+        : undefined;
 
   // 2. Fetch the data using the optimized Database logic
   // This call handles filtering, sorting, and pagination in a single SQL query.
@@ -75,26 +94,37 @@ export default async function SalesRecordsPage({
       source,
       distributor,
       format,
+      saleRelease,
     });
 
   return (
-    <div className="container mx-auto py-10 px-4 md:px-6">
-      <div className="mb-8 space-y-6">
-        {/* Navigation Actions */}
-        <div className="flex flex-col sm:flex-row gap-3">
-          <Link href="/sales/add-record">
+    <div className="py-10">
+      <div className="mb-8 space-y-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <Link href="/sales/add-record" className="sm:shrink-0">
             <Button size="sm" className="w-full sm:w-auto">
-              Add New Sale Record
+              + Add New Sale Record
             </Button>
           </Link>
+          <ExportCSVButton
+            search={search}
+            sortBy={sortBy}
+            sortDir={sortDir}
+            dateFrom={dateFrom}
+            dateTo={dateTo}
+            source={source}
+            distributor={distributor}
+            format={format}
+            saleRelease={saleRelease}
+            className="w-full sm:w-auto"
+          />
         </div>
 
-        {/* Page Header */}
-        <div>
+        <div className="min-w-0 space-y-2">
           <h1 className="text-3xl font-bold tracking-tight text-foreground">
             Sales Records
           </h1>
-          <p className="text-muted-foreground mt-2">
+          <p className="text-muted-foreground">
             Detailed list of all transactions, revenue, and author royalties.
           </p>
         </div>
@@ -105,7 +135,7 @@ export default async function SalesRecordsPage({
         remount/reset when the URL changes, preventing "stale" UI states. 
       */}
       <SalesRecordsTable
-        key={`${search}-${sortBy}-${sortDir}-${currentPage}-${dateFrom}-${dateTo}-${showAll}-${source ?? ""}-${distributor ?? ""}-${format ?? ""}`}
+        key={`${search}-${sortBy}-${sortDir}-${currentPage}-${dateFrom}-${dateTo}-${showAll}-${source ?? ""}-${distributor ?? ""}-${format ?? ""}-${saleRelease ?? ""}`}
         rows={items}
         total={total}
         page={currentPage}
@@ -119,6 +149,7 @@ export default async function SalesRecordsPage({
         source={source}
         distributor={distributor}
         format={format}
+        saleRelease={saleRelease}
       />
     </div>
   );

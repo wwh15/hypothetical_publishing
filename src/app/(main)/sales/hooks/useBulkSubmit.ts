@@ -2,7 +2,11 @@
 
 import { useMemo } from "react";
 import type { PendingSaleItem } from "@/lib/data/records";
-import { BookListItem } from "@/lib/data/books";
+import type { SaleSource } from "@prisma/client";
+import {
+  BookListItem,
+  authorRoyaltyRatePercentForSaleSource,
+} from "@/lib/data/books";
 import { 
   normalizeCurrency, 
   normalizeQuantity, 
@@ -66,7 +70,10 @@ export function useBulkPasteSubmit(
       const quantity = row.netQuantity; 
       const publisherRevenue = row.netCompensation; 
       
-      const rate = source === "HAND_SOLD" ? book.handSoldRoyaltyRate : book.distRoyaltyRate;
+      const rate = authorRoyaltyRatePercentForSaleSource(
+        book,
+        source as SaleSource
+      );
       const authorRoyalty = (publisherRevenue * (rate ?? 0)) / 100;
 
       // Business Logic Validation
@@ -86,7 +93,7 @@ export function useBulkPasteSubmit(
         return; 
       }
 
-      const comment = `Ingram Import: Format='${row.format}' Market='${row.salesMarket}' File='${fileName}' (${importTimestamp})`;
+      const comment = `Ingram Import: Format='${row.format}' Market='${row.salesMarket}' File='${fileName}' (${importTimestamp})`.slice(0, 256);
 
       // FINAL RECORD CONSTRUCTION
       const record: PendingSaleItem = {

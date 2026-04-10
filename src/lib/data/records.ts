@@ -1,5 +1,5 @@
 // lib/data/records.ts
-import { Prisma } from "@prisma/client";
+import { Prisma, type SaleSource } from "@prisma/client";
 import { prisma } from "../prisma";
 import { Decimal } from "@prisma/client/runtime/library";
 import { validateSaleRecord } from "../validation/sale";
@@ -20,7 +20,9 @@ export interface SaleListItem {
   authorRoyalty: number;
   paid: "paid" | "pending";
   comment: string | null;
-  source: "DISTRIBUTOR" | "HAND_SOLD";
+  source: SaleSource;
+  /** False when the sale’s book is not yet released (pre-release / projected). */
+  bookReleased: boolean;
 }
 
 /** Staging row before DB insert; `id` disambiguates duplicate lines in the UI. */
@@ -40,7 +42,7 @@ export interface PendingSaleItem {
   authorRoyalty: number;
   paid: boolean;
   comment?: string | null;
-  source: "DISTRIBUTOR" | "HAND_SOLD";
+  source: SaleSource;
 }
 
 // This represents the data AFTER it has been converted to numbers
@@ -57,7 +59,7 @@ export type SaleDetailPayload = {
   authorRoyalty: number;
   paid: boolean;
   comment: string | null;
-  source: "DISTRIBUTOR" | "HAND_SOLD";
+  source: SaleSource;
   book: {
     id: number;
     title: string;
@@ -79,7 +81,7 @@ export interface UpdateSaleItem {
   authorRoyalty?: number;
   paid?: boolean;
   comment?: string | null;
-  source?: "DISTRIBUTOR" | "HAND_SOLD";
+  source?: SaleSource;
   distributor?: "INGRAM_SPARK" | "AMAZON" | "OTHER" | null;
   format?: "PRINT" | "EBOOK" | "KINDLE_UNLIMITED";
 }
@@ -95,7 +97,7 @@ const SORT_ASC: Record<string, Prisma.SaleOrderByWithRelationInput> = {
   format: { format: "asc" },
   distributor: { distributor: "asc" },
   publisherRevenueUSD: { publisherRevenueUSD: "asc" },
-  publisherRevenueOriginal: { publisherRevenueOriginal: "desc" },
+  publisherRevenueOriginal: { publisherRevenueOriginal: "asc" },
   currency: { currency: "asc" },
   authorRoyalty: { authorRoyalty: "asc" },
   paid: { paid: "asc" },
@@ -125,11 +127,11 @@ function buildOrderBy(
 ): Prisma.SaleOrderByWithRelationInput | Prisma.SaleOrderByWithRelationInput[] {
   const map = sortDir === "desc" ? SORT_DESC : SORT_ASC;
   
-  // Requirement 3.1.1: Sort first by currency type, then by amount
   if (sortBy === "publisherRevenueOriginal") {
     return [
-      { currency: "asc" },           
-      { publisherRevenueOriginal: sortDir } 
+      { currency: "asc" },
+      { publisherRevenueOriginal: sortDir },
+      { id: "asc" },
     ];
   }
   
@@ -168,6 +170,9 @@ function parseDate(
 }
 
 
+/** Filter list sales by whether the book is released (realized) or not (projected). */
+export type SaleReleaseFilter = "projected" | "realized";
+
 export interface GetSalesDataParams {
   search?: string;
   page?: number;
@@ -176,9 +181,12 @@ export interface GetSalesDataParams {
   sortDir?: "asc" | "desc";
   dateFrom?: string; // YYYY-MM (parsed in parseDate)
   dateTo?: string; // YYYY-MM (parsed in parseDate)
-  source?: "DISTRIBUTOR" | "HAND_SOLD";
+  source?: SaleSource;
   distributor?: "INGRAM_SPARK" | "AMAZON" | "OTHER";
   format?: "PRINT" | "EBOOK" | "KINDLE_UNLIMITED";
+  /** projected = book.released false; realized = book.released true */
+  saleRelease?: SaleReleaseFilter;
+  pagination?: boolean;
 }
 
 export interface GetSalesDataResult {
@@ -200,11 +208,19 @@ export async function getSalesData({
   source,
   distributor,
   format,
+  saleRelease,
+  pagination = true,
 }: GetSalesDataParams): Promise<GetSalesDataResult> {
   const currentPage = Math.max(1, page);
   const limit = Math.max(1, Math.min(pageSize, 100));
 
   const where: Prisma.SaleWhereInput = {};
+
+  if (saleRelease === "projected") {
+    where.book = { released: false };
+  } else if (saleRelease === "realized") {
+    where.book = { released: true };
+  }
 
   // Source filter
   if (source) {
@@ -221,7 +237,7 @@ export async function getSalesData({
     where.format = format;
   }
 
-  // 1. Build Filter Logic
+  // Build Filter Logic
   const trimmedSearch = search?.trim();
   if (trimmedSearch) {
     where.OR = [
@@ -241,7 +257,7 @@ export async function getSalesData({
     ];
   }
 
-  // 2. Handle Date Range Filtering
+  // Handle Date Range Filtering
   const fromDate = dateFrom?.trim() ? parseDate(dateFrom) : undefined;
   const toDate = dateTo?.trim() ? parseDate(dateTo, true) : undefined;
   if (fromDate || toDate) {
@@ -250,30 +266,33 @@ export async function getSalesData({
     if (toDate) where.date.lte = toDate;
   }
 
-  // 3. Single, Optimized Database Query
-  // No more "if (sortBy === 'date')" branch!
-  const [sales, total] = await Promise.all([
-    prisma.sale.findMany({
-      where,
-      include: {
-        book: {
-          include: { author: true },
-        },
+  // Conditionally add pagination (limit and offset) to query
+  const queryOptions = {
+    where,
+    include: {
+      book: {
+        include: { author: true },
       },
-      // Database handles the sort
-      orderBy: buildOrderBy(sortBy, sortDir),
-      // Database handles the pagination
-      skip: (currentPage - 1) * limit,
-      take: limit,
-    }),
+    },
+    orderBy: buildOrderBy(sortBy, sortDir),
+    ...(pagination
+      ? {
+          skip: (currentPage - 1) * limit,
+          take: limit,
+        }
+      : {}),
+  };
+
+  const [sales, total] = await Promise.all([
+    prisma.sale.findMany(queryOptions),
     prisma.sale.count({ where }),
   ]);
 
   return {
     items: sales.map(toSaleListItem),
     total,
-    page: currentPage,
-    pageSize: limit,
+    page: pagination ? currentPage : 1,
+    pageSize: pagination ? limit : total,
   };
 }
 
@@ -282,6 +301,33 @@ export interface GetSalesByBookIdParams {
   pageSize?: number;
   sortBy?: string;
   sortDir?: "asc" | "desc";
+}
+
+export async function asyncAddSalesBulk(records: PendingSaleItem[]) {
+  // Map the UI items to exactly what the Prisma Schema expects
+  const data = records.map((record) => ({
+    bookId: record.bookId,
+    date: record.date,
+    quantity: record.quantity,
+    kenp: record.kenp,
+    format: record.format,
+    // Distributor only when source is DISTRIBUTOR
+    distributor: record.source === "DISTRIBUTOR" ? record.distributor : null,
+    publisherRevenueUSD: record.publisherRevenueUSD,
+    publisherRevenueOriginal: record.publisherRevenueOriginal,
+    currency: record.currency,
+    authorRoyalty: record.authorRoyalty,
+    paid: record.paid,
+    comment: record.comment ?? null,
+    source: record.source,
+  }));
+
+  await prisma.sale.createMany({
+    data,
+    skipDuplicates: false,
+  });
+
+  return { success: true };
 }
 
 /** Server-side paginated/sorted sales for a single book. */
@@ -377,8 +423,8 @@ export function toSaleListItem(sale: {
   authorRoyalty: Decimal;
   paid: boolean;
   comment: string | null;
-  source: "DISTRIBUTOR" | "HAND_SOLD";
-  book: { title: string; author: { name: string } };
+  source: SaleSource;
+  book: { title: string; released: boolean; author: { name: string } };
 }): SaleListItem {
   return {
     id: sale.id,
@@ -397,6 +443,7 @@ export function toSaleListItem(sale: {
     paid: sale.paid ? "paid" : "pending",
     comment: sale.comment ?? null,
     source: sale.source,
+    bookReleased: sale.book.released,
   };
 }
 

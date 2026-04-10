@@ -5,6 +5,7 @@
 
 import { ColumnDef } from "@/components/BaseDataTable";
 import { SaleListItem, PendingSaleItem } from "@/lib/data/records";
+import type { SaleSource } from "@prisma/client";
 import Link from "next/link";
 import { X } from "lucide-react";
 import { CURRENCY_SYMBOLS } from "../currency-conversion";
@@ -61,8 +62,7 @@ const DISTRIBUTOR_BADGE_STYLES: Record<
     "bg-teal-100 text-teal-900 dark:bg-teal-900/40 dark:text-teal-200",
   AMAZON:
     "bg-orange-100 text-orange-900 dark:bg-orange-900/40 dark:text-orange-200",
-  OTHER:
-    "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200",
+  OTHER: "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200",
 };
 
 const DISTRIBUTOR_BADGE_LABELS = {
@@ -98,10 +98,10 @@ export type SalesColumnId =
   | "title"
   | "author"
   | "quantity"
-  | "kenp"
   | "format"
   | "distributor"
-  | "publisherRevenue"
+  | "publisherRevenueOriginal"
+  | "publisherRevenueUSD"
   | "authorRoyalty"
   | "date"
   | "paid"
@@ -118,11 +118,41 @@ export const salesCellRenderers = {
     original: boolean = false,
     colorClass?: string
   ) => (
-    <span className={cn("font-medium", colorClass)}>
-      {original ? CURRENCY_SYMBOLS[currencyCode] : `$`}
-      {value.toFixed(2)}
-    </span>
+    <div>
+      <span className={cn("font-medium", colorClass)}>
+        <span>
+          {/* Use <bdi> to keep the Saudi symbol from jumbling the numbers */}
+          <bdi>{original ? CURRENCY_SYMBOLS[currencyCode] : `$`}</bdi>
+        </span>
+        <span>{currencyCode === "JPY" ? value.toFixed(0) : value.toFixed(2)}</span>
+      </span>
+    </div>
   ),
+
+  /** ISO currency code + original-currency amount (replaces separate CCY + Pub. orig columns). */
+  publisherOriginalWithCcy: (
+    value: number,
+    currencyCode: string,
+    colorClass?: string
+  ) => {
+    const sym = CURRENCY_SYMBOLS[currencyCode] ?? "$";
+    const amount =
+      currencyCode === "JPY" ? value.toFixed(0) : value.toFixed(2);
+    return (
+      <div className="flex min-w-0 items-baseline gap-x-1.5 gap-y-0.5 tabular-nums">
+        <span
+          className="shrink-0 text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground"
+          title={`Original currency: ${currencyCode}`}
+        >
+          {currencyCode}
+        </span>
+        <span className={cn("min-w-0 font-medium", colorClass)}>
+          <bdi>{sym}</bdi>
+          <span>{amount}</span>
+        </span>
+      </div>
+    );
+  },
 
   paidStatus: (status: "paid" | "pending") => {
     const paidStyles = {
@@ -154,14 +184,21 @@ export const salesCellRenderers = {
   distributor: (value: "INGRAM_SPARK" | "AMAZON" | "OTHER" | null) =>
     saleDistributorBadge(value, "compact"),
 
-  source: (value: "DISTRIBUTOR" | "HAND_SOLD") => {
-    const styles = {
+  source: (value: SaleSource) => {
+    const styles: Record<SaleSource, string> = {
       DISTRIBUTOR:
         "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
       HAND_SOLD:
         "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
-    } as const;
-    const label = value === "HAND_SOLD" ? "Hand Sold" : "Distributor";
+      KICKSTARTER:
+        "bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-100",
+    };
+    const label =
+      value === "HAND_SOLD"
+        ? "Hand Sold"
+        : value === "KICKSTARTER"
+          ? "Kickstarter"
+          : "Distributor";
     return (
       <span
         className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${styles[value]}`}
@@ -189,11 +226,14 @@ export const salesColumns: ColumnDef<SaleListItem>[] = [
   {
     key: "title",
     header: "Title",
+    className:
+      "max-w-[min(11rem,40vw)] min-w-0 align-top whitespace-normal",
     render: (row) => (
       <Link
         href={`/books/${row.bookId}`}
         onClick={(e) => e.stopPropagation()}
-        className="text-blue-600 hover:underline focus:outline focus:underline"
+        className="block truncate text-blue-600 hover:underline focus:outline focus:underline"
+        title={row.title}
       >
         {row.title}
       </Link>
@@ -202,17 +242,20 @@ export const salesColumns: ColumnDef<SaleListItem>[] = [
   {
     key: "author",
     header: "Author",
-    render: (row) => row.author,
+    className: "max-w-[min(9rem,32vw)] min-w-0 align-top",
+    render: (row) => (
+      <span className="block truncate" title={row.author}>
+        {row.author}
+      </span>
+    ),
   },
   {
     key: "quantity",
-    header: "Quantity",
-    render: (row) => salesCellRenderers.quantity(row.quantity),
-  },
-  {
-    key: "kenp",
-    header: "KENP",
-    render: (row) => salesCellRenderers.kenp(row.kenp),
+    header: "Qty / KENP",
+    render: (row) =>
+      row.format === "KINDLE_UNLIMITED"
+        ? salesCellRenderers.kenp(row.kenp)
+        : salesCellRenderers.quantity(row.quantity),
   },
   {
     key: "format",
@@ -225,29 +268,31 @@ export const salesColumns: ColumnDef<SaleListItem>[] = [
     render: (row) => salesCellRenderers.distributor(row.distributor),
   },
   {
-    key: "currency",
-    header: "Original Currency",
-    render: (row) => row.currency,
-  },
-  {
     key: "publisherRevenueOriginal",
-    header: "Pub. Revenue (Original)",
+    header: "Pub. orig",
+    headerTitle:
+      "Publisher revenue in original currency (ISO code + amount)",
+    headerClassName: "whitespace-nowrap",
+    className: "min-w-0 max-w-[min(9rem,28vw)] whitespace-nowrap",
     render: (row) =>
-      salesCellRenderers.currency(
+      salesCellRenderers.publisherOriginalWithCcy(
         row.publisherRevenueOriginal,
-        row.currency,
-        true
+        row.currency
       ),
   },
   {
     key: "publisherRevenueUSD",
-    header: "Pub. Revenue (USD)",
+    header: "Pub. USD",
+    headerTitle: "Publisher revenue (USD)",
+    headerClassName: "whitespace-nowrap",
+    className: "min-w-0 whitespace-nowrap tabular-nums",
     render: (row) =>
       salesCellRenderers.currency(row.publisherRevenueUSD, row.currency),
   },
   {
     key: "authorRoyalty",
-    header: "Author Royalty",
+    header: "Auth. Royalty",
+    headerTitle: "Author royalty",
     render: (row) =>
       salesCellRenderers.currency(row.authorRoyalty, row.currency),
   },
@@ -263,26 +308,25 @@ export const salesColumns: ColumnDef<SaleListItem>[] = [
   },
   {
     key: "paid",
-    header: "Royalty Status",
+    header: "Status",
+    headerTitle: "Royalty status",
     render: (row) => salesCellRenderers.paidStatus(row.paid),
   },
   {
     key: "comment",
     header: "Comment",
+    className: "max-w-[6rem] min-w-0 align-top sm:max-w-[7rem]",
     render: (row) => {
-      const MAX_LENGTH = 30; // Define your character limit here
       const comment = row.comment;
 
       if (!comment) return <span className="text-muted-foreground">—</span>;
 
-      const displayComment =
-        comment.length > MAX_LENGTH
-          ? `${comment.slice(0, MAX_LENGTH)}...`
-          : comment;
-
       return (
-        <span className="text-muted-foreground" title={comment}>
-          {displayComment}
+        <span
+          className="block truncate text-muted-foreground"
+          title={comment}
+        >
+          {comment}
         </span>
       );
     },
@@ -334,34 +378,31 @@ export function getPendingColumns(
           : salesCellRenderers.quantity(row.quantity),
     },
     {
-      key: "kenp",
-      header: "KENP",
-      render: (row) => salesCellRenderers.kenp(row.kenp),
-    },
-    {
-      key: "currency",
-      header: "Original Currency",
-      render: (row) => row.currency,
-    },
-    {
       key: "publisherRevenueOriginal",
-      header: "Pub. Revenue (Original)",
+      header: "Pub. orig",
+      headerTitle:
+        "Publisher revenue in original currency (ISO code + amount)",
+      headerClassName: "whitespace-nowrap",
+      className: "min-w-0 max-w-[min(9rem,28vw)] whitespace-nowrap",
       render: (row) =>
-        salesCellRenderers.currency(
+        salesCellRenderers.publisherOriginalWithCcy(
           row.publisherRevenueOriginal,
-          row.currency,
-          true
+          row.currency
         ),
     },
     {
       key: "publisherRevenueUSD",
-      header: "Pub. Revenue (USD)",
+      header: "Pub. USD",
+      headerTitle: "Publisher revenue (USD)",
+      headerClassName: "whitespace-nowrap",
+      className: "min-w-0 whitespace-nowrap tabular-nums",
       render: (row) =>
         salesCellRenderers.currency(row.publisherRevenueUSD, "USD"),
     },
     {
       key: "authorRoyalty",
-      header: "Author Royalty (USD)",
+      header: "Auth. Royalty (USD)",
+      headerTitle: "Author royalty (USD)",
       render: (row) =>
         salesCellRenderers.currency(row.authorRoyalty, "USD"),
     },
@@ -372,7 +413,8 @@ export function getPendingColumns(
     },
     {
       key: "paid",
-      header: "Royalty Status (Toggleable)",
+      header: "Status",
+      headerTitle: "Royalty status (click row chip to toggle)",
       render: (row) => (
         <button
           type="button"
@@ -390,20 +432,18 @@ export function getPendingColumns(
     {
       key: "comment",
       header: "Comment",
+      className: "max-w-[6rem] min-w-0 align-top sm:max-w-[7rem]",
       render: (row) => {
-        const MAX_LENGTH = 30; // Define your character limit here
         const comment = row.comment;
 
         if (!comment) return <span className="text-muted-foreground">—</span>;
 
-        const displayComment =
-          comment.length > MAX_LENGTH
-            ? `${comment.slice(0, MAX_LENGTH)}...`
-            : comment;
-
         return (
-          <span className="text-muted-foreground" title={comment}>
-            {displayComment}
+          <span
+            className="block truncate text-muted-foreground"
+            title={comment}
+          >
+            {comment}
           </span>
         );
       },
@@ -429,6 +469,15 @@ export function getPendingColumns(
 
 // ─── HELPERS & PRESETS ────────────────────────────────────────────────────
 
+/** Muted row styling for sales whose book is not yet released (pre-release). */
+export function saleListRowClassNameForBookReleased(
+  row: Pick<SaleListItem, "bookReleased">
+): string | undefined {
+  return row.bookReleased
+    ? undefined
+    : "bg-slate-200/85 text-slate-700 dark:bg-slate-800/55 dark:text-slate-300 hover:bg-slate-300/90 dark:hover:bg-slate-700/60";
+}
+
 const columnMap = new Map<SalesColumnId, ColumnDef<SaleListItem>>();
 salesColumns.forEach((col) => {
   columnMap.set(col.key as SalesColumnId, col);
@@ -451,10 +500,8 @@ export const salesTablePresets = {
       "title",
       "author",
       "quantity",
-      "kenp",
       "format",
       "distributor",
-      "currency",
       "publisherRevenueOriginal",
       "publisherRevenueUSD",
       "authorRoyalty",
@@ -474,7 +521,6 @@ export const salesTablePresets = {
       "title",
       "author",
       "quantity",
-      "currency",
       "publisherRevenueOriginal",
       "publisherRevenueUSD",
       "authorRoyalty",
@@ -493,7 +539,6 @@ export const salesTablePresets = {
   bookDetail: {
     columnIds: [
       "quantity",
-      "kenp",
       "format",
       "distributor",
       "publisherRevenueUSD",

@@ -20,6 +20,8 @@ interface AuthorFormProps {
     id?: number;
     name: string;
     email: string;
+    payPalUsername?: string | null;
+    venmoUsername?: string | null;
   };
 }
 
@@ -29,20 +31,35 @@ export default function AuthorForm({ mode, initialData }: AuthorFormProps) {
   const [formData, setFormData] = useState({
     name: initialData?.name || "",
     email: initialData?.email || "",
+    payPalUsername: initialData?.payPalUsername || "",
+    venmoUsername: initialData?.venmoUsername || "",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [useEmailForPayPal, setUseEmailForPayPal] = useState(false);
 
   // Sync state if initialData changes (e.g., after a server-side fetch)
   useEffect(() => {
     if (initialData) {
-      setFormData({ name: initialData.name, email: initialData.email });
+      setFormData({
+        name: initialData.name,
+        email: initialData.email,
+        payPalUsername: initialData.payPalUsername || "",
+        venmoUsername: initialData.venmoUsername || "",
+      });
+      setUseEmailForPayPal(false);
     }
   }, [initialData]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    setFormData((prev) => {
+      const next = { ...prev, [name]: value };
+      if (name === "email" && useEmailForPayPal) {
+        next.payPalUsername = value;
+      }
+      return next;
+    });
 
     if (errors[name]) {
       setErrors((prev) => {
@@ -59,6 +76,8 @@ export default function AuthorForm({ mode, initialData }: AuthorFormProps) {
 
     const nameCheck = validateRequiredString(formData.name, "Author Name");
     const emailCheck = validateEmail(formData.email);
+    const payPalUsername = formData.payPalUsername.trim();
+    const hasPayPal = payPalUsername !== "";
 
     if (!nameCheck.success || !emailCheck.success) {
       const newErrors: Record<string, string> = {};
@@ -77,6 +96,8 @@ export default function AuthorForm({ mode, initialData }: AuthorFormProps) {
         result = await addAuthor({
           name: nameCheck.data,
           email: emailCheck.data,
+          payPalUsername: hasPayPal ? payPalUsername : undefined,
+          venmoUsername: formData.venmoUsername.trim() || undefined,
         });
       } else {
         // Edit Mode
@@ -87,6 +108,8 @@ export default function AuthorForm({ mode, initialData }: AuthorFormProps) {
           authorId: initialData.id,
           name: nameCheck.data,
           email: emailCheck.data,
+          payPalUsername: hasPayPal ? payPalUsername : "",
+          venmoUsername: formData.venmoUsername.trim(),
         });
       }
 
@@ -95,7 +118,11 @@ export default function AuthorForm({ mode, initialData }: AuthorFormProps) {
         const errorMessage = result.error ?? "A system error occurred.";
 
         if (errorMessage.toLowerCase().includes("email")) {
-          newErrors.email = errorMessage;
+          if (errorMessage.toLowerCase().includes("paypal")) {
+            newErrors.payPalUsername = errorMessage;
+          } else {
+            newErrors.email = errorMessage;
+          }
         } else {
           newErrors.global = errorMessage;
         }
@@ -177,6 +204,42 @@ export default function AuthorForm({ mode, initialData }: AuthorFormProps) {
           />
           {errors.email && (
             <p className="text-xs text-red-500">{errors.email}</p>
+          )}
+        </div>
+
+        <div className="md:col-span-2 space-y-2">
+          <Label htmlFor="payPalUsername" className="font-semibold text-sm">
+            PayPal.me Username (optional)
+          </Label>
+          <Input
+            id="payPalUsername"
+            name="payPalUsername"
+            value={formData.payPalUsername}
+            onChange={handleChange}
+            disabled={useEmailForPayPal}
+            className={cn(errors.payPalUsername && "border-red-500")}
+            placeholder="Username"
+          />
+          
+          {errors.payPalUsername && (
+            <p className="text-xs text-red-500">{errors.payPalUsername}</p>
+          )}
+        </div>
+
+        <div className="md:col-span-2 space-y-2">
+          <Label htmlFor="venmoUsername" className="font-semibold text-sm">
+            Venmo Username (optional)
+          </Label>
+          <Input
+            id="venmoUsername"
+            name="venmoUsername"
+            value={formData.venmoUsername}
+            onChange={handleChange}
+            className={cn(errors.venmoUsername && "border-red-500")}
+            placeholder="@Username"
+          />
+          {errors.venmoUsername && (
+            <p className="text-xs text-red-500">{errors.venmoUsername}</p>
           )}
         </div>
       </div>

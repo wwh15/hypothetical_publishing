@@ -3,6 +3,12 @@ import { getUser } from "@/lib/supabase/auth";
 import LogoutButton from "./LogoutButton";
 import { getBranding } from "@/lib/data/branding";
 import { getBrandingLogoSignedUrl } from "@/lib/supabase/storage";
+import { cn } from "@/lib/utils";
+
+const navLinkClass = cn(
+  "text-sm font-medium text-muted-foreground transition-colors",
+  "hover:text-foreground"
+);
 
 export default async function Navbar() {
   const user = await getUser();
@@ -15,11 +21,11 @@ export default async function Navbar() {
   }
 
   return (
-    <nav className="border-b bg-white dark:bg-gray-800">
-      <div className="max-w-7xl mx-auto flex items-center justify-between gap-4 min-h-14 px-4 sm:px-6">
+    <nav className="sticky top-0 z-40 border-b border-border bg-background/85 shadow-sm backdrop-blur-md supports-[backdrop-filter]:bg-background/75">
+      <div className="mx-auto flex min-h-14 w-full min-w-0 items-center justify-between gap-4 px-4 sm:px-6">
         <Link
           href="/"
-          className="font-bold text-lg py-3 -ml-2 pl-2 pr-2 rounded-md focus:outline-none shrink-0"
+          className="shrink-0 rounded-md py-3 -ml-2 pl-2 pr-2 text-lg font-semibold tracking-tight text-foreground transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         >
           {logoUrl ? (
             <img src={logoUrl} alt={branding.companyName} className="h-8 w-auto max-w-[200px] object-contain" />
@@ -28,55 +34,58 @@ export default async function Navbar() {
           )}
         </Link>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3 sm:gap-5">
           {user ? (
             <>
-              <nav className="flex items-center gap-4">
-                <Link
-                  href="/books"
-                  className="text-sm text-gray-700 dark:text-gray-300 hover:text-[var(--brand-primary)] transition-colors"
-                >
+              <nav className="hidden items-center gap-1 sm:flex md:gap-2">
+                <Link href="/books" className={cn(navLinkClass, "rounded-md px-2 py-1.5")}>
                   Books
                 </Link>
-                <Link
-                  href="/sales/records"
-                  className="text-sm text-gray-700 dark:text-gray-300 hover:text-[var(--brand-primary)] transition-colors"
-                >
+                <Link href="/sales/records" className={cn(navLinkClass, "rounded-md px-2 py-1.5")}>
                   Sales
                 </Link>
-                <Link
-                  href="/authors"
-                  className="text-sm text-gray-700 dark:text-gray-300 hover:text-[var(--brand-primary)] transition-colors"
-                >
+                <Link href="/authors" className={cn(navLinkClass, "rounded-md px-2 py-1.5")}>
                   Authors
                 </Link>
-                <Link
-                  href="/sales/payments"
-                  className="text-sm text-gray-700 dark:text-gray-300 hover:text-[var(--brand-primary)] transition-colors"
-                >
+                <Link href="/sales/payments" className={cn(navLinkClass, "rounded-md px-2 py-1.5")}>
                   Author Payments
                 </Link>
-                <Link
-                  href="/reports"
-                  className="text-sm text-gray-700 dark:text-gray-300 hover:text-[var(--brand-primary)] transition-colors"
-                >
+                <Link href="/reports" className={cn(navLinkClass, "rounded-md px-2 py-1.5")}>
                   Reports
                 </Link>
-                <Link
-                  href="/settings/branding"
-                  className="text-sm text-gray-700 dark:text-gray-300 hover:text-[var(--brand-primary)] transition-colors"
-                >
+                <Link href="/settings/branding" className={cn(navLinkClass, "rounded-md px-2 py-1.5")}>
+                  Settings
+                </Link>
+              </nav>
+              {/* Compact nav on narrow screens */}
+              <nav className="flex flex-wrap items-center gap-x-2 gap-y-1 sm:hidden">
+                <Link href="/books" className={navLinkClass}>
+                  Books
+                </Link>
+                <Link href="/sales/records" className={navLinkClass}>
+                  Sales
+                </Link>
+                <Link href="/authors" className={navLinkClass}>
+                  Authors
+                </Link>
+                <Link href="/sales/payments" className={navLinkClass}>
+                  Pay
+                </Link>
+                <Link href="/reports" className={navLinkClass}>
+                  Reports
+                </Link>
+                <Link href="/settings/branding" className={navLinkClass}>
                   Settings
                 </Link>
               </nav>
               <div className="group relative flex items-center">
-                <span className="text-sm text-gray-600 dark:text-gray-400 cursor-pointer">
+                <span className="max-w-[10rem] cursor-default truncate text-sm text-muted-foreground sm:max-w-none">
                   {user.user_metadata?.username ?? user.email}
                 </span>
-                <div className="absolute right-0 top-full hidden group-hover:block bg-white dark:bg-gray-800 border rounded-md shadow-md py-1 z-10 whitespace-nowrap">
+                <div className="absolute right-0 top-full z-50 mt-1 hidden rounded-lg border border-border bg-popover py-1 text-popover-foreground shadow-lg group-hover:block">
                   <Link
                     href="/change-password"
-                    className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                    className="block px-4 py-2 text-sm transition-colors hover:bg-accent hover:text-accent-foreground"
                   >
                     Change Password
                   </Link>
@@ -87,7 +96,7 @@ export default async function Navbar() {
           ) : (
             <Link
               href="/login"
-              className="px-3 py-1 text-sm bg-[var(--brand-primary)] text-[var(--brand-primary-text)] rounded-md hover:bg-[var(--brand-primary-hover)]"
+              className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
             >
               Log in
             </Link>

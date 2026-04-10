@@ -25,6 +25,8 @@ model Author {
   id        Int      @id @default(autoincrement())
   name      String   
   email     String
+  payPalUsername String?
+  venmoUsername String?
   canonicalName String   @unique   
   createdAt DateTime @default(now()) @db.Timestamptz @map("created_at")
   updatedAt DateTime @updatedAt @db.Timestamptz @map("updated_at")
@@ -58,10 +60,13 @@ model Book {
   isbn10                    String?   @unique // ISBN-10 format, stored without dashes
   asin                      String?   @unique @map("asin") // Amazon ASIN for ebook edition (optional)
   distAuthorRoyaltyRate     Float     @default(0.5) @map("dist_author_royalty_rate") // Distributor royalty rate, stored as decimal (0.5 = 50%)
-  handSoldAuthorRoyaltyRate Float     @default(0.2) @map("hand_sold_author_royalty_rate") // Hand-sold royalty rate, stored as decimal (0.2 = 20%)
+  handSoldAuthorRoyaltyRate Float     @default(0.2) @map("hand_sold_author_royalty_rate") // Hand sold + Kickstarter author royalty rate, stored as decimal (0.2 = 20%)
   coverPrice                Decimal   @map("cover_price") // Retail cover price
   printCost                 Decimal   @map("print_cost") // Cost to print one copy
   publicationDate           DateTime  @db.Timestamptz @map("publication_date") // First day of publication month (e.g. 2024-01-01)
+  released                  Boolean   @default(true) @map("released") // false = pre-release (projected sales); true = released
+  kickstarterEbookItemTag   String?   @db.VarChar(128) @map("kickstarter_ebook_item_tag")
+  kickstarterPrintItemTag   String?   @db.VarChar(128) @map("kickstarter_print_item_tag")
   seriesId                  Int?      @map("series_id") // Optional: book can belong to at most one series
   seriesOrder               Int?      @map("series_order") // Position in series (1, 2, 3, ...) when part of a series
   coverArtPath              String?   @map("cover_art_path") // Supabase Storage path in Cover-Art bucket
@@ -84,6 +89,7 @@ model Book {
 enum SaleSource {
   DISTRIBUTOR
   HAND_SOLD
+  KICKSTARTER
 }
 
 enum Distributor {
@@ -102,11 +108,11 @@ model Sale {
   id                        Int          @id @default(autoincrement())
   bookId                    Int          @map("book_id")
   date                      DateTime     @db.Timestamptz @map("date") // First day of sale month (month/year)
-  source                    SaleSource   // distributor or handsold; required
-  distributor               Distributor? // Required if source=DISTRIBUTOR; null when HAND_SOLD
+  source                    SaleSource   // distributor, handsold, or kickstarter; required
+  distributor               Distributor? // Required if source=DISTRIBUTOR; null when HAND_SOLD or KICKSTARTER
   format                    SaleFormat   // print, ebook, or kindle_unlimited; constrained by distributor/source
   quantity                  Int?         // Required if format is PRINT or EBOOK; null if KINDLE_UNLIMITED
-  kenp                      Decimal?     @db.Decimal(12, 2) @map("kenp") // Required if format=KINDLE_UNLIMITED; non-negative
+  kenp                      Decimal?     @db.Decimal(12, 2) @map("kenp") // Required if format=KINDLE_UNLIMITED; positive integer
   currency                  String       @default("USD") @db.VarChar(3) @map("currency") // Three-letter code; locked USD for handsold
   publisherRevenueOriginal  Decimal      @default(0) @map("publisher_revenue_original") // In chosen currency; computed for handsold
   publisherRevenueUSD       Decimal      @default(0) @map("publisher_revenue_USD") // Converted to USD

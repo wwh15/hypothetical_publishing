@@ -1,4 +1,4 @@
-import { Prisma } from "@prisma/client";
+import { Prisma, type SaleFormat, type SaleSource } from "@prisma/client";
 import { prisma } from "../prisma";
 import {
   uploadCoverArt as uploadCoverArtToStorage,
@@ -6,6 +6,7 @@ import {
 } from "../supabase/storage";
 import { getBooksSortedByTotalSales } from "./books-queries";
 import { SortColumn } from "../types/sort";
+import { validateKickstarterItemTagOptional } from "../validation";
 
 /** Build YYYY-MM sort key from publication date */
 export function publicationSortKeyFromDate(d: Date): string {
@@ -28,7 +29,8 @@ export interface BookListItem {
   /** YYYY-MM string for sorting */
   publicationSortKey: string;
   distRoyaltyRate: number; // Distributor royalty as percentage (e.g., 50 for 50%)
-  handSoldRoyaltyRate: number; // Hand-sold royalty as percentage (e.g., 20 for 20%)
+  /** Author royalty % for hand sold and Kickstarter sales (same field in DB as historically “hand sold only”). */
+  handSoldRoyaltyRate: number;
   coverPrice: number; // Retail cover price
   printCost: number; // Cost to print one copy
   totalSales: number;
@@ -39,6 +41,10 @@ export interface BookListItem {
   seriesName: string | null;
   seriesOrder: number | null;
   coverArtPath: string | null;
+  /** Kickstarter item/reward tag for ebook edition; null if unset. */
+  kickstarterEbookItemTag: string | null;
+  /** Kickstarter item/reward tag for print edition; null if unset. */
+  kickstarterPrintItemTag: string | null;
 }
 
 /** Sum author royalties from sale rows (USD). */
@@ -63,6 +69,41 @@ export function authorRoyaltyTotalsFromSales(
   return { totalAuthorRoyalty, paidAuthorRoyalty, unpaidAuthorRoyalty };
 }
 
+/**
+ * Author royalty percentage (of publisher revenue in USD) for a sale source.
+ * Hand sold and Kickstarter use {@link BookListItem.handSoldRoyaltyRate}; distributor sales use dist rate.
+ */
+export function authorRoyaltyRatePercentForSaleSource(
+  book: Pick<BookListItem, "distRoyaltyRate" | "handSoldRoyaltyRate">,
+  source: SaleSource
+): number {
+  if (source === "HAND_SOLD" || source === "KICKSTARTER") {
+    return book.handSoldRoyaltyRate;
+  }
+  return book.distRoyaltyRate;
+}
+
+/**
+ * USD publisher revenue computed from book pricing for hand-sold and Kickstarter.
+ * Hand sold: (cover − print cost) × qty. Kickstarter print: same; Kickstarter ebook: cover × qty (print cost treated as 0).
+ */
+export function autoPublisherRevenueUsd(
+  book: Pick<BookListItem, "coverPrice" | "printCost">,
+  quantity: number,
+  source: SaleSource,
+  format: SaleFormat
+): number | null {
+  if (!Number.isFinite(quantity) || quantity < 1) return null;
+  if (source === "HAND_SOLD") {
+    return (book.coverPrice - book.printCost) * quantity;
+  }
+  if (source === "KICKSTARTER") {
+    const printCostPerUnit = format === "EBOOK" ? 0 : book.printCost;
+    return (book.coverPrice - printCostPerUnit) * quantity;
+  }
+  return null;
+}
+
 // Series type for UI
 export interface SeriesListItem {
   id: number;
@@ -84,13 +125,19 @@ export interface CreateBookInput {
   /** First day of publication month (e.g. new Date(2024, 0, 1) for Jan 2024) */
   publicationDate: Date;
   distRoyaltyRate?: number; // Distributor royalty percentage (e.g., 50), default handled by server
-  handSoldRoyaltyRate?: number; // Hand-sold royalty percentage (e.g., 20), default handled by server
+  /** Hand sold / Kickstarter author royalty percentage (e.g., 20), default handled by server */
+  handSoldRoyaltyRate?: number;
   coverPrice: number; // Retail cover price
   printCost: number; // Cost to print one copy
   seriesId?: number | null; // Existing series ID, or null for no series
   seriesOrder?: number | null; // Position in series (1, 2, 3, ...)
   newSeriesName?: string; // Name for new series (if creating new series)
   coverArtPath?: string | null; // Optional; cover is usually added on edit
+  /** No whitespace; max 128 chars; omit or null for none. */
+  kickstarterEbookItemTag?: string | null;
+  kickstarterPrintItemTag?: string | null;
+  /** When false, book is pre-release (e.g. projected sales). Defaults true if omitted. */
+  released?: boolean;
 }
 
 export interface UpdateBookInput extends Partial<CreateBookInput> {
@@ -117,6 +164,7 @@ export interface BookDetail {
   /** First day of publication month */
   publicationDate: Date;
   distRoyaltyRate: number;
+  /** Author % for hand sold and Kickstarter sales (same DB field as historically “hand sold only”). */
   handSoldRoyaltyRate: number;
   coverPrice: number;
   printCost: number;
@@ -131,6 +179,10 @@ export interface BookDetail {
   seriesOrder: number | null;
   seriesName: string | null;
   coverArtPath: string | null;
+  kickstarterEbookItemTag: string | null;
+  kickstarterPrintItemTag: string | null;
+  /** false = pre-release / projected sales context */
+  released: boolean;
   sales?: import("./records").SaleListItem[]; // Sales records for this book
 }
 
@@ -275,6 +327,8 @@ export async function getAllBooks(): Promise<BookListItem[]> {
       seriesOrder: book.seriesOrder ?? null,
       coverArtPath: book.coverArtPath ?? null,
       asin: book.asin ?? null,
+      kickstarterEbookItemTag: book.kickstarterEbookItemTag ?? null,
+      kickstarterPrintItemTag: book.kickstarterPrintItemTag ?? null,
     };
   });
 }
@@ -331,6 +385,18 @@ export async function getBooksData({
             contains: query,
             mode: "insensitive",
           },
+        },
+      },
+      {
+        kickstarterEbookItemTag: {
+          contains: query,
+          mode: "insensitive",
+        },
+      },
+      {
+        kickstarterPrintItemTag: {
+          contains: query,
+          mode: "insensitive",
         },
       },
     ];
@@ -415,6 +481,8 @@ export async function getBooksData({
       seriesOrder: book.seriesOrder ?? null,
       coverArtPath: book.coverArtPath ?? null,
       asin: book.asin ?? null,
+      kickstarterEbookItemTag: book.kickstarterEbookItemTag ?? null,
+      kickstarterPrintItemTag: book.kickstarterPrintItemTag ?? null,
     };
   });
 
@@ -466,6 +534,8 @@ export async function getBooksByAuthorId(
       seriesOrder: book.seriesOrder ?? null,
       coverArtPath: book.coverArtPath ?? null,
       asin: book.asin ?? null,
+      kickstarterEbookItemTag: book.kickstarterEbookItemTag ?? null,
+      kickstarterPrintItemTag: book.kickstarterPrintItemTag ?? null,
     };
   });
 }
@@ -532,6 +602,9 @@ export async function getBookById(id: number): Promise<BookDetail | null> {
     seriesOrder: book.seriesOrder,
     seriesName: book.series?.name ?? null,
     coverArtPath: book.coverArtPath ?? null,
+    kickstarterEbookItemTag: book.kickstarterEbookItemTag ?? null,
+    kickstarterPrintItemTag: book.kickstarterPrintItemTag ?? null,
+    released: book.released,
     // Sales list is loaded separately via getSalesByBookId (paginated)
     sales: undefined,
   };
@@ -543,6 +616,17 @@ export async function createBook(
   { success: true; bookId: number } | { success: false; error: string }
 > {
   try {
+    const ksEbook = validateKickstarterItemTagOptional(
+      input.kickstarterEbookItemTag,
+      "Kickstarter ebook item tag"
+    );
+    const ksPrint = validateKickstarterItemTagOptional(
+      input.kickstarterPrintItemTag,
+      "Kickstarter print item tag"
+    );
+    if (!ksEbook.success) return { success: false, error: ksEbook.error };
+    if (!ksPrint.success) return { success: false, error: ksPrint.error };
+
     // Convert royalty rates from percentage to decimal (e.g., 50 -> 0.50)
     const distAuthorRoyaltyRate = input.distRoyaltyRate
       ? input.distRoyaltyRate / 100
@@ -604,6 +688,9 @@ export async function createBook(
           publicationDate: input.publicationDate,
           seriesId: seriesId,
           seriesOrder: seriesOrderVal,
+          kickstarterEbookItemTag: ksEbook.data,
+          kickstarterPrintItemTag: ksPrint.data,
+          released: input.released ?? true,
           // Fixed: Use 'author' (singular) and connect to one ID
           authorId: author.id,
         },
@@ -699,6 +786,9 @@ export async function updateBook(
       }
       if (input.publicationDate !== undefined)
         updateData.publicationDate = input.publicationDate;
+      if (input.released !== undefined) {
+        updateData.released = input.released;
+      }
       if (input.seriesId !== undefined) {
         updateData.series =
           input.seriesId == null
@@ -711,7 +801,25 @@ export async function updateBook(
       }
       if (input.coverArtPath !== undefined) {
         updateData.coverArtPath = input.coverArtPath ?? null;
-      } else if (
+      }
+      if (input.kickstarterEbookItemTag !== undefined) {
+        const r = validateKickstarterItemTagOptional(
+          input.kickstarterEbookItemTag,
+          "Kickstarter ebook item tag"
+        );
+        if (!r.success) throw new Error(r.error);
+        updateData.kickstarterEbookItemTag = r.data;
+      }
+      if (input.kickstarterPrintItemTag !== undefined) {
+        const r = validateKickstarterItemTagOptional(
+          input.kickstarterPrintItemTag,
+          "Kickstarter print item tag"
+        );
+        if (!r.success) throw new Error(r.error);
+        updateData.kickstarterPrintItemTag = r.data;
+      }
+      if (
+        input.coverArtPath === undefined &&
         input.seriesId != null &&
         existingBook.seriesId !== input.seriesId
       ) {

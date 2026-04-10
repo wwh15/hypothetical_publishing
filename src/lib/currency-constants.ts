@@ -1,40 +1,46 @@
 export const SUPPORTED_CURRENCIES = [
   { code: "AED", name: "United Arab Emirates Dirham", symbol: "د.إ" },
   { code: "AUD", name: "Australian Dollar", symbol: "$" },
-  { code: "BGN", name: "Bulgarian Lev", symbol: "лв" },
   { code: "BRL", name: "Brazilian Real", symbol: "R$" },
   { code: "CAD", name: "Canadian Dollar", symbol: "$" },
-  { code: "CHF", name: "Swiss Franc", symbol: "CHF" },
   { code: "CNY", name: "Chinese Yuan", symbol: "¥" },
-  { code: "CZK", name: "Czech Koruna", symbol: "Kč" },
-  { code: "DKK", name: "Danish Krone", symbol: "kr" },
   { code: "EGP", name: "Egyptian Pound", symbol: "E£" },
   { code: "EUR", name: "Euro", symbol: "€" },
   { code: "GBP", name: "British Pound", symbol: "£" },
-  { code: "HKD", name: "Hong Kong Dollar", symbol: "$" },
-  { code: "HUF", name: "Hungarian Forint", symbol: "Ft" },
-  { code: "IDR", name: "Indonesian Rupiah", symbol: "Rp" },
-  { code: "ILS", name: "Israeli New Shekel", symbol: "₪" },
   { code: "INR", name: "Indian Rupee", symbol: "₹" },
-  { code: "ISK", name: "Icelandic Króna", symbol: "kr" },
   { code: "JPY", name: "Japanese Yen", symbol: "¥" },
-  { code: "KRW", name: "South Korean Won", symbol: "₩" },
-  { code: "MYR", name: "Malaysian Ringgit", symbol: "RM" },
   { code: "MXN", name: "Mexican Peso", symbol: "$" },
-  { code: "NOK", name: "Norwegian Krone", symbol: "kr" },
-  { code: "NZD", name: "New Zealand Dollar", symbol: "$" },
-  { code: "PHP", name: "Philippine Peso", symbol: "₱" },
   { code: "PLN", name: "Polish Zloty", symbol: "zł" },
-  { code: "RON", name: "Romanian Leu", symbol: "lei" },
-  { code: "RUB", name: "Russian Ruble", symbol: "₽" },
   { code: "SAR", name: "Saudi Riyal", symbol: "ر.س" },
   { code: "SEK", name: "Swedish Krona", symbol: "kr" },
   { code: "SGD", name: "Singapore Dollar", symbol: "$" },
-  { code: "THB", name: "Thai Baht", symbol: "฿" },
   { code: "TRY", name: "Turkish Lira", symbol: "₺" },
   { code: "USD", name: "US Dollar", symbol: "$" },
-  { code: "ZAR", name: "South African Rand", symbol: "R" },
 ];
+
+/**
+ * Static fallback rates (Units per 1 USD). 
+ * Used only if all external API calls fail.
+ */
+export const STATIC_FALLBACK_RATES: Record<string, number> = {
+  USD: 1.0,
+  AED: 3.67,  // Pegged
+  AUD: 1.53,
+  BRL: 5.10,
+  CAD: 1.36,
+  CNY: 7.23,
+  EGP: 47.50,
+  EUR: 0.92,
+  GBP: 0.79,
+  INR: 83.30,
+  JPY: 151.50,
+  MXN: 16.75,
+  PLN: 3.98,
+  SAR: 3.75,  // Pegged
+  SEK: 10.55,
+  SGD: 1.35,
+  TRY: 32.40,
+};
 
 export const CURRENCY_SYMBOLS: Record<string, string> = Object.fromEntries(
   SUPPORTED_CURRENCIES.map((curr) => [curr.code, curr.symbol])

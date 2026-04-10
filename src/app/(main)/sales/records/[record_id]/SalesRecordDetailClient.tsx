@@ -9,11 +9,13 @@ import SalesRecordEditForm from "./SalesRecordEditForm";
 interface SalesRecordDetailClientProps {
   sale: SaleDetailPayload;
   books: BookListItem[];
+  usdRatesInitial?: Record<string, number> | null;
 }
 
 export default function SalesRecordDetailClient({
   sale,
   books,
+  usdRatesInitial,
 }: SalesRecordDetailClientProps) {
   const [editing, setEditing] = useState(false);
 
@@ -22,6 +24,7 @@ export default function SalesRecordDetailClient({
       <SalesRecordEditForm
         sale={sale}
         books={books}
+        usdRatesInitial={usdRatesInitial}
         onClose={() => setEditing(false)}
       />
     );

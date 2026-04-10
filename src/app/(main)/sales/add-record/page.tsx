@@ -1,5 +1,6 @@
 import { getBooksData } from "@/app/(main)/books/action";
 import SalesInputClient from "../components/SalesInputClient";
+import { getUsdConversionRates } from "../action";
 import Link from "next/link";
 import { BackLink } from "@/components/BackLink";
 
@@ -21,14 +22,18 @@ export default async function SalesInputPage({ searchParams }: PageProps) {
       ? initialBookId
       : undefined;
 
-  const { items: booksData } = await getBooksData({
-    search: "",
-    page: 1,
-    pageSize: 2000,
-  });
+  const [booksResult, usdRates] = await Promise.all([
+    getBooksData({
+      search: "",
+      page: 1,
+      pageSize: 2000,
+    }),
+    getUsdConversionRates().catch((): Record<string, number> | null => null),
+  ]);
+  const { items: booksData } = booksResult;
 
   return (
-    <div className="container mx-auto py-10 px-4 sm:px-6">
+    <div className="py-10">
       <div className="mb-6">
         <div className="flex flex-wrap items-center gap-2 mb-2">
           <BackLink href="/sales/records">Back to Sales</BackLink>
@@ -43,12 +48,13 @@ export default async function SalesInputPage({ searchParams }: PageProps) {
         </div>
         <h1 className="text-3xl font-bold mb-2">Add Sales Records</h1>
         <p className="text-muted-foreground">
-          Input sales records and review before submitting to the database.
+          Input sales records and review in <strong>Pending Records</strong> table before submitting to the database.
         </p>
       </div>
       <SalesInputClient
         booksData={booksData}
         initialBookId={validInitialBookId}
+        usdRatesInitial={usdRates}
       />
     </div>
   );

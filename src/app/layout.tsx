@@ -31,9 +31,9 @@ export default async function RootLayout({
   const brandColors = deriveBrandColors(branding.primaryColor);
 
   return (
-    <html lang="en" style={brandColors as React.CSSProperties}>
+    <html lang="en" className="scroll-smooth" style={brandColors as React.CSSProperties}>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} min-h-screen antialiased`}
       >
         {children}
       </body>

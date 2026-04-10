@@ -1,4 +1,5 @@
 import React from 'react';
+import Link from 'next/link';
 import {
     Table,
     TableBody,
@@ -25,10 +26,19 @@ export interface ColumnDef<T> {
     sortable?: boolean;
 }
 
+const CELL_POINTER_RESTORE =
+    '[&_a]:pointer-events-auto [&_button]:pointer-events-auto [&_input]:pointer-events-auto [&_select]:pointer-events-auto [&_textarea]:pointer-events-auto [&_label]:pointer-events-auto';
+
 export interface DataTableProps<T> {
     columns: ColumnDef<T>[];
     data: T[];
     emptyMessage?: string;
+    /**
+     * Row navigation via real `<a href>` overlays (native new tab, middle-click, context menu).
+     * When set and the function returns a URL, `onRowClick` is not used for that row.
+     */
+    getRowHref?: (row: T) => string | undefined;
+    getRowLinkLabel?: (row: T) => string;
     onRowClick?: (row: T) => void;
     defaultSortField?: string;
     defaultSortDirection?: 'asc' | 'desc';
@@ -54,6 +64,8 @@ export function DataTable<T extends object>({
     columns,
     data,
     emptyMessage = 'No data available',
+    getRowHref,
+    getRowLinkLabel,
     onRowClick,
     defaultSortField,
     defaultSortDirection = 'desc',
@@ -270,22 +282,70 @@ export function DataTable<T extends object>({
                             </TableCell>
                         </TableRow>
                     ) : (
-                        rowsToShow.map((row, rowIndex) => (
+                        rowsToShow.map((row, rowIndex) => {
+                            const rowHref = getRowHref?.(row);
+                            const rowIsLink = Boolean(rowHref?.length);
+                            return (
                             <TableRow
                                 key={rowIndex}
-                                onClick={() => onRowClick?.(row)}
-                                className={onRowClick ? 'cursor-pointer hover:bg-muted/50' : ''}
+                                onClick={
+                                    rowIsLink
+                                        ? undefined
+                                        : () => onRowClick?.(row)
+                                }
+                                className={
+                                    (rowIsLink || onRowClick)
+                                        ? 'cursor-pointer hover:bg-muted/50'
+                                        : ''
+                                }
                             >
-                                {columns.map((column) => (
+                                {columns.map((column, colIndex) => (
                                     <TableCell
                                         key={column.key}
-                                        className={column.className}
+                                        className={cn(
+                                            'relative',
+                                            column.className
+                                        )}
                                     >
-                                        {getCellValue(row, column)}
+                                        {rowIsLink && rowHref && (
+                                            <Link
+                                                href={rowHref}
+                                                prefetch={false}
+                                                aria-hidden={
+                                                    colIndex > 0
+                                                        ? true
+                                                        : undefined
+                                                }
+                                                aria-label={
+                                                    colIndex === 0
+                                                        ? getRowLinkLabel?.(row) ??
+                                                          'View row'
+                                                        : undefined
+                                                }
+                                                tabIndex={
+                                                    colIndex === 0 ? 0 : -1
+                                                }
+                                                data-row-link=""
+                                                className={cn(
+                                                    'absolute inset-0 z-[1] rounded-sm',
+                                                    'outline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring'
+                                                )}
+                                            />
+                                        )}
+                                        <div
+                                            className={cn(
+                                                'relative z-[2]',
+                                                rowIsLink &&
+                                                    `pointer-events-none ${CELL_POINTER_RESTORE}`
+                                            )}
+                                        >
+                                            {getCellValue(row, column)}
+                                        </div>
                                     </TableCell>
                                 ))}
                             </TableRow>
-                        ))
+                            );
+                        })
                     )}
                 </TableBody>
             </Table>

@@ -1,7 +1,7 @@
 // src/app/(main)/sales/records/[record_id]/page.tsx
 import { notFound } from "next/navigation";
 import { BackLink } from "@/components/BackLink";
-import { getSaleById } from "../../action";
+import { getSaleById, getUsdConversionRates } from "../../action";
 import { getAllBooks } from "@/app/(main)/books/action";
 import SalesRecordDetailClient from "./SalesRecordDetailClient";
 
@@ -22,15 +22,21 @@ export default async function SalesRecordDetailPage({
   const sale = await getSaleById(id);
   if (!sale) notFound();
 
-  const books = await getAllBooks();
+  const [books, usdRates] = await Promise.all([
+    getAllBooks(),
+    getUsdConversionRates().catch((): Record<string, number> | null => null),
+  ]);
 
   return (
-    <div className="container mx-auto py-10 px-4 sm:px-6">
-      <div className="mb-6">
-        <BackLink href="/sales/records">Back to Sales</BackLink>
-        <h1 className="text-3xl font-bold mt-4 mb-2">Sale record</h1>
-      </div>
-      <SalesRecordDetailClient sale={sale} books={books} />
+    <div className="py-8 pb-16">
+      <BackLink href="/sales/records" className="mb-6 inline-block text-sm">
+        Back to Sales
+      </BackLink>
+      <SalesRecordDetailClient
+        sale={sale}
+        books={books}
+        usdRatesInitial={usdRates}
+      />
     </div>
   );
 }

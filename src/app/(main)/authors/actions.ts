@@ -24,8 +24,8 @@ export async function getAuthorBooks(id: number): Promise<GetAuthorBooksResponse
 }
 
 export async function updateAuthor(data: UpdateAuthorRequest): Promise<UpdateAuthorResponse> {
-    const { authorId, name, email } = data;
-    return await asyncUpdateAuthor({ authorId, name, email })
+    const { authorId, name, email, payPalUsername, venmoUsername } = data;
+    return await asyncUpdateAuthor({ authorId, name, email, payPalUsername, venmoUsername })
 }
 
 export async function deleteAuthor(id: number): Promise<DeleteAuthorResponse> {
