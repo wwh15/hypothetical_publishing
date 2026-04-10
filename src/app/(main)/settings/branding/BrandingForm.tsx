@@ -2,7 +2,6 @@
 
 import { useState, useRef } from "react";
 import { type Branding, BRANDING_DEFAULTS } from "@/lib/data/branding";
-import { deriveBrandColors } from "@/lib/branding-colors";
 import { updateBranding, updateLogo, removeLogo, resetBranding } from "./action";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -16,17 +15,12 @@ interface BrandingFormProps {
 export default function BrandingForm({ branding, logoUrl }: BrandingFormProps) {
   const [companyName, setCompanyName] = useState(branding.companyName);
   const [tagline, setTagline] = useState(branding.tagline);
-  const [primaryColor, setPrimaryColor] = useState(branding.primaryColor);
   const [currentLogoUrl, setCurrentLogoUrl] = useState(logoUrl);
   const [saving, setSaving] = useState(false);
   const [logoUploading, setLogoUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const previewColors = deriveBrandColors(
-    /^#[0-9a-fA-F]{6}$/.test(primaryColor) ? primaryColor : "#2563eb"
-  );
 
   async function handleSave() {
     setSaving(true);
@@ -36,7 +30,7 @@ export default function BrandingForm({ branding, logoUrl }: BrandingFormProps) {
     const formData = new FormData();
     formData.set("companyName", companyName);
     formData.set("tagline", tagline);
-    formData.set("primaryColor", primaryColor);
+    formData.set("primaryColor", branding.primaryColor);
 
     const result = await updateBranding(formData);
     if (!result.success) {
@@ -90,7 +84,6 @@ export default function BrandingForm({ branding, logoUrl }: BrandingFormProps) {
     } else {
       setCompanyName(BRANDING_DEFAULTS.companyName);
       setTagline(BRANDING_DEFAULTS.tagline);
-      setPrimaryColor(BRANDING_DEFAULTS.primaryColor);
       setCurrentLogoUrl(null);
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
@@ -219,66 +212,6 @@ export default function BrandingForm({ branding, logoUrl }: BrandingFormProps) {
         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
           Displayed in the navbar and login page. Falls back to company name if not set.
         </p>
-      </div>
-
-      {/* Primary Color */}
-      <div>
-        <Label htmlFor="primaryColor">Primary Color</Label>
-        <div className="flex items-center gap-3 flex-wrap mt-1.5">
-          <input
-            type="color"
-            value={/^#[0-9a-fA-F]{6}$/.test(primaryColor) ? primaryColor : "#2563eb"}
-            onChange={(e) => setPrimaryColor(e.target.value)}
-            className="w-10 h-10 rounded-md border border-gray-200 dark:border-gray-600 cursor-pointer p-0.5"
-          />
-          <Input
-            id="primaryColor"
-            type="text"
-            value={primaryColor}
-            onChange={(e) => setPrimaryColor(e.target.value)}
-            maxLength={7}
-            className="w-28 font-mono"
-          />
-        </div>
-        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-          Used for buttons, links, and active states. Hover and text colors are derived automatically.
-        </p>
-
-        {/* Live preview */}
-        <div className="mt-3 p-3 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800/50" aria-label="Color preview">
-          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
-            Preview
-          </p>
-          <div className="flex gap-2 items-center flex-wrap">
-            <span
-              style={{
-                background: previewColors["--brand-primary"],
-                color: previewColors["--brand-primary-text"],
-              }}
-              className="px-3 py-1.5 rounded-md text-xs font-medium"
-            >
-              Primary Button
-            </span>
-            <span
-              style={{ color: previewColors["--brand-primary"] }}
-              className="text-xs underline"
-            >
-              Link text
-            </span>
-            <span
-              style={{
-                background: previewColors["--brand-primary-light"],
-                color: previewColors["--brand-primary"],
-              }}
-              className="px-2 py-0.5 rounded text-xs"
-            >
-              Badge
-            </span>
-            <span className="sr-only">
-              Preview of selected brand color {primaryColor}
-            </span>
-          </div>
-        </div>
       </div>
 
       {/* Actions */}
