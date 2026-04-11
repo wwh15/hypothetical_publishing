@@ -229,6 +229,60 @@ const DISTRIBUTOR_LABELS: Record<string, string> = {
   OTHER: "Other",
 };
 
+/**
+ * CSV export format column per HP Sales Record CSV spec v4 (source + distributor + internal format).
+ */
+function getCsvExportFormat(sale: SaleListItem): string {
+  const { source, distributor, format } = sale;
+  if (source === "HAND_SOLD") return "Print";
+  if (source === "KICKSTARTER") {
+    if (format === "PRINT") return "Print";
+    if (format === "EBOOK") return "Ebook";
+    if (format === "KINDLE_UNLIMITED") return "Ebook";
+    return "Print";
+  }
+  if (source === "DISTRIBUTOR") {
+    const d = distributor ?? "OTHER";
+    if (d === "INGRAM_SPARK") return "Print";
+    if (d === "AMAZON") {
+      if (format === "PRINT") return "Print";
+      if (format === "EBOOK") return "Ebook";
+      if (format === "KINDLE_UNLIMITED") return "Kindle Unlimited";
+    }
+    if (d === "OTHER") {
+      if (format === "KINDLE_UNLIMITED") return "Ebook";
+      if (format === "PRINT") return "Print";
+      if (format === "EBOOK") return "Ebook";
+    }
+  }
+  return FORMAT_LABELS[format] ?? format;
+}
+
+function getCsvQuantityAndKenp(
+  exportFormat: string,
+  sale: SaleListItem
+): { quantity: string | number; kenp: string | number } {
+  if (exportFormat === "Kindle Unlimited") {
+    const value = sale.kenp;
+    if (!Number.isInteger(value) || (value as number) <= 0) {
+      throw new Error(
+        `Sales Record for "${sale.title}" (Date: ${sale.date.toISOString().slice(0, 7)}) is marked as Kindle Unlimited but is missing a positive, integer KENP value: ${value}.`
+      );
+    }
+    return { quantity: "N/A", kenp: value as number };
+  }
+  if (exportFormat === "Print" || exportFormat === "Ebook") {
+    const q = sale.quantity;
+    if (q == null || !Number.isInteger(q) || q <= 0) {
+      throw new Error(
+        `Sales Record for "${sale.title}" (Date: ${sale.date.toISOString().slice(0, 7)}) requires a positive integer Quantity for format "${exportFormat}": ${q}.`
+      );
+    }
+    return { quantity: q, kenp: "N/A" };
+  }
+  return { quantity: "N/A", kenp: "N/A" };
+}
+
 const csvEscape = (
   val: string | null | undefined,
   maxLength?: number
@@ -266,11 +320,11 @@ export async function exportSalesToCsvAction(params: {
       };
     }
 
-    // 2. Define Headers
+    // 2. Define Headers (HP Sales Record CSV export spec v4, RFC 4180)
     const headers = [
       "Date",
-      "Author",
       "Title",
+      "Author",
       "Source",
       "Distributor",
       "Format",
@@ -280,15 +334,15 @@ export async function exportSalesToCsvAction(params: {
       "Pub. Revenue (Original)",
       "Pub. Revenue (USD)",
       "Author Royalty (USD)",
-      "Status",
+      "Royalty Status",
+      "isProjected?",
       "Comment",
     ];
 
     // 3. Map to CSV Rows
     const rows = items.map((sale) => {
-      // 1. Determine Display Values
       const displaySource = SOURCE_LABELS[sale.source] || sale.source;
-      const displayFormat = FORMAT_LABELS[sale.format] || sale.format;
+      const displayFormat = getCsvExportFormat(sale);
       const displayDistributor =
         sale.source === "HAND_SOLD" || sale.source === "KICKSTARTER"
           ? "N/A"
@@ -296,24 +350,7 @@ export async function exportSalesToCsvAction(params: {
             ? DISTRIBUTOR_LABELS[sale.distributor]
             : "Other";
 
-      // 2. Logic for Format-Specific Columns
-      const quantity =
-        sale.format === "EBOOK" || sale.format === "PRINT"
-          ? sale.quantity
-          : "N/A";
-
-      let kenp: string | number = "N/A";
-      if (sale.format === "KINDLE_UNLIMITED") {
-        const value = sale.kenp;
-
-        if (!Number.isInteger(value) || (value as number) <= 0) {
-          throw new Error(
-            `Sales Record for "${sale.title}" (Date: ${sale.date.toISOString().slice(0, 7)}) is marked as Kindle Unlimited but is missing a positive, integer KENP value: ${value}.`
-          );
-        }
-
-        kenp = value as number;
-      }
+      const { quantity, kenp } = getCsvQuantityAndKenp(displayFormat, sale);
 
       const originalRev =
         sale.currency === "JPY"
@@ -323,28 +360,38 @@ export async function exportSalesToCsvAction(params: {
       const usdRev = sale.publisherRevenueUSD.toFixed(2);
       const royalty = sale.authorRoyalty.toFixed(2);
 
+      const royaltyStatus = sale.paid === "paid" ? "Paid" : "Unpaid";
+      const isProjected = sale.bookReleased ? "False" : "True";
+
+      const kenpOut =
+        typeof kenp === "number" ? normalizeQuantity(kenp) : kenp;
+      const quantityOut =
+        typeof quantity === "number" ? normalizeQuantity(quantity) : quantity;
+
       return [
-        sale.date.toISOString().slice(0, 7),
-        csvEscape(sale.author),
+        csvEscape(sale.date.toISOString().slice(0, 7)),
         csvEscape(sale.title),
-        displaySource,
-        displayDistributor,
-        displayFormat,
-        quantity,
-        kenp ? normalizeQuantity(kenp) : kenp,
-        sale.currency,
-        originalRev,
-        usdRev,
-        royalty,
-        sale.paid === "paid" ? "Paid" : "Unpaid", // Using boolean check
-        csvEscape(sale.comment, 256), // Wrap comments in quotes too!
+        csvEscape(sale.author),
+        csvEscape(displaySource),
+        csvEscape(displayDistributor),
+        csvEscape(displayFormat),
+        csvEscape(String(quantityOut)),
+        csvEscape(String(kenpOut)),
+        csvEscape(sale.currency),
+        csvEscape(originalRev),
+        csvEscape(usdRev),
+        csvEscape(royalty),
+        csvEscape(royaltyStatus),
+        csvEscape(isProjected),
+        csvEscape(sale.comment, 256),
       ].join(",");
     });
 
-    // 4. Return the combined string
+    // 4. Return the combined string (UTF-8; client prepends BOM per spec)
+    const headerRow = headers.map((h) => csvEscape(h)).join(",");
     return {
       success: true,
-      data: [headers.join(","), ...rows].join("\n"),
+      data: [headerRow, ...rows].join("\n"),
     };
   } catch (error) {
     console.error("Export Error:", error);
