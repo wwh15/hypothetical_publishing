@@ -271,16 +271,17 @@ export async function exportSalesToCsvAction(params: {
       "Date",
       "Author",
       "Title",
+      "isProjected",
+      "Original Currency",
+      "Pub. Revenue (Original)",
+      "Pub. Revenue (USD)",
+      "Author Royalty (USD)",
+      "Royalty Status",
       "Source",
       "Distributor",
       "Format",
       "Quantity",
       "KENP",
-      "Original Currency",
-      "Pub. Revenue (Original)",
-      "Pub. Revenue (USD)",
-      "Author Royalty (USD)",
-      "Status",
       "Comment",
     ];
 
@@ -323,20 +324,23 @@ export async function exportSalesToCsvAction(params: {
       const usdRev = sale.publisherRevenueUSD.toFixed(2);
       const royalty = sale.authorRoyalty.toFixed(2);
 
+      const isProjected = sale.bookReleased ? "True" : "False"
+
       return [
         sale.date.toISOString().slice(0, 7),
         csvEscape(sale.author),
         csvEscape(sale.title),
-        displaySource,
-        displayDistributor,
-        displayFormat,
-        quantity,
-        kenp ? normalizeQuantity(kenp) : kenp,
+        isProjected,
         sale.currency,
         originalRev,
         usdRev,
         royalty,
         sale.paid === "paid" ? "Paid" : "Unpaid", // Using boolean check
+        displaySource,
+        displayDistributor,
+        displayFormat,
+        quantity,
+        kenp ? normalizeQuantity(kenp) : kenp,
         csvEscape(sale.comment, 256), // Wrap comments in quotes too!
       ].join(",");
     });
