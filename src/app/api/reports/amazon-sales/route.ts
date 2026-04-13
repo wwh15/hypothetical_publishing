@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import * as XLSX from "xlsx";
 import { getAmazonSalesReportData } from "@/lib/data/amazon-sales-report";
 import { createClient } from "@/lib/supabase/server";
+import { formatLocalReportFilenameStamp } from "@/lib/utils";
 
 export async function GET() {
   // Auth check
@@ -90,11 +91,7 @@ export async function GET() {
 
   const buffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
 
-  // Filename with timestamp
-  const now = new Date();
-  const date = now.toISOString().slice(0, 10);
-  const time = now.toISOString().slice(11, 19).replace(/:/g, "-");
-  const filename = `Amazon_Sales_Report_${date}_${time}.xlsx`;
+  const filename = `Amazon_Sales_Report_${formatLocalReportFilenameStamp(new Date(), "-")}.xlsx`;
 
   return new NextResponse(buffer, {
     status: 200,
