@@ -147,8 +147,14 @@ export default async function BookDetailPage({ params, searchParams }: PageProps
               </div>
             </div>
 
-            {/* Sales summary — single band, full width of column */}
-            <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-border bg-border shadow-sm sm:grid-cols-3 xl:grid-cols-5">
+            {/* Sales summary — single band, full width of column (muted when pre-release / projected) */}
+            <div
+              className={
+                book.released
+                  ? "grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-border bg-border shadow-sm sm:grid-cols-3 xl:grid-cols-5"
+                  : "grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-dashed border-muted-foreground/35 bg-muted/25 shadow-sm sm:grid-cols-3 xl:grid-cols-5 opacity-95"
+              }
+            >
               <div className="bg-card p-4 sm:p-5">
                 <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   Units sold
@@ -227,7 +233,15 @@ export default async function BookDetailPage({ params, searchParams }: PageProps
       {/* Sales history */}
       <section className="border-t border-border/80 pt-10">
         <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <h2 className="text-lg font-semibold tracking-tight">Sales for this book</h2>
+          <div className="space-y-1">
+            <h2 className="text-lg font-semibold tracking-tight">Sales for this book</h2>
+            {!book.released && (
+              <p className="text-sm text-muted-foreground max-w-prose">
+                Rows are projected (pre-release). Author directory totals only count released-book
+                sales.
+              </p>
+            )}
+          </div>
           <Button asChild className="w-full shrink-0 sm:w-auto bg-emerald-600 hover:bg-emerald-700">
             <Link href={`/sales/add-record?bookId=${bookId}`}>Add sale</Link>
           </Button>

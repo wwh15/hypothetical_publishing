@@ -23,6 +23,8 @@ export interface AuthorBookItem {
   publicationMonth: string;
   publicationYear: string;
   authorRoyaltyRate: number;
+  /** false = pre-release; sales are projected (still shown in detail totals). */
+  released: boolean;
   totalSales: number;
   totalAuthorRoyalty: number;
   unpaidAuthorRoyalty: number;
@@ -156,6 +158,7 @@ export async function asyncGetAuthorsData({
    * IMPORTANT: We use database-level names here:
    * - Tables: "authors", "books", "sales"
    * - Columns: "author_id", "book_id", "author_royalty", "created_at"
+   * Royalty sums include only released-book sales (projected / pre-release sales are excluded).
    */
   const authors = await prisma.$queryRaw<RawAuthorResult[]>`
     SELECT 
@@ -170,7 +173,7 @@ export async function asyncGetAuthorsData({
       SUM(CASE WHEN s.paid = false THEN COALESCE(s.author_royalty, 0) ELSE 0 END) AS "unpaidAuthorRoyalty"
     FROM authors a
     LEFT JOIN books b ON b."authorId" = a.id
-    LEFT JOIN sales s ON s.book_id = b.id
+    LEFT JOIN sales s ON s.book_id = b.id AND b.released = true
     WHERE a.name ILIKE ${searchPattern} OR a.email ILIKE ${searchPattern}
     GROUP BY a.id, a.name, a.email, a.created_at, a.updated_at
     ORDER BY ${Prisma.raw(sortColumn)} ${direction}
@@ -242,9 +245,8 @@ export async function asyncGetAuthorBooks(
       ],
     });
 
-    // 2. Map and Calculate totals for each book
+    // 2. Map and calculate totals per book (includes projected sales for unreleased titles)
     const data: AuthorBookItem[] = books.map((book) => {
-      // Calculate sums from the sales array
       const totalSales = book.sales.reduce((sum, s) => sum + (s.quantity ?? 0), 0);
 
       const totalAuthorRoyalty = book.sales.reduce(
@@ -271,6 +273,7 @@ export async function asyncGetAuthorBooks(
         publicationMonth: book.publicationDate.toLocaleString("default", { month: "long" }),
         publicationYear: book.publicationDate.getFullYear().toString(),
         authorRoyaltyRate: Number(book.distAuthorRoyaltyRate) * 100, // Display as %
+        released: book.released,
         totalSales,
         totalAuthorRoyalty: totalAuthorRoyalty.toNumber(),
         paidAuthorRoyalty: totalPaid.toNumber(),

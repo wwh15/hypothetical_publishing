@@ -2,7 +2,10 @@
 
 import { BaseDataTable } from "@/components/BaseDataTable";
 import { AuthorBookItem } from "@/lib/data/author";
-import { authorBookColumns } from "@/lib/table-configs/author-columns";
+import {
+  authorBookColumns,
+  authorBookRowClassNameForReleased,
+} from "@/lib/table-configs/author-columns";
 
 export interface AuthorBooksTableProps {
   rows: AuthorBookItem[];
@@ -19,6 +22,7 @@ export default function AuthorBooksTable({
       columns={authorBookColumns}
       getRowHref={onRowClick ? undefined : (row) => `/books/${row.id}`}
       getRowLinkLabel={(row) => `Book: ${row.title}`}
+      getRowClassName={authorBookRowClassNameForReleased}
       onRowClick={onRowClick}
       emptyMessage={"No books records"}
     />
