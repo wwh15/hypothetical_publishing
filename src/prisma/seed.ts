@@ -1,6 +1,7 @@
 /**
  * Seed data embedded inline (no filesystem reads). Same catalog + sales as former ev3 sample CSVs.
  * `npm run db:seed`. Cover art is not set; upload manually. `cover_image` in CSV is informational only.
+ * Pre-release books include Kickstarter item tags aligned with `docs/backerkit/` XLSX fixtures (see script `scripts/generate-backerkit-xlsx-fixtures.ts`).
  */
 import "dotenv/config";
 import Papa from "papaparse";
@@ -186,10 +187,17 @@ async function main() {
   for (const name of authorNames) {
     const canonicalName = seedCanonicalName(name);
     const email = `${name.toLowerCase().replace(/\s+/g, ".")}@example.com`;
+    const isBecky = seedCanonicalName(name) === seedCanonicalName("Becky Chambers");
+    const paymentHandles = isBecky
+      ? {
+          payPalUsername: "BeckyChambersHP",
+          venmoUsername: "Becky-Chambers-HP",
+        }
+      : {};
     const author = await prisma.author.upsert({
       where: { canonicalName },
-      update: {},
-      create: { name, email, canonicalName },
+      update: paymentHandles,
+      create: { name, email, canonicalName, ...paymentHandles },
     });
     authorMap[name] = { id: author.id };
   }
@@ -273,6 +281,7 @@ async function main() {
   // Pre-release books + sample sales (muted rows on /sales/records)
   const preReleaseAuthorId = authorMap["Becky Chambers"]?.id;
   if (preReleaseAuthorId) {
+    /** Match `docs/backerkit/sample_backerkit_*.xlsx` fixtures (generate script). */
     const preReleaseSpecs = [
       {
         title: "Wayfarers Book Five (pre-release)",
@@ -280,6 +289,8 @@ async function main() {
         publicationDate: new Date(Date.UTC(2027, 0, 1)),
         coverPrice: new Decimal("15.99"),
         printCost: new Decimal("5.5"),
+        kickstarterEbookItemTag: "ebook-seed-wayfarers-five",
+        kickstarterPrintItemTag: "print-seed-wayfarers-five",
         sale: {
           date: new Date(Date.UTC(2025, 10, 1)),
           source: "HAND_SOLD" as const,
@@ -294,6 +305,8 @@ async function main() {
         publicationDate: new Date(Date.UTC(2026, 8, 1)),
         coverPrice: new Decimal("11.99"),
         printCost: new Decimal("4"),
+        kickstarterEbookItemTag: "ebook-seed-novella-qa",
+        kickstarterPrintItemTag: "print-seed-novella-qa",
         sale: {
           date: new Date(Date.UTC(2025, 8, 1)),
           source: "DISTRIBUTOR" as const,
@@ -320,6 +333,8 @@ async function main() {
           printCost: spec.printCost,
           publicationDate: spec.publicationDate,
           released: false,
+          kickstarterEbookItemTag: spec.kickstarterEbookItemTag,
+          kickstarterPrintItemTag: spec.kickstarterPrintItemTag,
           seriesId: null,
           seriesOrder: null,
         },
