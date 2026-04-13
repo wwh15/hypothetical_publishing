@@ -1,5 +1,7 @@
 "use server";
 
+import { generateCoverThumbJpeg } from "@/lib/images/coverThumb";
+import { getCoverThumbStoragePath } from "@/lib/supabase/coverPaths";
 import { createClient } from "./server";
 import { supabaseAdmin } from "./admin";
 
@@ -218,6 +220,7 @@ export async function uploadCoverArt(
   if (!ext) return { error: "Invalid image type. Use JPEG, PNG, GIF, or WebP." };
 
   const path = `${bookId}/cover.${ext}`;
+  const thumbPath = `${bookId}/cover_thumb.jpg`;
   const supabase = await createClient();
 
   const { data, error } = await supabase.storage
@@ -229,6 +232,29 @@ export async function uploadCoverArt(
 
   if (error) {
     return { error: error.message };
+  }
+
+  let thumbJpeg: Buffer;
+  try {
+    thumbJpeg = await generateCoverThumbJpeg(Buffer.from(bytes));
+  } catch {
+    await supabase.storage.from(COVER_ART_BUCKET).remove([data.path]);
+    return { error: "Could not generate cover thumbnail. Try a different image." };
+  }
+
+  const thumbFile = new File([new Uint8Array(thumbJpeg)], "cover_thumb.jpg", {
+    type: "image/jpeg",
+  });
+  const { error: thumbError } = await supabase.storage
+    .from(COVER_ART_BUCKET)
+    .upload(thumbPath, thumbFile, {
+      cacheControl: "3600",
+      upsert: true,
+    });
+
+  if (thumbError) {
+    await supabase.storage.from(COVER_ART_BUCKET).remove([data.path]);
+    return { error: thumbError.message };
   }
 
   return { path: data.path };
@@ -263,6 +289,35 @@ export async function deleteCoverArt(
   path: string
 ): Promise<{ error: string | null }> {
   return deleteFile(COVER_ART_BUCKET, path);
+}
+
+/**
+ * Remove full cover and deterministic list thumb (`cover_thumb.jpg`) for a book.
+ * Uses the same Supabase client as uploads (RLS).
+ */
+export async function deleteCoverArtPair(
+  coverArtPath: string
+): Promise<{ error: string | null }> {
+  const thumbPath = getCoverThumbStoragePath(coverArtPath);
+  const paths = thumbPath ? [coverArtPath, thumbPath] : [coverArtPath];
+  const supabase = await createClient();
+  const { error } = await supabase.storage.from(COVER_ART_BUCKET).remove(paths);
+  if (error) {
+    return { error: error.message };
+  }
+  return { error: null };
+}
+
+/** Whether `cover_thumb.jpg` exists under `{bookId}/` in Cover-Art (for list URL fallback). */
+export async function coverThumbObjectExists(bookId: string): Promise<boolean> {
+  const { data, error } = await supabaseAdmin.storage
+    .from(COVER_ART_BUCKET)
+    .list(bookId, { limit: 100 });
+
+  if (error || !data?.length) {
+    return false;
+  }
+  return data.some((entry) => entry.name === "cover_thumb.jpg");
 }
 
 // --- Branding Logo (private bucket) ---

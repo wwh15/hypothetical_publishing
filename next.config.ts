@@ -11,7 +11,7 @@ const nextConfig: NextConfig = {
     ];
   },
   reactCompiler: true,
-  serverExternalPackages: ["@react-pdf/renderer"],
+  serverExternalPackages: ["@react-pdf/renderer", "sharp"],
   experimental: {
     serverActions: {
       bodySizeLimit: "3mb",

@@ -92,9 +92,9 @@ export const authorBookColumns: ColumnDef<AuthorBookItem>[] = [
           <img
             src={`/api/books/cover?path=${encodeURIComponent(
               row.coverArtPath
-            )}`}
+            )}&variant=list`}
             alt=""
-            className="h-10 w-7 object-cover rounded border border-gray-200 dark:border-gray-600"
+            className="h-10 w-7 object-contain rounded border border-gray-200 dark:border-gray-600"
           />
         );
       }
