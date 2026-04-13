@@ -136,7 +136,7 @@ type SaleForReport = {
 
 async function fetchSalesForReport(authorId: number): Promise<SaleForReport[]> {
   const sales = await prisma.sale.findMany({
-    where: { book: { authorId } },
+    where: { book: { authorId, released: true } },
     select: {
       bookId: true,
       date: true,

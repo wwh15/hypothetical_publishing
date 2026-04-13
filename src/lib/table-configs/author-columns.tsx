@@ -82,6 +82,15 @@ export const authorColumns: ColumnDef<AuthorListItem>[] = [
   },
 ];
 
+/** Muted row for pre-release books (projected sales still shown in numeric columns). */
+export function authorBookRowClassNameForReleased(
+  row: Pick<AuthorBookItem, "released">
+): string | undefined {
+  return row.released
+    ? undefined
+    : "bg-muted/70 text-muted-foreground hover:bg-muted/85 dark:bg-muted/40 dark:hover:bg-muted/55";
+}
+
 export const authorBookColumns: ColumnDef<AuthorBookItem>[] = [
   {
     key: "cover",
