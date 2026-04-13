@@ -2,7 +2,7 @@ import { Prisma, type SaleFormat, type SaleSource } from "@prisma/client";
 import { prisma } from "../prisma";
 import {
   uploadCoverArt as uploadCoverArtToStorage,
-  deleteCoverArt,
+  deleteCoverArtPair,
 } from "../supabase/storage";
 import { getBooksSortedByTotalSales } from "./books-queries";
 import { SortColumn } from "../types/sort";
@@ -998,7 +998,7 @@ export async function replaceBookCoverArt(
   }
 
   if (book.coverArtPath) {
-    const del = await deleteCoverArt(book.coverArtPath);
+    const del = await deleteCoverArtPair(book.coverArtPath);
     if (del.error) {
       return { success: false, error: del.error };
     }
@@ -1019,7 +1019,7 @@ export async function removeBookCoverArt(
     return { success: false, error: "Book not found." };
   }
   if (book.coverArtPath) {
-    await deleteCoverArt(book.coverArtPath);
+    await deleteCoverArtPair(book.coverArtPath);
   }
   await prisma.book.update({
     where: { id: bookId },
@@ -1045,7 +1045,7 @@ export async function deleteBook(
 
     // Remove cover art from storage if present
     if (book.coverArtPath) {
-      await deleteCoverArt(book.coverArtPath);
+      await deleteCoverArtPair(book.coverArtPath);
     }
 
     // Delete the book. Sales records are deleted automatically (FK onDelete: Cascade).
