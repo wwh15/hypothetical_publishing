@@ -20,7 +20,29 @@ export default function ReportsPage() {
             Author royalty report
           </Link>
           <span className="text-muted-foreground text-sm ml-2">
-            — Sales and royalty breakdown by author and time period
+            — Sales and royalty breakdown by author and time period (PDF)
+          </span>
+        </li>
+        <li>
+          <Link
+            href="/reports/all-authors-royalty"
+            className="text-blue-600 dark:text-blue-400 hover:underline font-medium"
+          >
+            All authors royalty report
+          </Link>
+          <span className="text-muted-foreground text-sm ml-2">
+            — Royalties per author per quarter for all authors (XLSX)
+          </span>
+        </li>
+        <li>
+          <Link
+            href="/reports/publisher-profit"
+            className="text-blue-600 dark:text-blue-400 hover:underline font-medium"
+          >
+            Publisher profit report
+          </Link>
+          <span className="text-muted-foreground text-sm ml-2">
+            — Profit per book per quarter for released books (XLSX)
           </span>
         </li>
         <li>
