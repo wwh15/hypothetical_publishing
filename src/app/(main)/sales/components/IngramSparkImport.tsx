@@ -245,8 +245,8 @@ export default function IngramSparkImport({
       <CardHeader>
         <CardTitle>Ingram Spark Import</CardTitle>
         <CardDescription className="border-b pb-2">
-          Import a CSV to add sales records to the{" "}
-          <strong>Pending Records</strong> table at the bottom of the page.
+          Import a CSV to add sales records to the Pending Records table at the
+          bottom of the page.
         </CardDescription>
       </CardHeader>
 
@@ -339,9 +339,9 @@ export default function IngramSparkImport({
                 {/* CSV Row Errors Block */}
                 {submissionErrors.length > 0 && (
                   <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-destructive font-bold text-sm">
-                      <AlertCircle className="h-4 w-4" />
-                      Validation failed for {submissionErrors.length} row(s)
+                    <div className="flex items-center gap-2 text-destructive text-sm font-semibold">
+                      <AlertCircle className="h-4 w-4 shrink-0" />
+                      Import failed for &quot;{fileName}&quot;
                     </div>
                     <ul className="space-y-1 list-disc list-inside">
                       {submissionErrors.map((err, idx) => (
@@ -376,13 +376,12 @@ export default function IngramSparkImport({
             </div>
           ) : (
             <div className="mt-4 space-y-3 rounded-md border-2 border-green-500 bg-green-50 p-4 animate-in fade-in zoom-in duration-300">
-              <div className="flex items-center gap-2 font-bold text-green-600 text-m">
-                <CheckCircle2 className="h-4 w-4" />
-                File &quot;{fileName}&quot; imported and validated successfully!
+              <div className="flex items-center gap-2 text-sm font-semibold text-green-700 dark:text-green-400">
+                <CheckCircle2 className="h-4 w-4 shrink-0" />
+                File &quot;{fileName}&quot; imported successfully
               </div>
-              <p className="text-m text-green-700">
-                Review the imported data in the <strong>Pending Records</strong>{" "}
-                table below.
+              <p className="text-sm text-green-800 dark:text-green-300/90">
+                Import complete. Review these rows before saving.
               </p>
               {importedRowCount > 0 && onViewPendingRecords && (
                 <Button

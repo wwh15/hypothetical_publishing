@@ -80,7 +80,7 @@ export default function AmazonXlsxImportPanel({
 
   const { booksByIsbn, booksByAsin } = useMemo(
     () => buildAmazonBookMaps(booksData),
-    [booksData],
+    [booksData]
   );
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -164,9 +164,9 @@ export default function AmazonXlsxImportPanel({
         <CardHeader>
           <CardTitle>Amazon Royalty Import</CardTitle>
           <CardDescription className="border-b pb-2">
-            Import a KDP royalty <strong>.xlsx</strong> workbook to add rows to
-            the <strong>Pending Records</strong> table. Sales period and
-            per-sheet columns are read from the file.
+            Import a KDP royalty <strong>.xlsx</strong> workbook to add sales
+            records to the Pending Records table. Sales period and per-sheet
+            columns are read from the file.
           </CardDescription>
         </CardHeader>
 
@@ -225,12 +225,11 @@ export default function AmazonXlsxImportPanel({
               {showSuccess && !hasErrorState && (
                 <div className="space-y-3 rounded-md border-2 border-green-500 bg-green-50 p-4 animate-in fade-in zoom-in duration-300 dark:bg-green-950/30">
                   <div className="flex items-center gap-2 text-sm font-semibold text-green-700 dark:text-green-400">
-                    <CheckCircle2 className="h-4 w-4" />
-                    &quot;{fileName}&quot; imported successfully
+                    <CheckCircle2 className="h-4 w-4 shrink-0" />
+                    File &quot;{fileName}&quot; imported successfully
                   </div>
                   <p className="text-sm text-green-800 dark:text-green-300/90">
-                    Review the rows in the <strong>Pending Records</strong>{" "}
-                    table below.
+                    Import complete. Review these rows before saving.
                   </p>
                   {successRecordCount > 0 && onViewPendingRecords && (
                     <Button

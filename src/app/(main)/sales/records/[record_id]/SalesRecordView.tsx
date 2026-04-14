@@ -155,7 +155,7 @@ export default function SalesRecordView({ sale, onEdit }: SalesRecordViewProps) 
 
       {/* Payment + volume — operational */}
       <section className="mb-10 grid gap-6 lg:grid-cols-2">
-        <div className="rounded-xl border border-border bg-muted/25 p-5 sm:p-6">
+        <div className="rounded-xl border border-border bg-card shadow-sm p-5 sm:p-6">
           <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Royalty payment
           </h2>
@@ -201,27 +201,42 @@ export default function SalesRecordView({ sale, onEdit }: SalesRecordViewProps) 
           </dl>
         </div>
 
-        <div className="rounded-xl border border-border bg-muted/25 p-5 sm:p-6">
+        <div className="rounded-xl border border-border bg-card shadow-sm p-5 sm:p-6">
           <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Channel
+            Channels
           </h2>
-          <div className="mt-4 flex flex-wrap gap-2">
-            {saleFormatBadge(sale.format, "comfortable")}
-            {saleDistributorBadge(sale.distributor, "comfortable")}
-            <span
-              className={cn(
-                "inline-flex items-center rounded-full px-3 py-1 text-sm font-medium",
-                SOURCE_BADGE_CLASS[sale.source]
-              )}
-            >
-              {SOURCE_LABEL[sale.source]}
-            </span>
+          <div className="mt-4 grid gap-4 sm:grid-cols-3">
+            <div className="space-y-1.5">
+              <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                Format
+              </p>
+              {saleFormatBadge(sale.format, "comfortable")}
+            </div>
+            <div className="space-y-1.5">
+              <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                Distributor
+              </p>
+              {saleDistributorBadge(sale.distributor, "comfortable")}
+            </div>
+            <div className="space-y-1.5">
+              <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                Source
+              </p>
+              <span
+                className={cn(
+                  "inline-flex items-center rounded-full px-3 py-1 text-sm font-medium",
+                  SOURCE_BADGE_CLASS[sale.source]
+                )}
+              >
+                {SOURCE_LABEL[sale.source]}
+              </span>
+            </div>
           </div>
         </div>
       </section>
 
       {/* Book context — secondary to the transaction */}
-      <section className="mb-10 rounded-xl border border-border/80 bg-card/40 px-5 py-5 sm:px-6">
+      <section className="mb-10 rounded-xl border border-border/80 bg-card shadow-sm px-5 py-5 sm:px-6">
         <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           Book
         </h2>
