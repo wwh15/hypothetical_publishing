@@ -14,28 +14,59 @@ export async function GET() {
 
   const rows = await getAmazonSalesReportData();
 
-  // Build worksheet data
+  const totals = rows.reduce(
+    (acc, r) => ({
+      printQty: acc.printQty + r.printQty,
+      printRevenue: acc.printRevenue + r.printRevenue,
+      ebookQty: acc.ebookQty + r.ebookQty,
+      ebookRevenue: acc.ebookRevenue + r.ebookRevenue,
+      kenp: acc.kenp + r.kenp,
+      kenpRevenue: acc.kenpRevenue + r.kenpRevenue,
+    }),
+    {
+      printQty: 0,
+      printRevenue: 0,
+      ebookQty: 0,
+      ebookRevenue: 0,
+      kenp: 0,
+      kenpRevenue: 0,
+    }
+  );
+
+  // Req 6.4.4: single Series/Position column; 6.4.4.6–11 naming; 6.4.7 total row.
   const headers = [
     "Author",
-    "Series",
-    "Position",
+    "Series/Position",
     "Title",
     "ISBN-13",
     "ASIN",
-    "Print Qty",
+    "Print Quantity",
     "Print Revenue",
-    "Ebook Qty",
+    "Ebook Quantity",
     "Ebook Revenue",
     "KENP",
     "KENP Revenue",
+  ];
+
+  const totalRow = [
+    "Total",
+    "",
+    "",
+    "",
+    "",
+    totals.printQty,
+    totals.printRevenue,
+    totals.ebookQty,
+    totals.ebookRevenue,
+    totals.kenp,
+    totals.kenpRevenue,
   ];
 
   const wsData = [
     headers,
     ...rows.map((r) => [
       r.author,
-      r.seriesName ?? "",
-      r.seriesOrder != null ? r.seriesOrder : "",
+      r.seriesPosition,
       r.title,
       r.isbn13,
       r.asin ?? "",
@@ -46,6 +77,7 @@ export async function GET() {
       r.kenp,
       r.kenpRevenue,
     ]),
+    totalRow,
   ];
 
   const ws = XLSX.utils.aoa_to_sheet(wsData);
@@ -59,9 +91,18 @@ export async function GET() {
     }
   }
 
-  // Format currency columns (Print Revenue=7, Ebook Revenue=9, KENP Revenue=11)
-  const currencyCols = [7, 9, 11];
-  for (let row = 1; row <= rows.length; row++) {
+  // Bold total row (req: final row with aggregate totals)
+  const totalRowIndex = rows.length + 1;
+  for (let col = headerRange.s.c; col <= headerRange.e.c; col++) {
+    const cellRef = XLSX.utils.encode_cell({ r: totalRowIndex, c: col });
+    if (ws[cellRef]) {
+      ws[cellRef].s = { font: { bold: true } };
+    }
+  }
+
+  // Format currency columns (Print Revenue=6, Ebook Revenue=8, KENP Revenue=10)
+  const currencyCols = [6, 8, 10];
+  for (let row = 1; row <= totalRowIndex; row++) {
     for (const col of currencyCols) {
       const cellRef = XLSX.utils.encode_cell({ r: row, c: col });
       if (ws[cellRef]) {
@@ -70,17 +111,16 @@ export async function GET() {
     }
   }
 
-  // Set column widths
+  // Set column widths (11 cols per req 6.4.4)
   ws["!cols"] = [
     { wch: 20 }, // Author
-    { wch: 20 }, // Series
-    { wch: 8 },  // Position
+    { wch: 24 }, // Series/Position
     { wch: 30 }, // Title
     { wch: 15 }, // ISBN-13
     { wch: 12 }, // ASIN
-    { wch: 10 }, // Print Qty
+    { wch: 14 }, // Print Quantity
     { wch: 14 }, // Print Revenue
-    { wch: 10 }, // Ebook Qty
+    { wch: 14 }, // Ebook Quantity
     { wch: 14 }, // Ebook Revenue
     { wch: 10 }, // KENP
     { wch: 14 }, // KENP Revenue
@@ -91,7 +131,7 @@ export async function GET() {
 
   const buffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
 
-  const filename = `Amazon_Sales_Report_${formatLocalReportFilenameStamp(new Date(), "-")}.xlsx`;
+  const filename = `Amazon_Sale_Report_${formatLocalReportFilenameStamp(new Date(), "-")}.xlsx`;
 
   return new NextResponse(buffer, {
     status: 200,

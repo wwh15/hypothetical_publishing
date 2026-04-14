@@ -235,13 +235,12 @@ export async function asyncGetAuthorBooks(
       where: { authorId: id },
       include: {
         sales: true,
-        series: true
+        series: true,
       },
       orderBy: [
-        { title: "asc" },
-        { seriesId: "asc" },
+        { series: { name: "asc" } },
         { seriesOrder: "asc" },
-        { publicationDate: "asc" },
+        { title: "asc" },
       ],
     });
 

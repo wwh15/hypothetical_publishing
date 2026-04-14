@@ -16,8 +16,8 @@ export default function AmazonSalesReportPage() {
           </h1>
           <p className="text-muted-foreground mt-2">
             Generate an XLSX spreadsheet with lifetime Amazon sales data per
-            book, including print, ebook, and KENP revenue. Excludes projected
-            sales from unreleased books.
+            book, including print, ebook, and KENP revenue, plus a final row
+            with totals. Excludes projected sales from unreleased books.
           </p>
         </div>
       </div>

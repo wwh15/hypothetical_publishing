@@ -1,8 +1,35 @@
 import { prisma } from "../prisma";
 import { Decimal } from "@prisma/client/runtime/library";
 
+/** Req 6.4.4.2: "SERIES (<#>)" — same pattern as Publisher Profit report. */
+export function formatAmazonSeriesPosition(
+  seriesName: string | null,
+  seriesOrder: number | null
+): string {
+  if (seriesName != null && seriesOrder != null) {
+    return `${seriesName} (${seriesOrder})`;
+  }
+  return "";
+}
+
 export interface AmazonSalesRow {
   author: string;
+  /** Single column per req 6.4.4.2 (not separate Series + Position). */
+  seriesPosition: string;
+  title: string;
+  isbn13: string;
+  asin: string | null;
+  printQty: number;
+  printRevenue: number;
+  ebookQty: number;
+  ebookRevenue: number;
+  kenp: number;
+  kenpRevenue: number;
+}
+
+type AmazonSalesAggRow = {
+  author: string;
+  authorName: string;
   seriesName: string | null;
   seriesOrder: number | null;
   title: string;
@@ -14,7 +41,7 @@ export interface AmazonSalesRow {
   ebookRevenue: number;
   kenp: number;
   kenpRevenue: number;
-}
+};
 
 /**
  * Fetch lifetime Amazon sales data per book.
@@ -40,10 +67,7 @@ export async function getAmazonSalesReportData(): Promise<AmazonSalesRow[]> {
   });
 
   // Aggregate per book
-  const bookMap = new Map<
-    number,
-    AmazonSalesRow & { authorName: string }
-  >();
+  const bookMap = new Map<number, AmazonSalesAggRow>();
 
   for (const s of sales) {
     const b = s.book;
@@ -99,6 +123,8 @@ export async function getAmazonSalesReportData(): Promise<AmazonSalesRow[]> {
     return a.title.localeCompare(b.title);
   });
 
-  // Strip internal authorName field
-  return rows.map(({ authorName: _, ...row }) => row);
+  return rows.map(({ authorName: _, seriesName, seriesOrder, ...rest }) => ({
+    ...rest,
+    seriesPosition: formatAmazonSeriesPosition(seriesName, seriesOrder),
+  }));
 }
