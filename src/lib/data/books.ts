@@ -610,6 +610,44 @@ export async function getBookById(id: number): Promise<BookDetail | null> {
   };
 }
 
+/**
+ * Kickstarter item tags must be unique across all books (ebook and print columns share one namespace).
+ * Optionally exclude a book id when updating.
+ */
+async function ensureKickstarterTagsUnique(
+  db: { book: typeof prisma.book },
+  {
+    ebook,
+    print,
+    excludeBookId,
+  }: {
+    ebook: string | null;
+    print: string | null;
+    excludeBookId?: number;
+  }
+): Promise<string | null> {
+  if (ebook && print && ebook === print) {
+    return "Kickstarter ebook and print item tags must be different from each other.";
+  }
+  const uniqueTags = [...new Set([ebook, print].filter((t): t is string => Boolean(t)))];
+  for (const tag of uniqueTags) {
+    const conflict = await db.book.findFirst({
+      where: {
+        ...(excludeBookId !== undefined ? { id: { not: excludeBookId } } : {}),
+        OR: [
+          { kickstarterEbookItemTag: tag },
+          { kickstarterPrintItemTag: tag },
+        ],
+      },
+      select: { title: true },
+    });
+    if (conflict) {
+      return `This Kickstarter item tag is already used by another book (“${conflict.title}”).`;
+    }
+  }
+  return null;
+}
+
 export async function createBook(
   input: CreateBookInput
 ): Promise<
@@ -673,6 +711,12 @@ export async function createBook(
         });
         seriesOrderVal = (max._max.seriesOrder ?? 0) + 1;
       }
+
+      const dupErr = await ensureKickstarterTagsUnique(tx, {
+        ebook: ksEbook.data,
+        print: ksPrint.data,
+      });
+      if (dupErr) throw new Error(dupErr);
 
       // 2. Create the book, connected to the single author
       return tx.book.create({
@@ -749,6 +793,31 @@ export async function updateBook(
 
     // Update the book
     const updatedBook = await prisma.$transaction(async (tx) => {
+      let nextEbook: string | null = existingBook.kickstarterEbookItemTag ?? null;
+      let nextPrint: string | null = existingBook.kickstarterPrintItemTag ?? null;
+      if (input.kickstarterEbookItemTag !== undefined) {
+        const r = validateKickstarterItemTagOptional(
+          input.kickstarterEbookItemTag,
+          "Kickstarter ebook item tag"
+        );
+        if (!r.success) throw new Error(r.error);
+        nextEbook = r.data;
+      }
+      if (input.kickstarterPrintItemTag !== undefined) {
+        const r = validateKickstarterItemTagOptional(
+          input.kickstarterPrintItemTag,
+          "Kickstarter print item tag"
+        );
+        if (!r.success) throw new Error(r.error);
+        nextPrint = r.data;
+      }
+      const dupErr = await ensureKickstarterTagsUnique(tx, {
+        ebook: nextEbook,
+        print: nextPrint,
+        excludeBookId: input.id,
+      });
+      if (dupErr) throw new Error(dupErr);
+
       // Prepare data
       const updateData: Prisma.BookUpdateInput = {};
 
@@ -803,20 +872,10 @@ export async function updateBook(
         updateData.coverArtPath = input.coverArtPath ?? null;
       }
       if (input.kickstarterEbookItemTag !== undefined) {
-        const r = validateKickstarterItemTagOptional(
-          input.kickstarterEbookItemTag,
-          "Kickstarter ebook item tag"
-        );
-        if (!r.success) throw new Error(r.error);
-        updateData.kickstarterEbookItemTag = r.data;
+        updateData.kickstarterEbookItemTag = nextEbook;
       }
       if (input.kickstarterPrintItemTag !== undefined) {
-        const r = validateKickstarterItemTagOptional(
-          input.kickstarterPrintItemTag,
-          "Kickstarter print item tag"
-        );
-        if (!r.success) throw new Error(r.error);
-        updateData.kickstarterPrintItemTag = r.data;
+        updateData.kickstarterPrintItemTag = nextPrint;
       }
       if (
         input.coverArtPath === undefined &&
