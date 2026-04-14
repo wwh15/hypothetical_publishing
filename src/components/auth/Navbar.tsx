@@ -82,10 +82,10 @@ export default async function Navbar() {
                 <span className="max-w-[10rem] cursor-default truncate text-sm text-muted-foreground sm:max-w-none">
                   {user.user_metadata?.username ?? user.email}
                 </span>
-                <div className="absolute right-0 top-full z-50 mt-1 hidden rounded-lg border border-border bg-popover py-1 text-popover-foreground shadow-lg group-hover:block">
+                <div className="absolute right-0 top-full z-50 hidden rounded-lg border border-border bg-popover py-1 text-popover-foreground shadow-lg group-hover:block">
                   <Link
                     href="/change-password"
-                    className="block px-4 py-2 text-sm transition-colors hover:bg-accent hover:text-accent-foreground"
+                    className="block whitespace-nowrap px-4 py-2 text-sm transition-colors hover:bg-accent hover:text-accent-foreground"
                   >
                     Change Password
                   </Link>
