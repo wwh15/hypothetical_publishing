@@ -4,6 +4,8 @@ import type { DocumentProps } from "@react-pdf/renderer";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { getAuthorRoyaltyReportData } from "@/lib/data/author-royalty-report";
 import { AuthorRoyaltyReportPDF } from "@/app/(main)/reports/author-royalty/components/AuthorRoyaltyReportPDF";
+import { getBranding } from "@/lib/data/branding";
+import { getBrandingLogoSignedUrl } from "@/lib/supabase/storage";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -53,7 +55,13 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const doc = React.createElement(AuthorRoyaltyReportPDF, { data: report });
+  const branding = await getBranding();
+  let logoUrl: string | null = null;
+  if (branding.logoPath) {
+    const { url } = await getBrandingLogoSignedUrl(branding.logoPath);
+    logoUrl = url;
+  }
+  const doc = React.createElement(AuthorRoyaltyReportPDF, { data: report, companyName: branding.companyName, logoUrl });
   const buffer = await renderToBuffer(
     doc as React.ReactElement<DocumentProps>
   );

@@ -11,7 +11,7 @@ import { BookSelectBox } from "@/components/BookSelectBox";
 import { BookListItem } from "@/lib/data/books";
 import MonthYearSelector from "@/components/MonthYearSelector";
 import { SUPPORTED_CURRENCIES } from "@/lib/currency-conversion";
-import type { SaleFormat } from "@prisma/client";
+import type { SaleFormat, SaleSource } from "@prisma/client";
 
 interface InputRecordFormProps {
   onAddRecord: (record: PendingSaleItem) => void;
@@ -91,8 +91,8 @@ export default function InputRecordForm({
           Add single sales record
         </h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Optimized for fast entry: search by title, ISBN-13/10, or Amazon ASIN
-          (dashes ignored).
+          Optimized for fast entry: search by title, ISBN-13/10, Amazon ASIN
+          (dashes ignored), or exact Kickstarter ebook/print item tag.
         </p>
         <p className="mt-1 text-sm text-muted-foreground">
           Defaults: Distributor (Sales source) • Other (Distributor) • Print (Format) • USD (Currency)
@@ -129,15 +129,13 @@ export default function InputRecordForm({
           <select
             value={formData.source}
             onChange={(e) =>
-              handleInputChange(
-                "source",
-                e.target.value as "DISTRIBUTOR" | "HAND_SOLD"
-              )
+              handleInputChange("source", e.target.value as SaleSource)
             }
             className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
           >
             <option value="DISTRIBUTOR">Distributor</option>
             <option value="HAND_SOLD">Hand sold</option>
+            <option value="KICKSTARTER">Kickstarter</option>
           </select>
         </FormField>
 
@@ -240,8 +238,9 @@ export default function InputRecordForm({
           />
           {!isDistributor && (
             <p className="text-xs text-muted-foreground mt-1">
-              Hand sold: computed as (cover price − print cost) × quantity in USD
-              (definition 9).
+              {formData.source === "HAND_SOLD"
+                ? "Hand sold: (cover price − print cost) × quantity in USD."
+                : "Kickstarter: same formula in USD; ebook uses print cost 0 (cover price × quantity)."}
             </p>
           )}
         </FormField>
@@ -257,7 +256,7 @@ export default function InputRecordForm({
           <p className="text-xs text-muted-foreground mt-1">
             {isDistributor
               ? `Converted from ${formData.currency} using currency exchange rates.`
-              : "Same as original for hand sold (USD)."}
+              : "Same as original for hand sold and Kickstarter (USD)."}
           </p>
         </FormField>
 
@@ -270,8 +269,9 @@ export default function InputRecordForm({
             className="bg-muted cursor-not-allowed"
           />
           <p className="text-xs text-muted-foreground mt-1">
-            Rate × publisher revenue (USD); not editable. Author-paid defaults to
-            false when you add the row.
+            Rate × publisher revenue (USD) using the book&apos;s distributor rate or
+            hand sold / Kickstarter rate; not editable. Author-paid defaults to false
+            when you add the row.
           </p>
         </FormField>
 
@@ -290,7 +290,7 @@ export default function InputRecordForm({
 
       <div className="mt-6 flex justify-end">
         <Button type="submit">
-          <Plus className="mr-2 h-4 w-4" /> Add record
+          + Add Record
         </Button>
       </div>
       <p className="mt-3 text-xs text-muted-foreground">

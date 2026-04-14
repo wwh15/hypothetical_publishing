@@ -45,10 +45,6 @@ export default function BooksTable({
     [total, pageSize],
   );
 
-  const handleRowClick = (book: BookListItem) => {
-    router.push(`/books/${book.id}`);
-  };
-
   const columns: ColumnDef<BookListItem>[] = useMemo(() => {
     const core: ColumnDef<BookListItem>[] = [
       {
@@ -60,9 +56,9 @@ export default function BooksTable({
           if (row.coverArtPath) {
             return (
               <img
-                src={`/api/books/cover?path=${encodeURIComponent(row.coverArtPath)}&size=thumb`}
+                src={`/api/books/cover?path=${encodeURIComponent(row.coverArtPath)}&variant=list`}
                 alt=""
-                className="h-10 w-7 object-cover rounded border border-gray-200 dark:border-gray-600"
+                className="h-10 w-7 object-contain rounded border border-gray-200 dark:border-gray-600"
               />
             );
           }
@@ -259,7 +255,7 @@ export default function BooksTable({
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by title, author, series, or ISBN..."
+              placeholder="Search by title, author, series, ISBN, ASIN, or Kickstarter tags..."
               className={cn(
                 "block w-full pl-10 pr-10 py-2 border border-gray-300 dark:border-gray-700 rounded-lg",
                 "bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100",
@@ -303,7 +299,10 @@ export default function BooksTable({
               ? "No books match your search"
               : "No books found"
         }
-        onRowClick={handleRowClick}
+        getRowHref={(book) => `/books/${book.id}`}
+        getRowLinkLabel={(book) =>
+          book.title ? `Book: ${book.title}` : `Book ${book.id}`
+        }
         sortColumns={embedded ? [] : sortColumns}
         onMultiSortChange={embedded ? undefined : handleMultiSortChange}
         showPagination={false}

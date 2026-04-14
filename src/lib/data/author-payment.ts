@@ -6,20 +6,34 @@ import { SaleListItem } from "./records";
 import { Prisma } from "@prisma/client";
 
 export interface AuthorGroup {
-  author: string; // All authors in this group (could be 1 or many)
-  authorId: number; // All author IDs in this group
-  unpaidTotal: number;
+  author: string;
+  authorId: number;
+  /** Unpaid royalties on released books — eligible to mark paid. */
+  unpaidPayableTotal: number;
+  /** Unpaid royalties on unreleased books (not payable until the book is released). */
+  unpaidProjectedTotal: number;
   sales: SaleListItem[];
+  payPalUsername: string;
+  venmoUsername: string;
+}
+
+/** Unpaid royalty sums across all authors matching the current search (not page-limited). */
+export interface AuthorPaymentGrandTotals {
+  unpaidPayable: number;
+  unpaidProjected: number;
 }
 
 // The "Raw" shape coming out of Prisma
 const authorPaymentSelect = {
   id: true,
   name: true,
+  payPalUsername: true,
+  venmoUsername: true,
   books: {
     select: {
       id: true,
       title: true,
+      released: true,
       sales: {
         select: {
           id: true,
@@ -46,23 +60,44 @@ export type PrismaAuthorWithSales = Prisma.AuthorGetPayload<{
   select: typeof authorPaymentSelect;
 }>;
 
+function bookWhereForPaymentSearch(
+  trimmedSearch: string
+): Pick<Prisma.BookWhereInput, "author"> | Record<string, never> {
+  if (!trimmedSearch) return {};
+  return {
+    author: {
+      OR: [
+        { name: { contains: trimmedSearch, mode: "insensitive" } },
+        { email: { contains: trimmedSearch, mode: "insensitive" } },
+      ],
+    },
+  };
+}
+
 export default async function asyncGetAuthorPaymentData(
   pageNumber: number = 1,
   pageSize: number = 20,
   search: string = ""
-): Promise<{ authors: AuthorGroup[]; totalGroups: number }> {
+): Promise<{
+  authors: AuthorGroup[];
+  totalGroups: number;
+  totals: AuthorPaymentGrandTotals;
+}> {
+  const trimmedSearch = search.trim();
 
   // 2. Define the search filter
-  const where: Prisma.AuthorWhereInput = search
+  const where: Prisma.AuthorWhereInput = trimmedSearch
     ? {
         OR: [
-          { name: { contains: search, mode: "insensitive" } },
-          { email: { contains: search, mode: "insensitive" } },
+          { name: { contains: trimmedSearch, mode: "insensitive" } },
+          { email: { contains: trimmedSearch, mode: "insensitive" } },
         ],
       }
     : {};
 
-  const [rawAuthors, totalGroups] = await Promise.all([
+  const bookScope = bookWhereForPaymentSearch(trimmedSearch);
+
+  const [rawAuthors, totalGroups, payableAgg, projectedAgg] = await Promise.all([
     prisma.author.findMany({
       where,
       // 1. Paginate the Root (Authors)
@@ -80,18 +115,40 @@ export default async function asyncGetAuthorPaymentData(
 
     // 4. Count total authors for the pagination UI
     prisma.author.count({ where }),
+
+    prisma.sale.aggregate({
+      where: {
+        paid: false,
+        book: { released: true, ...bookScope },
+      },
+      _sum: { authorRoyalty: true },
+    }),
+
+    prisma.sale.aggregate({
+      where: {
+        paid: false,
+        book: { released: false, ...bookScope },
+      },
+      _sum: { authorRoyalty: true },
+    }),
   ]);
 
-  // Use the transformation function here
+  const totals: AuthorPaymentGrandTotals = {
+    unpaidPayable: Number(payableAgg._sum.authorRoyalty ?? 0),
+    unpaidProjected: Number(projectedAgg._sum.authorRoyalty ?? 0),
+  };
+
   return {
     authors: rawAuthors.map(transformToAuthorGroup),
     totalGroups,
+    totals,
   };
 }
 
 function transformToAuthorGroup(rawAuthor: PrismaAuthorWithSales): AuthorGroup {
   const allSales: SaleListItem[] = [];
-  let unpaidTotal = 0;
+  let unpaidPayableTotal = 0;
+  let unpaidProjectedTotal = 0;
 
   for (const book of rawAuthor.books) {
     for (const sale of book.sales) {
@@ -116,11 +173,17 @@ function transformToAuthorGroup(rawAuthor: PrismaAuthorWithSales): AuthorGroup {
         paid: status,
         comment: sale.comment ?? null,
         source: sale.source,
+        bookReleased: book.released,
       });
 
-      // 3. Accumulate the unpaid total (only if pending)
+      // 3. Unpaid splits: released = payable; unreleased = projected
       if (status === "pending") {
-        unpaidTotal += sale.authorRoyalty.toNumber();
+        const amt = sale.authorRoyalty.toNumber();
+        if (book.released) {
+          unpaidPayableTotal += amt;
+        } else {
+          unpaidProjectedTotal += amt;
+        }
       }
     }
   }
@@ -131,28 +194,25 @@ function transformToAuthorGroup(rawAuthor: PrismaAuthorWithSales): AuthorGroup {
   return {
     author: rawAuthor.name,
     authorId: rawAuthor.id,
-    unpaidTotal,
+    unpaidPayableTotal,
+    unpaidProjectedTotal,
     sales: allSales,
+    payPalUsername: rawAuthor.payPalUsername ?? "",
+    venmoUsername: rawAuthor.venmoUsername ?? "",
   };
 }
 
 // Mark all unpaid sales for an author group as paid
 export async function markAllPaid(authorId: number) {
   try {
-    // Get all books for this author
-    const authorBooks = await prisma.book.findMany({
-      where: {
-        authorId: authorId,
-      },
-    });
-
-    const bookIds = authorBooks.map((book) => book.id);
-
-    // Update all unpaid sales for these books to paid
+    // Only released-book sales are eligible to mark paid.
     const result = await prisma.sale.updateMany({
       where: {
-        bookId: { in: bookIds },
         paid: false,
+        book: {
+          authorId,
+          released: true,
+        },
       },
       data: {
         paid: true,
@@ -174,3 +234,5 @@ export async function markAllPaid(authorId: number) {
     };
   }
 }
+
+

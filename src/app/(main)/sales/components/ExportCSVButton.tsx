@@ -4,7 +4,10 @@
 import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
 import { useState } from "react";
+import { cn } from "@/lib/utils";
 import { exportSalesToCsvAction } from "../action";
+import type { SaleSource } from "@prisma/client";
+import type { SaleReleaseFilter } from "@/lib/data/records";
 
 export interface ExportCSVButtonProps {
   search?: string;
@@ -12,9 +15,11 @@ export interface ExportCSVButtonProps {
   sortDir?: "asc" | "desc";
   dateFrom?: string;
   dateTo?: string;
-  source?: "DISTRIBUTOR" | "HAND_SOLD";
+  source?: SaleSource;
   distributor?: "INGRAM_SPARK" | "AMAZON" | "OTHER";
   format?: "PRINT" | "EBOOK" | "KINDLE_UNLIMITED";
+  saleRelease?: SaleReleaseFilter;
+  className?: string;
 }
 
 export function ExportCSVButton({
@@ -26,6 +31,8 @@ export function ExportCSVButton({
   source,
   distributor,
   format,
+  saleRelease,
+  className,
 }: ExportCSVButtonProps) {
   const [isExporting, setIsExporting] = useState(false);
 
@@ -41,6 +48,7 @@ export function ExportCSVButton({
       source,
       distributor,
       format,
+      saleRelease,
     });
 
     if (result.success && result.data) {
@@ -76,7 +84,12 @@ export function ExportCSVButton({
   };
 
   return (
-    <Button size="sm" onClick={handleExport} disabled={isExporting}>
+    <Button
+      size="sm"
+      onClick={handleExport}
+      disabled={isExporting}
+      className={cn("shrink-0", className)}
+    >
       <Download className="" />
       {isExporting ? "Generating..." : "Export CSV"}
     </Button>

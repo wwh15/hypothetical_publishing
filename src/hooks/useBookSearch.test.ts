@@ -24,6 +24,9 @@ const mockBooks: BookListItem[] = [
     seriesName: null,
     seriesOrder: null,
     coverArtPath: null,
+    kickstarterEbookItemTag: null,
+    kickstarterPrintItemTag: null,
+    released: true,
   },
   {
     id: 2,
@@ -45,6 +48,9 @@ const mockBooks: BookListItem[] = [
     seriesName: null,
     seriesOrder: null,
     coverArtPath: null,
+    kickstarterEbookItemTag: null,
+    kickstarterPrintItemTag: null,
+    released: true,
   },
 ];
 
@@ -95,6 +101,9 @@ describe("filterBooksBySearch", () => {
         seriesName: null,
         seriesOrder: null,
         coverArtPath: null,
+        kickstarterEbookItemTag: null,
+        kickstarterPrintItemTag: null,
+        released: true,
       },
     ];
 
@@ -125,6 +134,9 @@ describe("filterBooksBySearch", () => {
         seriesName: null,
         seriesOrder: null,
         coverArtPath: null,
+        kickstarterEbookItemTag: null,
+        kickstarterPrintItemTag: null,
+        released: true,
       },
     ];
 
@@ -134,6 +146,39 @@ describe("filterBooksBySearch", () => {
 
   it("returns empty array when no match", () => {
     expect(filterBooksBySearch(mockBooks, "nonexistent")).toHaveLength(0);
+  });
+
+  it("matches Kickstarter print/ebook item tags with exact string only", () => {
+    const books: BookListItem[] = [
+      {
+        ...mockBooks[0],
+        kickstarterPrintItemTag: "KS-PRINT-ONLY",
+        kickstarterEbookItemTag: null,
+      },
+      {
+        ...mockBooks[1],
+        id: 2,
+        kickstarterEbookItemTag: "EBOOK-REWARD-A",
+        kickstarterPrintItemTag: null,
+      },
+    ];
+    expect(filterBooksBySearch(books, "KS-PRINT-ONLY")).toEqual([books[0]]);
+    expect(filterBooksBySearch(books, "EBOOK-REWARD-A")).toEqual([books[1]]);
+    expect(filterBooksBySearch(books, "ks-print-only")).toHaveLength(0);
+    expect(filterBooksBySearch(books, "KS-PRINT")).toHaveLength(0);
+    expect(filterBooksBySearch(books, "EBOOK-REWARD")).toHaveLength(0);
+  });
+
+  it("when query is not an exact tag, falls back to title/ISBN search", () => {
+    const books: BookListItem[] = [
+      {
+        ...mockBooks[0],
+        kickstarterPrintItemTag: "UNIQUE-TAG-XYZ",
+        kickstarterEbookItemTag: null,
+      },
+    ];
+    expect(filterBooksBySearch(books, "React")).toHaveLength(1);
+    expect(filterBooksBySearch(books, "UNIQUE-TAG")).toHaveLength(0);
   });
 });
 

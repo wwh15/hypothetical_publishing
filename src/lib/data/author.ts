@@ -2,7 +2,6 @@ import { Author, Prisma } from "@prisma/client";
 import { prisma } from "../prisma";
 import { Decimal } from "decimal.js";
 import { normalizeEmail, normalizeString, validateEmail, validateRequiredString } from "../validation";
-import { normalize } from "node:path";
 
 export interface AuthorListItem {
   id: number;
@@ -24,6 +23,8 @@ export interface AuthorBookItem {
   publicationMonth: string;
   publicationYear: string;
   authorRoyaltyRate: number;
+  /** false = pre-release; sales are projected (still shown in detail totals). */
+  released: boolean;
   totalSales: number;
   totalAuthorRoyalty: number;
   unpaidAuthorRoyalty: number;
@@ -49,6 +50,8 @@ export interface GetAuthorsDataResult {
 export interface CreateAuthorRequest {
   name: string;
   email: string;
+  payPalUsername?: string;
+  venmoUsername?: string;
 }
 
 interface CreateAuthorResponse {
@@ -61,6 +64,8 @@ export interface UpdateAuthorRequest {
   authorId: number;
   name?: string;
   email?: string;
+  payPalUsername?: string;
+  venmoUsername?: string;
 }
 
 export type NewAuthorInput = Omit<Prisma.AuthorUncheckedCreateInput, 'canonicalName'>;
@@ -153,6 +158,7 @@ export async function asyncGetAuthorsData({
    * IMPORTANT: We use database-level names here:
    * - Tables: "authors", "books", "sales"
    * - Columns: "author_id", "book_id", "author_royalty", "created_at"
+   * Royalty sums include only released-book sales (projected / pre-release sales are excluded).
    */
   const authors = await prisma.$queryRaw<RawAuthorResult[]>`
     SELECT 
@@ -167,7 +173,7 @@ export async function asyncGetAuthorsData({
       SUM(CASE WHEN s.paid = false THEN COALESCE(s.author_royalty, 0) ELSE 0 END) AS "unpaidAuthorRoyalty"
     FROM authors a
     LEFT JOIN books b ON b."authorId" = a.id
-    LEFT JOIN sales s ON s.book_id = b.id
+    LEFT JOIN sales s ON s.book_id = b.id AND b.released = true
     WHERE a.name ILIKE ${searchPattern} OR a.email ILIKE ${searchPattern}
     GROUP BY a.id, a.name, a.email, a.created_at, a.updated_at
     ORDER BY ${Prisma.raw(sortColumn)} ${direction}
@@ -229,19 +235,17 @@ export async function asyncGetAuthorBooks(
       where: { authorId: id },
       include: {
         sales: true,
-        series: true
+        series: true,
       },
       orderBy: [
-        { title: "asc" },
-        { seriesId: "asc" },
+        { series: { name: "asc" } },
         { seriesOrder: "asc" },
-        { publicationDate: "asc" },
+        { title: "asc" },
       ],
     });
 
-    // 2. Map and Calculate totals for each book
+    // 2. Map and calculate totals per book (includes projected sales for unreleased titles)
     const data: AuthorBookItem[] = books.map((book) => {
-      // Calculate sums from the sales array
       const totalSales = book.sales.reduce((sum, s) => sum + (s.quantity ?? 0), 0);
 
       const totalAuthorRoyalty = book.sales.reduce(
@@ -268,6 +272,7 @@ export async function asyncGetAuthorBooks(
         publicationMonth: book.publicationDate.toLocaleString("default", { month: "long" }),
         publicationYear: book.publicationDate.getFullYear().toString(),
         authorRoyaltyRate: Number(book.distAuthorRoyaltyRate) * 100, // Display as %
+        released: book.released,
         totalSales,
         totalAuthorRoyalty: totalAuthorRoyalty.toNumber(),
         paidAuthorRoyalty: totalPaid.toNumber(),
@@ -327,6 +332,8 @@ export async function asyncAddAuthor(
   // 1. NORMALIZE: Clean strings before any logic or database hits
   const cleanEmail = normalizeEmail(rawData.email);
   const cleanName = normalizeString(rawData.name); // Basic cleanup for display
+  const cleanpayPalUsername = normalizeString(rawData.payPalUsername);
+  const cleanVenmoUsername = normalizeString(rawData.venmoUsername);
   const fingerprint = getCanonicalAuthorKey(rawData.name); // The unique search key
 
   // 2. VALIDATE: Check the standardized strings
@@ -368,9 +375,10 @@ export async function asyncAddAuthor(
     // 4. CREATE: Store normalized values and the fingerprint
     const newAuthor = await prisma.author.create({
       data: {
-        ...rawData,
         name: cleanName,
         email: cleanEmail,
+        payPalUsername: cleanpayPalUsername || null,
+        venmoUsername: cleanVenmoUsername || null,
         canonicalName: fingerprint,
       },
     });
@@ -389,7 +397,7 @@ export async function asyncAddAuthor(
 export async function asyncUpdateAuthor(
   request: UpdateAuthorRequest
 ): Promise<UpdateAuthorResponse> {
-  const { authorId, name, email } = request;
+  const { authorId, name, email, payPalUsername, venmoUsername } = request;
   const updateData: Prisma.AuthorUpdateInput = {};
 
   // 1. Handle Email Update (Just normalize and save)
@@ -433,6 +441,16 @@ export async function asyncUpdateAuthor(
 
     updateData.name = cleanName;
     updateData.canonicalName = newFingerprint;
+  }
+
+  if (payPalUsername !== undefined) {
+    const cleanpayPalUsername = normalizeEmail(payPalUsername);
+    updateData.payPalUsername = cleanpayPalUsername || null;
+  }
+
+  if (venmoUsername !== undefined) {
+    const cleanVenmoUsername = normalizeString(venmoUsername);
+    updateData.venmoUsername = cleanVenmoUsername || null;
   }
 
   // 3. Prevent empty updates

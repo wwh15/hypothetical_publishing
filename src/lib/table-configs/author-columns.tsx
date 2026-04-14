@@ -48,6 +48,7 @@ export const authorColumns: ColumnDef<AuthorListItem>[] = [
     key: "name",
     header: "Author Name",
     className: "w-1/4",
+    headerClassName: "w-1/4",
     render: (row) => <span className="font-medium">{row.name}</span>,
   },
   {
@@ -81,6 +82,15 @@ export const authorColumns: ColumnDef<AuthorListItem>[] = [
   },
 ];
 
+/** Muted row for pre-release books (projected sales still shown in numeric columns). */
+export function authorBookRowClassNameForReleased(
+  row: Pick<AuthorBookItem, "released">
+): string | undefined {
+  return row.released
+    ? undefined
+    : "bg-muted/70 text-muted-foreground hover:bg-muted/85 dark:bg-muted/40 dark:hover:bg-muted/55";
+}
+
 export const authorBookColumns: ColumnDef<AuthorBookItem>[] = [
   {
     key: "cover",
@@ -91,9 +101,9 @@ export const authorBookColumns: ColumnDef<AuthorBookItem>[] = [
           <img
             src={`/api/books/cover?path=${encodeURIComponent(
               row.coverArtPath
-            )}`}
+            )}&variant=list`}
             alt=""
-            className="h-10 w-7 object-cover rounded border border-gray-200 dark:border-gray-600"
+            className="h-10 w-7 object-contain rounded border border-gray-200 dark:border-gray-600"
           />
         );
       }

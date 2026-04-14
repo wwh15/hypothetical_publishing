@@ -1,23 +1,31 @@
 "use client";
 
+import { useMemo } from "react";
 import { BaseDataTable, ColumnDef } from "@/components/BaseDataTable";
 import { PendingSaleItem } from "@/lib/data/records";
 import { getPendingColumns } from "@/lib/table-configs/sales-columns";
-import { X } from "lucide-react";
 
 interface PendingRecordsTableProps {
   pendingRecords: PendingSaleItem[];
   onRemove: (row: PendingSaleItem) => void;
   onTogglePaid: (row: PendingSaleItem) => void;
+  /** When true, the paid chip cannot be toggled (e.g. projected / unreleased book). */
+  isPaidToggleDisabled?: (row: PendingSaleItem) => boolean;
 }
 
 export default function PendingRecordsTable({
   pendingRecords,
   onRemove,
   onTogglePaid,
+  isPaidToggleDisabled,
 }: PendingRecordsTableProps) {
-  // Define columns for pending sales table
-  const pendingColumns: ColumnDef<PendingSaleItem>[] = getPendingColumns(onTogglePaid, onRemove);
+  const pendingColumns: ColumnDef<PendingSaleItem>[] = useMemo(
+    () =>
+      getPendingColumns(onTogglePaid, onRemove, {
+        isPaidToggleDisabled,
+      }),
+    [onTogglePaid, onRemove, isPaidToggleDisabled]
+  );
 
   return (
     <div className="mb-6 mt-6">

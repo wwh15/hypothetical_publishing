@@ -4,6 +4,7 @@ import {
   Page,
   View,
   Text,
+  Image,
   StyleSheet,
 } from "@react-pdf/renderer";
 import type {
@@ -11,48 +12,55 @@ import type {
   ReportCell,
 } from "@/lib/data/author-royalty-report";
 
-/** A4 landscape width (pt) minus horizontal page padding — table must match this exactly */
-const PAGE_PAD_X = 28;
+/** A4 landscape (842×595 pt). Minimal padding + exact column sum avoids right-edge slack. */
+const PAGE_PAD_X = 12;
+const PAGE_PAD_Y = 14;
 const PAGE_WIDTH_PT = 842;
 const TABLE_WIDTH_PT = PAGE_WIDTH_PT - PAGE_PAD_X * 2;
-const COL_BOOK_W = 114;
-const COL_NUM_W = (TABLE_WIDTH_PT - COL_BOOK_W) / 12;
+const NUM_COLS = 14;
+/** Target book column width; remainder after splitting numeric cols goes to book so row width === TABLE_WIDTH_PT */
+const COL_BOOK_TARGET = 122;
+const COL_NUM_W = Math.floor((TABLE_WIDTH_PT - COL_BOOK_TARGET) / NUM_COLS);
+const COL_BOOK_W = TABLE_WIDTH_PT - NUM_COLS * COL_NUM_W;
 
 const styles = StyleSheet.create({
   page: {
-    padding: PAGE_PAD_X,
-    fontSize: 6.5,
+    paddingTop: PAGE_PAD_Y,
+    paddingBottom: PAGE_PAD_Y,
+    paddingLeft: PAGE_PAD_X,
+    paddingRight: PAGE_PAD_X,
+    fontSize: 8,
     fontFamily: "Helvetica",
   },
   header: {
-    marginBottom: 12,
+    marginBottom: 5,
     borderBottomWidth: 1,
     borderBottomColor: "#333",
-    paddingBottom: 6,
+    paddingBottom: 3,
   },
   title: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: "bold",
-    marginBottom: 3,
+    marginBottom: 1,
   },
   subtitle: {
-    fontSize: 9,
+    fontSize: 10,
     color: "#444",
   },
   legend: {
-    fontSize: 5.5,
+    fontSize: 6.5,
     color: "#555",
-    marginTop: 6,
-    lineHeight: 1.35,
+    marginTop: 2,
+    lineHeight: 1.22,
   },
   periodSection: {
-    marginBottom: 14,
+    marginBottom: 8,
     width: TABLE_WIDTH_PT,
   },
   periodHeading: {
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: "bold",
-    marginBottom: 4,
+    marginBottom: 2,
     color: "#222",
   },
   table: {
@@ -63,7 +71,7 @@ const styles = StyleSheet.create({
     width: TABLE_WIDTH_PT,
     borderBottomWidth: 0.5,
     borderBottomColor: "#ddd",
-    minHeight: 14,
+    minHeight: 13,
     alignItems: "center",
   },
   tableRowHeader: {
@@ -71,7 +79,7 @@ const styles = StyleSheet.create({
     width: TABLE_WIDTH_PT,
     borderBottomWidth: 1,
     borderBottomColor: "#333",
-    minHeight: 30,
+    minHeight: 28,
     alignItems: "stretch",
     backgroundColor: "#e8e8e8",
   },
@@ -79,48 +87,48 @@ const styles = StyleSheet.create({
     width: COL_BOOK_W,
     flexShrink: 0,
     flexGrow: 0,
-    paddingLeft: 4,
-    paddingRight: 6,
-    paddingVertical: 3,
+    paddingLeft: 2,
+    paddingRight: 3,
+    paddingVertical: 1,
     justifyContent: "center",
   },
   colNum: {
     width: COL_NUM_W,
     flexShrink: 0,
     flexGrow: 0,
-    paddingLeft: 2,
-    paddingRight: 4,
-    paddingVertical: 3,
+    paddingLeft: 0,
+    paddingRight: 1,
+    paddingVertical: 1,
     justifyContent: "center",
   },
   txtBook: {
     width: "100%",
-    fontSize: 6.5,
+    fontSize: 8,
     textAlign: "left",
   },
   txtBookTotals: {
     width: "100%",
-    fontSize: 6.5,
+    fontSize: 8,
     fontWeight: "bold",
     textAlign: "left",
   },
   txtHdrBook: {
     width: "100%",
-    fontSize: 6,
+    fontSize: 7.5,
     fontWeight: "bold",
     textAlign: "left",
   },
   txtNum: {
     width: "100%",
-    fontSize: 6.5,
+    fontSize: 8,
     textAlign: "right",
   },
   txtHdrNum: {
     width: "100%",
-    fontSize: 5.5,
+    fontSize: 7,
     fontWeight: "bold",
     textAlign: "right",
-    lineHeight: 1.2,
+    lineHeight: 1.08,
   },
 });
 
@@ -152,6 +160,8 @@ const HDR = {
   ebAmz: "eBook,\nAmazon",
   prOth: "Print,\nOther",
   ebOth: "eBook,\nOther",
+  prKs: "Print,\nKickstarter",
+  ebKs: "eBook,\nKickstarter",
   qtyTot: "Qty\nsold",
   hsTot: "Qty\nhandsold",
   kenp: "KENP\n(Amz KU)",
@@ -190,6 +200,12 @@ function PeriodTable({
           </View>
           <View style={styles.colNum}>
             <Text style={styles.txtHdrNum}>{HDR.ebOth}</Text>
+          </View>
+          <View style={styles.colNum}>
+            <Text style={styles.txtHdrNum}>{HDR.prKs}</Text>
+          </View>
+          <View style={styles.colNum}>
+            <Text style={styles.txtHdrNum}>{HDR.ebKs}</Text>
           </View>
           <View style={styles.colNum}>
             <Text style={styles.txtHdrNum}>{HDR.qtyTot}</Text>
@@ -242,6 +258,12 @@ function PeriodTable({
                 <Text style={styles.txtNum}>{cell.qtyEbookOther}</Text>
               </View>
               <View style={styles.colNum}>
+                <Text style={styles.txtNum}>{cell.qtyPrintKickstarter}</Text>
+              </View>
+              <View style={styles.colNum}>
+                <Text style={styles.txtNum}>{cell.qtyEbookKickstarter}</Text>
+              </View>
+              <View style={styles.colNum}>
                 <Text style={styles.txtNum}>{cell.quantitySold}</Text>
               </View>
               <View style={styles.colNum}>
@@ -275,9 +297,11 @@ function PeriodTable({
 
 interface AuthorRoyaltyReportPDFProps {
   data: AuthorRoyaltyReportResult;
+  companyName?: string;
+  logoUrl?: string | null;
 }
 
-export function AuthorRoyaltyReportPDF({ data }: AuthorRoyaltyReportPDFProps) {
+export function AuthorRoyaltyReportPDF({ data, companyName, logoUrl }: AuthorRoyaltyReportPDFProps) {
   const { author, generatedAt, periods, bookRows, cells } = data;
   const dateStr = generatedAt.toLocaleDateString("en-US", {
     year: "numeric",
@@ -295,14 +319,18 @@ export function AuthorRoyaltyReportPDF({ data }: AuthorRoyaltyReportPDFProps) {
         wrap
       >
         <View style={styles.header} wrap={false}>
-          <Text style={styles.title}>Hypothetical Publishing</Text>
+          {logoUrl ? (
+            <Image src={logoUrl} style={{ height: 40, width: 40, objectFit: "contain", marginBottom: 4 }} />
+          ) : null}
+          <Text style={styles.title}>{companyName ?? "Hypothetical Publishing"}</Text>
           <Text style={styles.subtitle}>
             Author royalty report — {author.name}
           </Text>
           <Text style={styles.subtitle}>Generated {dateStr}</Text>
           <Text style={styles.legend}>
             Quantity columns follow sale source, distributor, and format (USD
-            royalties). KENP is Amazon Kindle Unlimited pages read. “Total
+            royalties), including Kickstarter print and ebook. KENP is Amazon
+            Kindle Unlimited pages read. “Total
             (selected range)” sums the chosen quarters only. Books are ordered
             by series, position in series, then title (non-series titles last).
             The last row is all books combined.

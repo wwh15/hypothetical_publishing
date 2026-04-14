@@ -1,5 +1,5 @@
 // lib/data/records.ts
-import { Prisma } from "@prisma/client";
+import { Prisma, type SaleSource } from "@prisma/client";
 import { prisma } from "../prisma";
 import { Decimal } from "@prisma/client/runtime/library";
 import { validateSaleRecord } from "../validation/sale";
@@ -20,7 +20,9 @@ export interface SaleListItem {
   authorRoyalty: number;
   paid: "paid" | "pending";
   comment: string | null;
-  source: "DISTRIBUTOR" | "HAND_SOLD";
+  source: SaleSource;
+  /** False when the sale’s book is not yet released (pre-release / projected). */
+  bookReleased: boolean;
 }
 
 /** Staging row before DB insert; `id` disambiguates duplicate lines in the UI. */
@@ -40,7 +42,7 @@ export interface PendingSaleItem {
   authorRoyalty: number;
   paid: boolean;
   comment?: string | null;
-  source: "DISTRIBUTOR" | "HAND_SOLD";
+  source: SaleSource;
 }
 
 // This represents the data AFTER it has been converted to numbers
@@ -57,10 +59,12 @@ export type SaleDetailPayload = {
   authorRoyalty: number;
   paid: boolean;
   comment: string | null;
-  source: "DISTRIBUTOR" | "HAND_SOLD";
+  source: SaleSource;
   book: {
     id: number;
     title: string;
+    /** false = pre-release / projected; paid must stay false until release. */
+    released: boolean;
     author: {
       id: number;
       name: string;
@@ -79,7 +83,7 @@ export interface UpdateSaleItem {
   authorRoyalty?: number;
   paid?: boolean;
   comment?: string | null;
-  source?: "DISTRIBUTOR" | "HAND_SOLD";
+  source?: SaleSource;
   distributor?: "INGRAM_SPARK" | "AMAZON" | "OTHER" | null;
   format?: "PRINT" | "EBOOK" | "KINDLE_UNLIMITED";
 }
@@ -168,6 +172,9 @@ function parseDate(
 }
 
 
+/** Filter list sales by whether the book is released (realized) or not (projected). */
+export type SaleReleaseFilter = "projected" | "realized";
+
 export interface GetSalesDataParams {
   search?: string;
   page?: number;
@@ -176,9 +183,11 @@ export interface GetSalesDataParams {
   sortDir?: "asc" | "desc";
   dateFrom?: string; // YYYY-MM (parsed in parseDate)
   dateTo?: string; // YYYY-MM (parsed in parseDate)
-  source?: "DISTRIBUTOR" | "HAND_SOLD";
+  source?: SaleSource;
   distributor?: "INGRAM_SPARK" | "AMAZON" | "OTHER";
   format?: "PRINT" | "EBOOK" | "KINDLE_UNLIMITED";
+  /** projected = book.released false; realized = book.released true */
+  saleRelease?: SaleReleaseFilter;
   pagination?: boolean;
 }
 
@@ -201,12 +210,19 @@ export async function getSalesData({
   source,
   distributor,
   format,
+  saleRelease,
   pagination = true,
 }: GetSalesDataParams): Promise<GetSalesDataResult> {
   const currentPage = Math.max(1, page);
   const limit = Math.max(1, Math.min(pageSize, 100));
 
   const where: Prisma.SaleWhereInput = {};
+
+  if (saleRelease === "projected") {
+    where.book = { released: false };
+  } else if (saleRelease === "realized") {
+    where.book = { released: true };
+  }
 
   // Source filter
   if (source) {
@@ -290,35 +306,73 @@ export interface GetSalesByBookIdParams {
 }
 
 export async function asyncAddSalesBulk(records: PendingSaleItem[]) {
-  try {
-    // Map the UI items to exactly what the Prisma Schema expects
-    const data = records.map((record) => ({
-      bookId: record.bookId,
-      date: record.date,
-      quantity: record.quantity,
-      kenp: record.kenp,
-      format: record.format,
-      // Logic: Distributor is null if it's Handsold
-      distributor: record.source === "DISTRIBUTOR" ? record.distributor : null,
-      publisherRevenueUSD: record.publisherRevenueUSD,
-      publisherRevenueOriginal: record.publisherRevenueOriginal,
-      currency: record.currency,
-      authorRoyalty: record.authorRoyalty,
-      paid: record.paid,
-      comment: record.comment ?? null,
-      source: record.source,
-    }));
+  const data = records.map((record, index) => {
+    const kenpNum =
+      record.kenp != null ? Number(record.kenp) : null;
 
-    await prisma.sale.createMany({
-      data,
-      skipDuplicates: false, // Set to true if you have a unique constraint you want to ignore
+    const validated = validateSaleRecord({
+      source: record.source,
+      distributor: record.source === "DISTRIBUTOR" ? record.distributor : null,
+      format: record.format,
+      quantity: record.quantity ?? null,
+      kenp: kenpNum,
+      currency: String(record.currency ?? "USD"),
+      publisherRevenueOriginal: record.publisherRevenueOriginal,
+      publisherRevenueUSD: record.publisherRevenueUSD,
+      authorRoyalty: record.authorRoyalty,
+      comment: record.comment ?? null,
     });
 
-    return { success: true };
-  } catch (error) {
-    console.error("Bulk Save Error:", error);
-    return { success: false, error: "Failed to save records to database." };
+    if (!validated.success) {
+      const label = record.title?.trim() || `book #${record.bookId}`;
+      throw new Error(`Cannot save row ${index + 1} (${label}): ${validated.error}`);
+    }
+
+    const v = validated.data;
+
+    return {
+      bookId: record.bookId,
+      date: record.date,
+      source: v.source,
+      distributor: v.distributor,
+      format: v.format,
+      quantity: v.quantity,
+      kenp: v.kenp,
+      currency: v.currency,
+      publisherRevenueOriginal: v.publisherRevenueOriginal,
+      publisherRevenueUSD: v.publisherRevenueUSD,
+      authorRoyalty: v.authorRoyalty,
+      paid: record.paid,
+      comment: v.comment ?? null,
+    };
+  });
+
+  const bookIds = [...new Set(records.map((r) => r.bookId))];
+  const books = await prisma.book.findMany({
+    where: { id: { in: bookIds } },
+    select: { id: true, released: true },
+  });
+  const releasedByBookId = new Map(books.map((b) => [b.id, b.released]));
+  for (const r of records) {
+    if (!releasedByBookId.has(r.bookId)) {
+      throw new Error(`Book not found (id ${r.bookId}).`);
+    }
   }
+
+  const dataWithPaid = data.map((row, index) => {
+    const released = releasedByBookId.get(records[index].bookId) === true;
+    return {
+      ...row,
+      paid: Boolean(row.paid && released),
+    };
+  });
+
+  await prisma.sale.createMany({
+    data: dataWithPaid,
+    skipDuplicates: false,
+  });
+
+  return { success: true };
 }
 
 /** Server-side paginated/sorted sales for a single book. */
@@ -391,6 +445,7 @@ export async function asyncGetSaleById(
     book: {
       id: sale.book.id,
       title: sale.book.title,
+      released: sale.book.released,
       author: {
         id: sale.book.author.id,
         name: sale.book.author.name,
@@ -414,8 +469,8 @@ export function toSaleListItem(sale: {
   authorRoyalty: Decimal;
   paid: boolean;
   comment: string | null;
-  source: "DISTRIBUTOR" | "HAND_SOLD";
-  book: { title: string; author: { name: string } };
+  source: SaleSource;
+  book: { title: string; released: boolean; author: { name: string } };
 }): SaleListItem {
   return {
     id: sale.id,
@@ -434,6 +489,7 @@ export function toSaleListItem(sale: {
     paid: sale.paid ? "paid" : "pending",
     comment: sale.comment ?? null,
     source: sale.source,
+    bookReleased: sale.book.released,
   };
 }
 
@@ -464,6 +520,19 @@ export async function asyncAddSale(data: Prisma.SaleUncheckedCreateInput) {
   }
 
   const v = validated.data;
+  const book = await prisma.book.findUnique({
+    where: { id: data.bookId },
+    select: { released: true },
+  });
+  if (!book) {
+    throw new Error("Book not found.");
+  }
+  const wantPaid = data.paid ?? false;
+  if (wantPaid && !book.released) {
+    throw new Error(
+      "Cannot mark projected (pre-release) sales as paid. Release the book first."
+    );
+  }
   return await prisma.sale.create({
     data: {
       bookId: data.bookId,
@@ -477,7 +546,7 @@ export async function asyncAddSale(data: Prisma.SaleUncheckedCreateInput) {
       publisherRevenueOriginal: new Decimal(v.publisherRevenueOriginal),
       publisherRevenueUSD: new Decimal(v.publisherRevenueUSD),
       authorRoyalty: new Decimal(v.authorRoyalty),
-      paid: data.paid ?? false,
+      paid: wantPaid,
       comment: v.comment ?? null,
     },
   });
@@ -569,12 +638,26 @@ export async function asyncTogglePaidStatus(
   currentStatus: boolean
 ) {
   return await prisma.$transaction(async (tx) => {
-    // Perform the update
-    const sale = await tx.sale.update({
+    const existing = await tx.sale.findUnique({
       where: { id },
-      data: { paid: !currentStatus },
-      include: { book: true }, // Need this to get the authorId
+      include: { book: true },
     });
-    return sale;
+    if (!existing) {
+      throw new Error("Sale not found.");
+    }
+    if (existing.paid !== currentStatus) {
+      throw new Error("Payment status changed. Refresh and try again.");
+    }
+    const nextPaid = !currentStatus;
+    if (nextPaid && !existing.book.released) {
+      throw new Error(
+        "Projected (pre-release) sales cannot be marked paid. Release the book first."
+      );
+    }
+    return tx.sale.update({
+      where: { id },
+      data: { paid: nextPaid },
+      include: { book: true },
+    });
   });
 }

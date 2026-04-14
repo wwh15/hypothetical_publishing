@@ -1,0 +1,4 @@
+{"type":"server-started","port":62176,"host":"127.0.0.1","url_host":"localhost","url":"http://localhost:62176","screen_dir":"/home/nati/ece458/hypothetical_publishing/.superpowers/brainstorm/38835-1775828104/content","state_dir":"/home/nati/ece458/hypothetical_publishing/.superpowers/brainstorm/38835-1775828104/state"}
+{"type":"screen-added","file":"/home/nati/ece458/hypothetical_publishing/.superpowers/brainstorm/38835-1775828104/content/settings-page-mockup.html"}
+{"type":"screen-added","file":"/home/nati/ece458/hypothetical_publishing/.superpowers/brainstorm/38835-1775828104/content/waiting.html"}
+{"type":"server-stopped","reason":"idle timeout"}

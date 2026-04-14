@@ -33,7 +33,7 @@ export default async function SalesInputPage({ searchParams }: PageProps) {
   const { items: booksData } = booksResult;
 
   return (
-    <div className="container mx-auto py-10 px-4 sm:px-6">
+    <div className="py-10">
       <div className="mb-6">
         <div className="flex flex-wrap items-center gap-2 mb-2">
           <BackLink href="/sales/records">Back to Sales</BackLink>
@@ -48,7 +48,7 @@ export default async function SalesInputPage({ searchParams }: PageProps) {
         </div>
         <h1 className="text-3xl font-bold mb-2">Add Sales Records</h1>
         <p className="text-muted-foreground">
-          Input sales records and review before submitting to the database.
+          Input sales records and review in <strong>Pending Records</strong> table before submitting to the database.
         </p>
       </div>
       <SalesInputClient

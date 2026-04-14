@@ -1,5 +1,7 @@
 "use server";
 
+import { generateCoverThumbJpeg } from "@/lib/images/coverThumb";
+import { getCoverThumbStoragePath } from "@/lib/supabase/coverPaths";
 import { createClient } from "./server";
 import { supabaseAdmin } from "./admin";
 
@@ -218,6 +220,7 @@ export async function uploadCoverArt(
   if (!ext) return { error: "Invalid image type. Use JPEG, PNG, GIF, or WebP." };
 
   const path = `${bookId}/cover.${ext}`;
+  const thumbPath = `${bookId}/cover_thumb.jpg`;
   const supabase = await createClient();
 
   const { data, error } = await supabase.storage
@@ -229,6 +232,29 @@ export async function uploadCoverArt(
 
   if (error) {
     return { error: error.message };
+  }
+
+  let thumbJpeg: Buffer;
+  try {
+    thumbJpeg = await generateCoverThumbJpeg(Buffer.from(bytes));
+  } catch {
+    await supabase.storage.from(COVER_ART_BUCKET).remove([data.path]);
+    return { error: "Could not generate cover thumbnail. Try a different image." };
+  }
+
+  const thumbFile = new File([new Uint8Array(thumbJpeg)], "cover_thumb.jpg", {
+    type: "image/jpeg",
+  });
+  const { error: thumbError } = await supabase.storage
+    .from(COVER_ART_BUCKET)
+    .upload(thumbPath, thumbFile, {
+      cacheControl: "3600",
+      upsert: true,
+    });
+
+  if (thumbError) {
+    await supabase.storage.from(COVER_ART_BUCKET).remove([data.path]);
+    return { error: thumbError.message };
   }
 
   return { path: data.path };
@@ -263,4 +289,115 @@ export async function deleteCoverArt(
   path: string
 ): Promise<{ error: string | null }> {
   return deleteFile(COVER_ART_BUCKET, path);
+}
+
+/**
+ * Remove full cover and deterministic list thumb (`cover_thumb.jpg`) for a book.
+ * Uses the same Supabase client as uploads (RLS).
+ */
+export async function deleteCoverArtPair(
+  coverArtPath: string
+): Promise<{ error: string | null }> {
+  const thumbPath = getCoverThumbStoragePath(coverArtPath);
+  const paths = thumbPath ? [coverArtPath, thumbPath] : [coverArtPath];
+  const supabase = await createClient();
+  const { error } = await supabase.storage.from(COVER_ART_BUCKET).remove(paths);
+  if (error) {
+    return { error: error.message };
+  }
+  return { error: null };
+}
+
+/** Whether `cover_thumb.jpg` exists under `{bookId}/` in Cover-Art (for list URL fallback). */
+export async function coverThumbObjectExists(bookId: string): Promise<boolean> {
+  const { data, error } = await supabaseAdmin.storage
+    .from(COVER_ART_BUCKET)
+    .list(bookId, { limit: 100 });
+
+  if (error || !data?.length) {
+    return false;
+  }
+  return data.some((entry) => entry.name === "cover_thumb.jpg");
+}
+
+// --- Branding Logo (private bucket) ---
+
+const BRANDING_BUCKET = "branding";
+
+const BRANDING_ALLOWED_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+] as const;
+
+const BRANDING_MAX_BYTES = 2 * 1024 * 1024; // 2MB
+
+/**
+ * Upload a branding logo. Validates magic bytes (not just MIME).
+ * Deterministic path: "logo.<ext>" - upserts to replace any existing logo.
+ * No SVG allowed (XSS risk). No GIF for branding.
+ */
+export async function uploadBrandingLogo(
+  file: File
+): Promise<{ path: string } | { error: string }> {
+  if (file.size > BRANDING_MAX_BYTES) {
+    return { error: "File too large. Maximum size is 2MB." };
+  }
+
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const head = bytes.subarray(0, 12);
+
+  // Reuse existing magic byte detection (covers JPEG, PNG, GIF, WebP)
+  const ext = coverArtExtFromMagicBytes(head);
+  if (!ext || ext === "gif") {
+    return { error: "Invalid image type. Use JPEG, PNG, or WebP. (No GIF or SVG.)" };
+  }
+
+  const path = `logo.${ext}`;
+
+  // Use admin client to bypass RLS (branding is a system-level operation)
+  // Delete any existing logo files first (they may have a different extension)
+  await supabaseAdmin.storage.from(BRANDING_BUCKET).remove(["logo.jpg", "logo.png", "logo.webp"]);
+
+  const { data, error } = await supabaseAdmin.storage
+    .from(BRANDING_BUCKET)
+    .upload(path, file, {
+      cacheControl: "3600",
+      upsert: true,
+    });
+
+  if (error) {
+    return { error: error.message };
+  }
+
+  return { path: data.path };
+}
+
+/** Signed URL for branding logo. */
+export async function getBrandingLogoSignedUrl(
+  path: string,
+  expiresIn: number = 360000
+): Promise<{ url: string | null; error: string | null }> {
+  const { data, error } = await supabaseAdmin.storage
+    .from(BRANDING_BUCKET)
+    .createSignedUrl(path, expiresIn);
+
+  if (error) {
+    return { url: null, error: error.message };
+  }
+
+  return { url: data.signedUrl, error: null };
+}
+
+/** Delete branding logo from storage. */
+export async function deleteBrandingLogo(): Promise<{ error: string | null }> {
+  const { error } = await supabaseAdmin.storage
+    .from(BRANDING_BUCKET)
+    .remove(["logo.jpg", "logo.png", "logo.webp"]);
+
+  if (error) {
+    return { error: error.message };
+  }
+
+  return { error: null };
 }

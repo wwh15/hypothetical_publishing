@@ -11,6 +11,7 @@
     "test:watch": "vitest",
     "migrate:deploy": "prisma migrate deploy",
     "db:seed": "tsx src/prisma/seed.ts",
+    "generate:backerkit-fixtures": "tsx scripts/generate-backerkit-xlsx-fixtures.ts",
     "prepare": "node -e \"if (process.env.CI === 'true' || process.env.HUSKY === '0') process.exit(0); require('child_process').execSync('husky', {stdio: 'inherit'})\""
   },
   "prisma": {
@@ -43,6 +44,7 @@
     "radix-ui": "^1.4.3",
     "react": "19.2.3",
     "react-dom": "19.2.3",
+    "sharp": "^0.34.5",
     "tailwind-merge": "^3.4.0",
     "tsx": "^4.21.0",
     "xlsx": "^0.18.5"

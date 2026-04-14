@@ -8,6 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
   AlertDialog,
@@ -33,6 +34,7 @@ import { AlertCircle, CheckCircle2, FileSpreadsheet } from "lucide-react";
 interface AmazonXlsxImportPanelProps {
   onAddRecord: (record: PendingSaleItem) => void;
   booksData: BookListItem[];
+  onViewPendingRecords?: () => void;
 }
 
 function buildAmazonBookMaps(booksData: BookListItem[]): {
@@ -63,11 +65,13 @@ function buildAmazonBookMaps(booksData: BookListItem[]): {
 export default function AmazonXlsxImportPanel({
   onAddRecord,
   booksData,
+  onViewPendingRecords,
 }: AmazonXlsxImportPanelProps) {
   const [fileName, setFileName] = useState<string | null>(null);
   const [errors, setErrors] = useState<AmazonParseError[]>([]);
   const [nonBlockingWarnings, setNonBlockingWarnings] = useState<string[]>([]);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [successRecordCount, setSuccessRecordCount] = useState(0);
   const [warningDialog, setWarningDialog] = useState<{
     records: PendingSaleItem[];
     warnings: string[];
@@ -83,6 +87,7 @@ export default function AmazonXlsxImportPanel({
     const file = e.target.files?.[0];
     e.target.value = "";
     setShowSuccess(false);
+    setSuccessRecordCount(0);
     setErrors([]);
     setNonBlockingWarnings([]);
     setFileName(null);
@@ -133,6 +138,7 @@ export default function AmazonXlsxImportPanel({
       for (const r of result.records) {
         onAddRecord(r);
       }
+      setSuccessRecordCount(result.records.length);
       setShowSuccess(true);
     };
 
@@ -145,6 +151,7 @@ export default function AmazonXlsxImportPanel({
       onAddRecord(r);
     }
     setFileName(warningDialog.label);
+    setSuccessRecordCount(warningDialog.records.length);
     setShowSuccess(true);
     setWarningDialog(null);
   };
@@ -216,8 +223,8 @@ export default function AmazonXlsxImportPanel({
               )}
 
               {showSuccess && !hasErrorState && (
-                <div className="rounded-md border-2 border-green-500 bg-green-50 dark:bg-green-950/30 p-4 space-y-2 animate-in fade-in zoom-in duration-300">
-                  <div className="flex items-center gap-2 text-green-700 dark:text-green-400 text-sm font-semibold">
+                <div className="space-y-3 rounded-md border-2 border-green-500 bg-green-50 p-4 animate-in fade-in zoom-in duration-300 dark:bg-green-950/30">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-green-700 dark:text-green-400">
                     <CheckCircle2 className="h-4 w-4" />
                     &quot;{fileName}&quot; imported successfully
                   </div>
@@ -225,6 +232,16 @@ export default function AmazonXlsxImportPanel({
                     Review the rows in the <strong>Pending Records</strong>{" "}
                     table below.
                   </p>
+                  {successRecordCount > 0 && onViewPendingRecords && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="w-full sm:w-auto"
+                      onClick={() => onViewPendingRecords()}
+                    >
+                      View Pending Records
+                    </Button>
+                  )}
                 </div>
               )}
             </div>
