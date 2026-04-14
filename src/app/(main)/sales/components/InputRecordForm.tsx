@@ -86,17 +86,36 @@ export default function InputRecordForm({
       onSubmit={handleSubmit}
       className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 p-6"
     >
-      <div className="mb-6 pb-4 border-b border-gray-200">
+      <div className="mb-6 space-y-3 border-b border-gray-200 pb-4">
         <h2 className="text-xl font-semibold tracking-tight">
-          Add single sales record
+          Create a Sales Record
         </h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Optimized for fast entry: search by title, ISBN-13/10, Amazon ASIN
-          (dashes ignored), or exact Kickstarter ebook/print item tag.
-        </p>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Defaults: Distributor (Sales source) • Other (Distributor) • Print (Format) • USD (Currency)
-        </p>
+        <div className="rounded-md border bg-muted/30 p-6 text-sm text-muted-foreground">
+          <p className="font-medium text-foreground">Quick tips</p>
+          <ul className="mt-1 space-y-1 ms-6">
+            <li className="flex gap-2">
+              <span aria-hidden="true">•</span>
+              <span>
+                Search by title, ISBN-13/10, Amazon ASIN (dashes ignored), or an
+                exact Kickstarter ebook/print item tag.
+              </span>
+            </li>
+            <li className="flex gap-2">
+              <span aria-hidden="true">•</span>
+              <span>
+                Default values: Distributor (Sales source), Other (Distributor),
+                Print (Format), USD (Currency).
+              </span>
+            </li>
+            <li className="flex gap-2">
+              <span aria-hidden="true">•</span>
+              <span>
+                New records appear in Pending Records for review before saving
+                to the database.
+              </span>
+            </li>
+          </ul>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -143,9 +162,7 @@ export default function InputRecordForm({
           <FormField label="Distributor" required>
             <select
               value={formData.distributor}
-              onChange={(e) =>
-                handleInputChange("distributor", e.target.value)
-              }
+              onChange={(e) => handleInputChange("distributor", e.target.value)}
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
             >
               <option value="OTHER">Other</option>
@@ -232,9 +249,7 @@ export default function InputRecordForm({
             }
             onBlur={() => handleBlur("publisherRevenueOriginal")}
             readOnly={!isDistributor}
-            className={
-              !isDistributor ? "bg-muted cursor-not-allowed" : ""
-            }
+            className={!isDistributor ? "bg-muted cursor-not-allowed" : ""}
           />
           {!isDistributor && (
             <p className="text-xs text-muted-foreground mt-1">
@@ -269,9 +284,9 @@ export default function InputRecordForm({
             className="bg-muted cursor-not-allowed"
           />
           <p className="text-xs text-muted-foreground mt-1">
-            Rate × publisher revenue (USD) using the book&apos;s distributor rate or
-            hand sold / Kickstarter rate; not editable. Author-paid defaults to false
-            when you add the row.
+            Rate × publisher revenue (USD) using the book&apos;s distributor
+            rate or hand sold / Kickstarter rate; not editable. Author-paid
+            defaults to false when you add the row.
           </p>
         </FormField>
 
@@ -289,12 +304,11 @@ export default function InputRecordForm({
       </div>
 
       <div className="mt-6 flex justify-end">
-        <Button type="submit">
-          + Add Record
-        </Button>
+        <Button type="submit">+ Add Record</Button>
       </div>
       <p className="mt-3 text-xs text-muted-foreground">
-        After adding, period/book/source/distributor/format stay selected for the next row.
+        After adding, period/book/source/distributor/format stay selected for
+        the next row.
       </p>
     </form>
   );

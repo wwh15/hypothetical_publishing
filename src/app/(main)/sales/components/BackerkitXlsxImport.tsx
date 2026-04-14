@@ -204,7 +204,7 @@ export default function BackerkitXlsxImport({
             const pledgeStr = String(pledgeVal ?? "").trim();
             if (pledgeStr === "") {
               tempErrors.push(
-                `Row ${rowNum}, "Pledge Status": value is required`
+                `Pledge Status (row ${rowNum}): value is required`
               );
               return;
             }
@@ -223,7 +223,7 @@ export default function BackerkitXlsxImport({
               String(rawOrderPlaced).trim() === ""
             ) {
               tempErrors.push(
-                `Row ${rowNum}, "Order Placed": value is required`
+                `Order Placed (row ${rowNum}): value is required`
               );
               return;
             }
@@ -261,7 +261,7 @@ export default function BackerkitXlsxImport({
 
             if (!saleMonth.success) {
               tempErrors.push(
-                `Row ${rowNum}, "Order Placed" Field: Invalid date`
+                `Order Placed (row ${rowNum}): Invalid date`
               );
               return;
             }
@@ -289,7 +289,7 @@ export default function BackerkitXlsxImport({
 
               if (!qtyCheck.success) {
                 tempErrors.push(
-                  `Row ${rowNum}, "qty${n}" Field: ${qtyCheck.error}`
+                  `qty${n} (row ${rowNum}): ${qtyCheck.error}`
                 );
                 return;
               }
@@ -398,9 +398,7 @@ export default function BackerkitXlsxImport({
       <CardHeader>
         <CardTitle>Backerkit Import</CardTitle>
         <CardDescription className="border-b pb-2">
-          Upload a Backerkit XLSX to generate aggregate sales records and add
-          rows to the <strong>Pending Records</strong> table located at the
-          bottom of the page.
+          Import a Backerkit <strong>.xlsx</strong> to add sales records to the Pending Records table at the bottom of the page.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -428,10 +426,9 @@ export default function BackerkitXlsxImport({
             {/* Hard Errors (layout mirrors IngramSparkImport) */}
             {errors.length > 0 && (
               <div className="mt-4 p-4 rounded-md border-2 border-destructive bg-destructive/5 space-y-3">
-                <div className="flex items-center gap-2 text-destructive font-bold text-sm">
-                  <AlertCircle className="h-4 w-4 shrink-0" />
-                  Validation failed for {errors.length} issue
-                  {errors.length !== 1 ? "s" : ""}
+                <div className="flex items-center gap-2 text-destructive text-sm font-semibold">
+                    <AlertCircle className="h-4 w-4 shrink-0" />
+                    Import failed for &quot;{fileName}&quot;
                 </div>
                 <ul className="space-y-1 list-disc list-inside">
                   {errors.map((err, idx) => (
@@ -440,14 +437,28 @@ export default function BackerkitXlsxImport({
                       className="text-xs text-destructive list-none mb-3 last:mb-0"
                     >
                       <div className="flex flex-wrap gap-2">
-                        {err.split(" | ").map((part, partIdx) => (
-                          <span
-                            key={partIdx}
-                            className="bg-destructive/10 px-2 py-1 rounded border border-destructive/20"
-                          >
-                            {part}
-                          </span>
-                        ))}
+                        {err.split(" | ").map((part, partIdx) => {
+                          const colonIndex = part.indexOf(":");
+                          const hasPrefix = colonIndex > 0;
+                          const prefix = hasPrefix ? part.slice(0, colonIndex + 1) : "";
+                          const message = hasPrefix ? part.slice(colonIndex + 1).trimStart() : part;
+
+                          return (
+                            <span
+                              key={partIdx}
+                              className="bg-destructive/10 px-2 py-1 rounded border border-destructive/20"
+                            >
+                              {hasPrefix ? (
+                                <>
+                                  <strong className="font-semibold">{prefix}</strong>{" "}
+                                  {message}
+                                </>
+                              ) : (
+                                part
+                              )}
+                            </span>
+                          );
+                        })}
                       </div>
                     </li>
                   ))}
@@ -494,8 +505,7 @@ export default function BackerkitXlsxImport({
                     File &quot;{fileName}&quot; imported successfully
                   </div>
                   <p className="text-sm text-green-800 dark:text-green-300/90">
-                    Review the imported data in the{" "}
-                    <strong>Pending Records</strong> table below.
+                    Import complete. Review these rows before saving.
                   </p>
                   {addedCount > 0 && onViewPendingRecords && (
                     <Button
@@ -511,11 +521,11 @@ export default function BackerkitXlsxImport({
               ) : (
                 <div className="space-y-3 rounded-md border-2 p-4 animate-in fade-in zoom-in duration-300 bg-secondary">
                   <div className="flex items-center gap-2 text-sm font-semibold">
-                  <InfoIcon />
+                  <InfoIcon className="h-4 w-4" />
                   No Sales Added. 
                   </div>
                   <p className="text-sm">
-                    <strong>Possible Reasons:</strong> (1) None of the Kickstarter item tags are recognized, (2) Some columns are missing data.
+                    <strong>Possible Reasons:</strong> (1) All of the Kickstarter item tags are unknown, (2) Some columns are missing data.
                   </p>
                 </div>
               ))}
