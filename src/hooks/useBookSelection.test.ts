@@ -26,6 +26,7 @@ const mockBooks: BookListItem[] = [
     coverArtPath: null,
     kickstarterEbookItemTag: null,
     kickstarterPrintItemTag: null,
+    released: true,
   },
   {
     id: 2,
@@ -49,6 +50,7 @@ const mockBooks: BookListItem[] = [
     coverArtPath: null,
     kickstarterEbookItemTag: null,
     kickstarterPrintItemTag: null,
+    released: true,
   },
 ];
 

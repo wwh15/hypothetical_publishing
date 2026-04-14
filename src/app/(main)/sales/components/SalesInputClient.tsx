@@ -87,6 +87,15 @@ export default function SalesInputClient({
     );
   };
 
+  const isPaidToggleDisabled = useCallback(
+    (row: PendingSaleItem) => {
+      const b = booksData.find((x) => x.id === row.bookId);
+      const released = b?.released ?? false;
+      return !released && !row.paid;
+    },
+    [booksData]
+  );
+
   return (
     <>
       <IngramSparkImport
@@ -120,6 +129,7 @@ export default function SalesInputClient({
           pendingRecords={pendingRecords}
           onRemove={handleRemove}
           onTogglePaid={handleTogglePaid}
+          isPaidToggleDisabled={isPaidToggleDisabled}
         />
       </section>
       {submitError && (

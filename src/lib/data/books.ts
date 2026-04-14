@@ -45,6 +45,8 @@ export interface BookListItem {
   kickstarterEbookItemTag: string | null;
   /** Kickstarter item/reward tag for print edition; null if unset. */
   kickstarterPrintItemTag: string | null;
+  /** false = pre-release / projected sales only; true = released (realized). */
+  released: boolean;
 }
 
 /** Sum author royalties from sale rows (USD). */
@@ -329,6 +331,7 @@ export async function getAllBooks(): Promise<BookListItem[]> {
       asin: book.asin ?? null,
       kickstarterEbookItemTag: book.kickstarterEbookItemTag ?? null,
       kickstarterPrintItemTag: book.kickstarterPrintItemTag ?? null,
+      released: book.released,
     };
   });
 }
@@ -483,6 +486,7 @@ export async function getBooksData({
       asin: book.asin ?? null,
       kickstarterEbookItemTag: book.kickstarterEbookItemTag ?? null,
       kickstarterPrintItemTag: book.kickstarterPrintItemTag ?? null,
+      released: book.released,
     };
   });
 
@@ -536,6 +540,7 @@ export async function getBooksByAuthorId(
       asin: book.asin ?? null,
       kickstarterEbookItemTag: book.kickstarterEbookItemTag ?? null,
       kickstarterPrintItemTag: book.kickstarterPrintItemTag ?? null,
+      released: book.released,
     };
   });
 }

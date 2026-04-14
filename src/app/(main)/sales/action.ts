@@ -164,9 +164,15 @@ export async function togglePaidStatus(id: number, currentStatus: boolean) {
   try {
     await asyncTogglePaidStatus(id, currentStatus);
     revalidatePath(`/sales/records/${id}`);
+    revalidatePath("/sales/records");
+    revalidatePath("/sales/payments");
     return { success: true };
-  } catch {
-    return { success: false, error: "Failed to toggle status" };
+  } catch (e) {
+    return {
+      success: false,
+      error:
+        e instanceof Error ? e.message : "Failed to toggle payment status",
+    };
   }
 }
 

@@ -536,6 +536,7 @@ export default function BookForm({
             asin,
             kickstarterEbookItemTag: ksEbookResult.data,
             kickstarterPrintItemTag: ksPrintResult.data,
+            released: formData.released,
           };
 
           onBookCreated?.(book);

@@ -341,7 +341,11 @@ export const salesColumns: ColumnDef<SaleListItem>[] = [
  */
 export function getPendingColumns(
   onTogglePaid: (row: PendingSaleItem) => void,
-  onRemove: (row: PendingSaleItem) => void
+  onRemove: (row: PendingSaleItem) => void,
+  options?: {
+    /** When true, paid chip is not clickable (e.g. projected sale still pending release). */
+    isPaidToggleDisabled?: (row: PendingSaleItem) => boolean;
+  }
 ): ColumnDef<PendingSaleItem>[] {
   return [
     {
@@ -414,20 +418,34 @@ export function getPendingColumns(
     {
       key: "paid",
       header: "Status",
-      headerTitle: "Royalty status (click row chip to toggle)",
-      render: (row) => (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onTogglePaid(row);
-          }}
-          className="cursor-pointer rounded-full transition-transform active:scale-95 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1"
-          title="Click to toggle paid / pending"
-        >
-          {salesCellRenderers.paidStatus(row.paid ? "paid" : "pending")}
-        </button>
-      ),
+      headerTitle:
+        "Royalty status (click chip to toggle when the book is released; projected sales stay pending)",
+      render: (row) => {
+        const disabled = options?.isPaidToggleDisabled?.(row) ?? false;
+        return (
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (!disabled) onTogglePaid(row);
+            }}
+            className={cn(
+              "rounded-full transition-transform focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1",
+              disabled
+                ? "cursor-not-allowed opacity-60"
+                : "cursor-pointer active:scale-95"
+            )}
+            title={
+              disabled
+                ? "Projected (pre-release) sales cannot be marked paid until the book is released"
+                : "Click to toggle paid / pending"
+            }
+          >
+            {salesCellRenderers.paidStatus(row.paid ? "paid" : "pending")}
+          </button>
+        );
+      },
     },
     {
       key: "comment",
@@ -475,7 +493,14 @@ export function saleListRowClassNameForBookReleased(
 ): string | undefined {
   return row.bookReleased
     ? undefined
-    : "bg-muted/70 text-muted-foreground hover:bg-muted/85 dark:bg-muted/40 dark:hover:bg-muted/55";
+    : [
+        "border-l-[3px] border-l-muted-foreground/35",
+        "bg-neutral-200/95 text-foreground/90",
+        "hover:bg-neutral-300/95",
+        "dark:border-l-muted-foreground/45",
+        "dark:bg-zinc-900/65 dark:text-foreground/95",
+        "dark:hover:bg-zinc-900/85",
+      ].join(" ");
 }
 
 const columnMap = new Map<SalesColumnId, ColumnDef<SaleListItem>>();

@@ -79,7 +79,11 @@ export default function SalesRecordView({ sale, onEdit }: SalesRecordViewProps) 
     await deleteSale(sale.id);
   };
 
+  const bookReleased = sale.book.released;
+  const cannotMarkProjectedPaid = !bookReleased && !sale.paid;
+
   const handleTogglePaid = async () => {
+    if (cannotMarkProjectedPaid) return;
     setTogglingPaid(true);
     const result = await togglePaidStatus(sale.id, sale.paid);
     setTogglingPaid(false);
@@ -170,9 +174,10 @@ export default function SalesRecordView({ sale, onEdit }: SalesRecordViewProps) 
               variant={sale.paid ? "outline" : "default"}
               size="sm"
               onClick={handleTogglePaid}
-              disabled={togglingPaid}
+              disabled={togglingPaid || cannotMarkProjectedPaid}
               className={cn(
                 !sale.paid &&
+                  !cannotMarkProjectedPaid &&
                   "bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-700"
               )}
             >
@@ -183,6 +188,13 @@ export default function SalesRecordView({ sale, onEdit }: SalesRecordViewProps) 
                   : "Mark as paid"}
             </Button>
           </div>
+          {!bookReleased && (
+            <p className="mt-3 max-w-md text-xs text-muted-foreground">
+              {sale.paid
+                ? "This book is still pre-release. You can mark this row as unpaid if payment was recorded in error."
+                : "This book is still pre-release. Projected sales cannot be marked paid until the book is released."}
+            </p>
+          )}
           <dl className="mt-6">
             <MetaRow label="Units / KENP">{unitsLine(sale)}</MetaRow>
             <MetaRow label="Original currency">{currencyUpper}</MetaRow>

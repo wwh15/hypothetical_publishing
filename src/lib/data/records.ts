@@ -63,6 +63,8 @@ export type SaleDetailPayload = {
   book: {
     id: number;
     title: string;
+    /** false = pre-release / projected; paid must stay false until release. */
+    released: boolean;
     author: {
       id: number;
       name: string;
@@ -345,8 +347,28 @@ export async function asyncAddSalesBulk(records: PendingSaleItem[]) {
     };
   });
 
+  const bookIds = [...new Set(records.map((r) => r.bookId))];
+  const books = await prisma.book.findMany({
+    where: { id: { in: bookIds } },
+    select: { id: true, released: true },
+  });
+  const releasedByBookId = new Map(books.map((b) => [b.id, b.released]));
+  for (const r of records) {
+    if (!releasedByBookId.has(r.bookId)) {
+      throw new Error(`Book not found (id ${r.bookId}).`);
+    }
+  }
+
+  const dataWithPaid = data.map((row, index) => {
+    const released = releasedByBookId.get(records[index].bookId) === true;
+    return {
+      ...row,
+      paid: Boolean(row.paid && released),
+    };
+  });
+
   await prisma.sale.createMany({
-    data,
+    data: dataWithPaid,
     skipDuplicates: false,
   });
 
@@ -423,6 +445,7 @@ export async function asyncGetSaleById(
     book: {
       id: sale.book.id,
       title: sale.book.title,
+      released: sale.book.released,
       author: {
         id: sale.book.author.id,
         name: sale.book.author.name,
@@ -497,6 +520,19 @@ export async function asyncAddSale(data: Prisma.SaleUncheckedCreateInput) {
   }
 
   const v = validated.data;
+  const book = await prisma.book.findUnique({
+    where: { id: data.bookId },
+    select: { released: true },
+  });
+  if (!book) {
+    throw new Error("Book not found.");
+  }
+  const wantPaid = data.paid ?? false;
+  if (wantPaid && !book.released) {
+    throw new Error(
+      "Cannot mark projected (pre-release) sales as paid. Release the book first."
+    );
+  }
   return await prisma.sale.create({
     data: {
       bookId: data.bookId,
@@ -510,7 +546,7 @@ export async function asyncAddSale(data: Prisma.SaleUncheckedCreateInput) {
       publisherRevenueOriginal: new Decimal(v.publisherRevenueOriginal),
       publisherRevenueUSD: new Decimal(v.publisherRevenueUSD),
       authorRoyalty: new Decimal(v.authorRoyalty),
-      paid: data.paid ?? false,
+      paid: wantPaid,
       comment: v.comment ?? null,
     },
   });
@@ -602,12 +638,26 @@ export async function asyncTogglePaidStatus(
   currentStatus: boolean
 ) {
   return await prisma.$transaction(async (tx) => {
-    // Perform the update
-    const sale = await tx.sale.update({
+    const existing = await tx.sale.findUnique({
       where: { id },
-      data: { paid: !currentStatus },
-      include: { book: true }, // Need this to get the authorId
+      include: { book: true },
     });
-    return sale;
+    if (!existing) {
+      throw new Error("Sale not found.");
+    }
+    if (existing.paid !== currentStatus) {
+      throw new Error("Payment status changed. Refresh and try again.");
+    }
+    const nextPaid = !currentStatus;
+    if (nextPaid && !existing.book.released) {
+      throw new Error(
+        "Projected (pre-release) sales cannot be marked paid. Release the book first."
+      );
+    }
+    return tx.sale.update({
+      where: { id },
+      data: { paid: nextPaid },
+      include: { book: true },
+    });
   });
 }
