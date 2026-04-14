@@ -88,6 +88,12 @@ export default function BookForm({
   const [coverRefreshKey, setCoverRefreshKey] = useState(0);
   const [pendingCoverFile, setPendingCoverFile] = useState<File | null>(null);
   const [pendingCoverPreview, setPendingCoverPreview] = useState<string | null>(null);
+  const [kickstarterEbookFieldError, setKickstarterEbookFieldError] = useState<
+    string | null
+  >(null);
+  const [kickstarterPrintFieldError, setKickstarterPrintFieldError] = useState<
+    string | null
+  >(null);
   const [formData, setFormData] = useState<BookFormState>({
     title: "",
     author: "",
@@ -212,6 +218,23 @@ export default function BookForm({
     // Clear error when user starts typing
     if (error) setError(null);
     // Reset imported flag if user manually edits
+    if (isImported) setIsImported(false);
+  };
+
+  const KICKSTARTER_TAG_MAX = 128;
+
+  const handleKickstarterTagChange = (
+    field: "kickstarterEbookItemTag" | "kickstarterPrintItemTag",
+    value: string
+  ) => {
+    const capped = value.slice(0, KICKSTARTER_TAG_MAX);
+    setFormData((prev) => ({ ...prev, [field]: capped }));
+    if (field === "kickstarterEbookItemTag") {
+      setKickstarterEbookFieldError(null);
+    } else {
+      setKickstarterPrintFieldError(null);
+    }
+    if (error) setError(null);
     if (isImported) setIsImported(false);
   };
 
@@ -399,15 +422,19 @@ export default function BookForm({
       "Kickstarter print item tag"
     );
     if (!ksEbookResult.success) {
+      setKickstarterEbookFieldError(ksEbookResult.error);
       setError(ksEbookResult.error);
       setIsSubmitting(false);
       return;
     }
     if (!ksPrintResult.success) {
+      setKickstarterPrintFieldError(ksPrintResult.error);
       setError(ksPrintResult.error);
       setIsSubmitting(false);
       return;
     }
+    setKickstarterEbookFieldError(null);
+    setKickstarterPrintFieldError(null);
 
     try {
       const bookData = {
@@ -757,23 +784,43 @@ export default function BookForm({
             type="text"
             value={formData.kickstarterEbookItemTag}
             onChange={(e) =>
-              handleInputChange("kickstarterEbookItemTag", e.target.value)
+              handleKickstarterTagChange("kickstarterEbookItemTag", e.target.value)
             }
+            onBlur={() => {
+              const r = validateKickstarterItemTagOptional(
+                formData.kickstarterEbookItemTag,
+                "Kickstarter ebook item tag"
+              );
+              setKickstarterEbookFieldError(r.success ? null : r.error);
+            }}
+            aria-invalid={kickstarterEbookFieldError != null}
+            aria-describedby="kickstarterEbookItemTag-hint"
             className={cn(
-              "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono ring-offset-background",
+              "flex h-10 w-full rounded-md border bg-background px-3 py-2 text-sm font-mono ring-offset-background",
               "file:border-0 file:bg-transparent file:text-sm file:font-medium",
               "placeholder:text-muted-foreground",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
               "disabled:cursor-not-allowed disabled:opacity-50",
               "dark:bg-gray-700",
+              kickstarterEbookFieldError != null
+                ? "border-destructive focus-visible:ring-destructive/30"
+                : "border-input",
             )}
             placeholder="e.g. reward-slug-or-id"
-            maxLength={128}
+            maxLength={KICKSTARTER_TAG_MAX}
             autoComplete="off"
           />
-          <p className="text-xs text-muted-foreground">
-            Optional. No spaces; max 128 characters.
+          <p
+            id="kickstarterEbookItemTag-hint"
+            className="text-xs text-muted-foreground"
+          >
+            Optional. No whitespace; max {KICKSTARTER_TAG_MAX} characters.
           </p>
+          {kickstarterEbookFieldError && (
+            <p className="text-xs text-destructive" role="alert">
+              {kickstarterEbookFieldError}
+            </p>
+          )}
         </div>
         <div className="space-y-2">
           <label
@@ -787,23 +834,43 @@ export default function BookForm({
             type="text"
             value={formData.kickstarterPrintItemTag}
             onChange={(e) =>
-              handleInputChange("kickstarterPrintItemTag", e.target.value)
+              handleKickstarterTagChange("kickstarterPrintItemTag", e.target.value)
             }
+            onBlur={() => {
+              const r = validateKickstarterItemTagOptional(
+                formData.kickstarterPrintItemTag,
+                "Kickstarter print item tag"
+              );
+              setKickstarterPrintFieldError(r.success ? null : r.error);
+            }}
+            aria-invalid={kickstarterPrintFieldError != null}
+            aria-describedby="kickstarterPrintItemTag-hint"
             className={cn(
-              "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono ring-offset-background",
+              "flex h-10 w-full rounded-md border bg-background px-3 py-2 text-sm font-mono ring-offset-background",
               "file:border-0 file:bg-transparent file:text-sm file:font-medium",
               "placeholder:text-muted-foreground",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
               "disabled:cursor-not-allowed disabled:opacity-50",
               "dark:bg-gray-700",
+              kickstarterPrintFieldError != null
+                ? "border-destructive focus-visible:ring-destructive/30"
+                : "border-input",
             )}
             placeholder="e.g. reward-slug-or-id"
-            maxLength={128}
+            maxLength={KICKSTARTER_TAG_MAX}
             autoComplete="off"
           />
-          <p className="text-xs text-muted-foreground">
-            Optional. No spaces; max 128 characters.
+          <p
+            id="kickstarterPrintItemTag-hint"
+            className="text-xs text-muted-foreground"
+          >
+            Optional. No whitespace; max {KICKSTARTER_TAG_MAX} characters.
           </p>
+          {kickstarterPrintFieldError && (
+            <p className="text-xs text-destructive" role="alert">
+              {kickstarterPrintFieldError}
+            </p>
+          )}
         </div>
 
         {/* Released (pre-release vs live) */}
