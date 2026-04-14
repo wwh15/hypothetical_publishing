@@ -27,11 +27,17 @@ export default async function Navbar() {
           href="/"
           className="shrink-0 rounded-md py-3 -ml-2 pl-2 pr-2 text-lg font-semibold tracking-tight text-foreground transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         >
-          {logoUrl ? (
-            <img src={logoUrl} alt={branding.companyName} className="h-8 w-auto max-w-[200px] object-contain" />
-          ) : (
-            branding.companyName
-          )}
+          <span className="inline-flex min-w-0 max-w-full items-center gap-2.5">
+            {logoUrl ? (
+              <img
+                src={logoUrl}
+                alt=""
+                aria-hidden
+                className="h-8 w-auto max-w-[140px] shrink-0 object-contain sm:max-w-[200px]"
+              />
+            ) : null}
+            <span className="truncate">{branding.companyName}</span>
+          </span>
         </Link>
 
         <div className="flex items-center gap-3 sm:gap-5">
