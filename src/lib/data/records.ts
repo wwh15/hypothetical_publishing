@@ -304,23 +304,46 @@ export interface GetSalesByBookIdParams {
 }
 
 export async function asyncAddSalesBulk(records: PendingSaleItem[]) {
-  // Map the UI items to exactly what the Prisma Schema expects
-  const data = records.map((record) => ({
-    bookId: record.bookId,
-    date: record.date,
-    quantity: record.quantity,
-    kenp: record.kenp,
-    format: record.format,
-    // Distributor only when source is DISTRIBUTOR
-    distributor: record.source === "DISTRIBUTOR" ? record.distributor : null,
-    publisherRevenueUSD: record.publisherRevenueUSD,
-    publisherRevenueOriginal: record.publisherRevenueOriginal,
-    currency: record.currency,
-    authorRoyalty: record.authorRoyalty,
-    paid: record.paid,
-    comment: record.comment ?? null,
-    source: record.source,
-  }));
+  const data = records.map((record, index) => {
+    const kenpNum =
+      record.kenp != null ? Number(record.kenp) : null;
+
+    const validated = validateSaleRecord({
+      source: record.source,
+      distributor: record.source === "DISTRIBUTOR" ? record.distributor : null,
+      format: record.format,
+      quantity: record.quantity ?? null,
+      kenp: kenpNum,
+      currency: String(record.currency ?? "USD"),
+      publisherRevenueOriginal: record.publisherRevenueOriginal,
+      publisherRevenueUSD: record.publisherRevenueUSD,
+      authorRoyalty: record.authorRoyalty,
+      comment: record.comment ?? null,
+    });
+
+    if (!validated.success) {
+      const label = record.title?.trim() || `book #${record.bookId}`;
+      throw new Error(`Cannot save row ${index + 1} (${label}): ${validated.error}`);
+    }
+
+    const v = validated.data;
+
+    return {
+      bookId: record.bookId,
+      date: record.date,
+      source: v.source,
+      distributor: v.distributor,
+      format: v.format,
+      quantity: v.quantity,
+      kenp: v.kenp,
+      currency: v.currency,
+      publisherRevenueOriginal: v.publisherRevenueOriginal,
+      publisherRevenueUSD: v.publisherRevenueUSD,
+      authorRoyalty: v.authorRoyalty,
+      paid: record.paid,
+      comment: v.comment ?? null,
+    };
+  });
 
   await prisma.sale.createMany({
     data,
