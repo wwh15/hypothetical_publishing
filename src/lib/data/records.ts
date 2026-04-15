@@ -123,23 +123,36 @@ const SORT_DESC: Record<string, Prisma.SaleOrderByWithRelationInput> = {
   source: { source: "desc" },
 };
 
+/**
+ * Stable ordering for OFFSET pagination: when the primary key has ties (e.g. many
+ * sales share the same `date`), Postgres order is undefined without a tie-breaker,
+ * so rows can repeat or skip across pages.
+ */
+const ORDER_TIE_BREAKER: Prisma.SaleOrderByWithRelationInput = { id: "asc" };
+
 function buildOrderBy(
   sortBy: string,
   sortDir: "asc" | "desc"
-): Prisma.SaleOrderByWithRelationInput | Prisma.SaleOrderByWithRelationInput[] {
+): Prisma.SaleOrderByWithRelationInput[] {
   const map = sortDir === "desc" ? SORT_DESC : SORT_ASC;
-  
+
   if (sortBy === "publisherRevenueOriginal") {
     return [
       { currency: "asc" },
       { publisherRevenueOriginal: sortDir },
-      { id: "asc" },
+      ORDER_TIE_BREAKER,
     ];
   }
-  
-  return (
-    map[sortBy] ?? (sortDir === "desc" ? { date: "desc" } : { date: "asc" })
-  );
+
+  const primary =
+    map[sortBy] ?? (sortDir === "desc" ? { date: "desc" } : { date: "asc" });
+
+  // `id` is unique; sorting by id alone does not need a second key.
+  if (sortBy === "id") {
+    return [primary];
+  }
+
+  return [primary, ORDER_TIE_BREAKER];
 }
 
 /**
